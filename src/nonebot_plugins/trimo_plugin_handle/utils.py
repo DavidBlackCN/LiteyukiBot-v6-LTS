@@ -73,7 +73,7 @@ def wordbase_updater(
     pinyin: 词条的拼音，若 `None` 则默认求出拼音
     hard: 是否为难词，若 `None` 则不对难易词库修改
 
-    return: 是否为新增成语，成语释义，词条的拼音
+    return: 是否为原有成语，成语释义，词条的拼音
     """
     if (not idiom) or (len(idiom) != 4):
         raise ValueError("不可以非四字成语载入词库")
@@ -123,7 +123,7 @@ def wordbase_updater(
     }
 
     updump(HANDLE_ANSWER_PHRASES, handle_answer_path)
-    return not existance, explanation, pinyin
+    return existance, explanation, pinyin
 
 
 def remove_idiom(idiom: str) -> List[str]:
