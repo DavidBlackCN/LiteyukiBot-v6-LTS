@@ -37,6 +37,7 @@ from .utils import (
     v_to_u,
     random_idiom,
     wordbase_updater,
+    remove_idiom,
     HANDLE_COMMON_PHRASES,
     HANDLE_LEGAL_PHRASES,
 )
@@ -382,6 +383,40 @@ async def _(
 
 
 # ————
+
+handle_delete_idiom_matcher = on_alconna(
+    Alconna(
+        "handle_delete_idiom",
+        Args["idiom", str, ""],
+    ),
+    aliases=("删除成语", "成语删除", "猜成语删除成语"),
+    use_cmd_start=True,
+    permission=SUPERUSER,
+    block=True,
+    priority=13,
+)
+
+
+@handle_delete_idiom_matcher.handle()
+async def _(
+    result: Arparma,
+):
+
+    if not (idiom := result.main_args["idiom"]):
+        await handle_delete_idiom_matcher.finish("用法：删除成语 <成语>")
+
+    await handle_delete_idiom_matcher.finish(
+        "成功对`{}`进行以下操作：\n - {}\n当前词库总数：{}个，普通模式成语：{}个".format(
+            idiom,
+            "\n - ".join(remove_idiom(idiom)),
+            len(HANDLE_LEGAL_PHRASES),
+            len(HANDLE_COMMON_PHRASES),
+        )
+    )
+
+
+# ————
+
 
 handle_answer_matcher = on_alconna(
     Alconna(

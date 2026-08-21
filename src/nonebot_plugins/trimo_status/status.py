@@ -40,8 +40,12 @@ WESTERN_DATE_EVENT_YANLUN: Dict[Tuple[Tuple[int, int], ...], List[str]] = {
     ((2, 10),): ["桃之夭夭 灼灼其華"],
     ((4, 12),): ["乐正司百曲 绫动万年红"],
     ((10, 2),): ["龙翼振风雨 牙音彻天明"],
-    ((2, 21), (8, 12)): ["众星因你 皆降为尘", "浩瀚众星 皆降为尘"],
-    ((7, 11),): ["言出一人歌 歌起万人和"],
+    ((2, 21), (8, 12)): [
+        "众星因你 皆降为尘",
+        "浩瀚众星 皆降为尘",
+        "冥极繁星应运起 以太蕴尘共为卿",
+    ],
+    ((7, 11),): ["言出一人歌 歌起万人和", "言语为刃 和歌而鸣"],
     ((5, 20),): ["沾以清墨 书我弦歌"],
     ((12, 10),): ["徵音飞羽 一梦南柯"],
 }
@@ -384,6 +388,7 @@ number_read = on_alconna(
     aliases={"readout_number", "number_read"},
 )
 
+
 @number_read.handle()
 async def _(
     event: T_MessageEvent,
@@ -395,7 +400,7 @@ async def _(
         num = int(num)
     except:
         await number_read.finish(UniMessage.text("小数点后直接读，不是数字没法读"))
-    
+
     if num < 0:
         result_readout = "负"
         num = abs(num)

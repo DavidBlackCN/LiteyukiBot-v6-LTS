@@ -1,6 +1,6 @@
-'''
-    接龙
-'''
+"""
+接龙
+"""
 
 import asyncio
 from asyncio import TimerHandle
@@ -23,7 +23,6 @@ require("nonebot_plugin_alconna")
 require("nonebot_plugin_session")
 
 
-
 from nonebot_plugin_alconna import (
     Alconna,
     AlconnaQuery,
@@ -38,7 +37,6 @@ from nonebot.rule import to_me
 from nonebot_plugin_session import SessionId, SessionIdType
 
 from .utils import random_idiom, legal_idiom, legal_patted_idiom, get_idiom
-
 
 __plugin_meta__ = PluginMetadata(
     name="接龙",
@@ -67,22 +65,20 @@ __plugin_meta__ = PluginMetadata(
 )
 
 
-
-
 # games: Dict[str, Dragle] = {}
-games = {}
+dkg_games = {}
 auto_echo = {}
-timers: Dict[str, TimerHandle] = {}
+dkg_timers: Dict[str, TimerHandle] = {}
 
 UserId = Annotated[str, SessionId(SessionIdType.GROUP)]
 
 
 def game_is_running(user_id: UserId) -> bool:
-    return user_id in games
+    return user_id in dkg_games
 
 
 def game_not_running(user_id: UserId) -> bool:
-    return user_id not in games
+    return user_id not in dkg_games
 
 
 handle = on_alconna(
@@ -119,6 +115,7 @@ handle_stop = on_alconna(
 #     priority=13,
 # )
 
+
 def is_auto_echo(user_id: UserId) -> bool:
     return auto_echo.get(user_id, True)
 
@@ -126,12 +123,12 @@ def is_auto_echo(user_id: UserId) -> bool:
 handle_idiom = on_regex(
     r"^(?P<idiom>[\u4e00-\u9fa5]{4})$",
     rule=is_auto_echo,
-    block=True,
-    priority=14,
+    block=False,
+    priority=20,
 )
 
 
-停止自动回复 = on_alconna(
+停止自动接龙回复 = on_alconna(
     "自动接龙",
     aliases=("自动成语接龙",),
     rule=None,
@@ -141,15 +138,14 @@ handle_idiom = on_regex(
 )
 
 
-
 def stop_game(user_id: str):
-    if timer := timers.pop(user_id, None):
+    if timer := dkg_timers.pop(user_id, None):
         timer.cancel()
-    games.pop(user_id, None)
+    dkg_games.pop(user_id, None)
 
 
 async def stop_game_timeout(matcher: Matcher, user_id: str):
-    game = games.get(user_id, None)
+    game = dkg_games.get(user_id, None)
     stop_game(user_id)
     if game:
         msg = "接龙超时，游戏结束。"
@@ -159,14 +155,13 @@ async def stop_game_timeout(matcher: Matcher, user_id: str):
 
 
 def set_timeout(matcher: Matcher, user_id: str, timeout: float = 300):
-    if timer := timers.get(user_id, None):
+    if timer := dkg_timers.get(user_id, None):
         timer.cancel()
     loop = asyncio.get_running_loop()
     timer = loop.call_later(
         timeout, lambda: asyncio.ensure_future(stop_game_timeout(matcher, user_id))
     )
-    timers[user_id] = timer
-
+    dkg_timers[user_id] = timer
 
 
 # @handle.handle()
@@ -189,7 +184,7 @@ def set_timeout(matcher: Matcher, user_id: str, timeout: float = 300):
 #     await msg.send()
 
 
-@停止自动回复.handle()
+@停止自动接龙回复.handle()
 async def _(matcher: Matcher, user_id: UserId):
     if auto_echo.get(user_id, True):
         auto_echo[user_id] = False
@@ -197,7 +192,6 @@ async def _(matcher: Matcher, user_id: UserId):
     else:
         auto_echo[user_id] = True
         await matcher.finish("已开启自动接龙回复")
-
 
 
 @handle_idiom.handle()
@@ -211,7 +205,7 @@ async def _(matcher: Matcher, user_id: UserId, matched: Dict[str, Any] = RegexDi
     if legal_idiom(idiom):
         # stop_game(user_id)
         print(matcher.get_target())
-        await matcher.finish(get_idiom(idiom,True,True))
+        await matcher.finish(get_idiom(idiom, True, True))
 
     # elif result == GuessResult.DUPLICATE:
     #     await matcher.finish("你已经猜过这个成语了呢")
@@ -221,8 +215,6 @@ async def _(matcher: Matcher, user_id: UserId, matched: Dict[str, Any] = RegexDi
 
     # else:
     #     await UniMessage.image(raw=await run_sync(game.draw)()).send()
-
-
 
 
 # zh = re.compile(r"[\u4e00-\u9fff]+")
@@ -302,4 +294,3 @@ async def _(matcher: Matcher, user_id: UserId, matched: Dict[str, Any] = RegexDi
 #         info = "你还没有用过我...T_T"
 
 #     await cat.send(info)
-

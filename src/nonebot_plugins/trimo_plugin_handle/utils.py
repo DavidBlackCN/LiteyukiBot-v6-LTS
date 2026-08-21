@@ -2,7 +2,8 @@ import json
 import random
 from io import BytesIO
 from pathlib import Path
-from typing import Dict, List, Tuple, TypedDict, Optional
+from typing import Dict, List, Tuple, TypedDict, Optional, Union
+from zhDateTime import DateTime
 
 from PIL import ImageFont
 from PIL.Image import Image as IMG
@@ -35,6 +36,10 @@ HANDLE_LEGAL_PHRASES: List[str] = json.load(
 HANDLE_ANSWER_PHRASES: Dict[str, IdiomEntry] = json.load(
     handle_answer_path.open("r", encoding="utf-8")
 )
+handle_now_common_idioms = HANDLE_COMMON_PHRASES.copy()
+handle_now_all_idioms = HANDLE_LEGAL_PHRASES.copy()
+random.shuffle(handle_now_common_idioms)
+random.shuffle(handle_now_all_idioms)
 
 
 def v_to_u(v_strings: List[str]) -> List[str]:
@@ -43,6 +48,17 @@ def v_to_u(v_strings: List[str]) -> List[str]:
     """
 
     return [v_str.replace("v", "ü") for v_str in v_strings]
+
+
+def updump(data: Union[Dict, List], path: Path):
+    with path.open("w", encoding="utf-8") as f:
+        json.dump(
+            data,
+            f,
+            ensure_ascii=False,
+            indent=4,
+            sort_keys=True,
+        )
 
 
 def wordbase_updater(
@@ -71,35 +87,17 @@ def wordbase_updater(
 
     if not existance:
         HANDLE_LEGAL_PHRASES.append(idiom)
-        json.dump(
-            HANDLE_LEGAL_PHRASES,
-            handle_all_idiom_path.open("w", encoding="utf-8"),
-            ensure_ascii=False,
-            indent=4,
-            sort_keys=True,
-        )
+        updump(HANDLE_LEGAL_PHRASES, handle_all_idiom_path)
     else:
         pinyin = pinyin or HANDLE_ANSWER_PHRASES[idiom]["pinyin"].copy()
     if hard:
         if idiom in HANDLE_COMMON_PHRASES:
             HANDLE_COMMON_PHRASES.remove(idiom)
-            json.dump(
-                HANDLE_COMMON_PHRASES,
-                handle_common_idiom_path.open("w", encoding="utf-8"),
-                ensure_ascii=False,
-                indent=4,
-                sort_keys=True,
-            )
+            updump(HANDLE_COMMON_PHRASES, handle_common_idiom_path)
     else:
         if (idiom not in HANDLE_COMMON_PHRASES) and (hard is not None):
             HANDLE_COMMON_PHRASES.append(idiom)
-            json.dump(
-                HANDLE_COMMON_PHRASES,
-                handle_common_idiom_path.open("w", encoding="utf-8"),
-                ensure_ascii=False,
-                indent=4,
-                sort_keys=True,
-            )
+            updump(HANDLE_COMMON_PHRASES, handle_common_idiom_path)
 
     HANDLE_ANSWER_PHRASES[idiom] = {
         "explanation": explanation,
@@ -114,14 +112,54 @@ def wordbase_updater(
             )
         ),
     }
-    json.dump(
-        HANDLE_ANSWER_PHRASES,
-        handle_answer_path.open("w", encoding="utf-8"),
-        ensure_ascii=False,
-        indent=4,
-        sort_keys=True,
-    )
+
+    HANDLE_ANSWER_PHRASES["##UpdateTime##更新时间"] = {
+        "explanation": (date_now := DateTime.now()).strftime("%Y%m%d %H%M%S"),
+        "pinyin": [
+            (cndate := date_now.chinesize).date_hanzify(),
+            cndate.time_hanzify(),
+            cndate.__str__(),
+        ],
+    }
+
+    updump(HANDLE_ANSWER_PHRASES, handle_answer_path)
     return not existance, explanation, pinyin
+
+
+def remove_idiom(idiom: str) -> List[str]:
+    """
+    idiom: 需要删除的成语
+    return: 是否成功删除
+    """
+    operations = []
+    if idiom in HANDLE_LEGAL_PHRASES:
+        HANDLE_LEGAL_PHRASES.remove(idiom)
+        updump(HANDLE_LEGAL_PHRASES, handle_all_idiom_path)
+        operations.append("从合法词库中删除")
+    if idiom in HANDLE_COMMON_PHRASES:
+        HANDLE_COMMON_PHRASES.remove(idiom)
+        updump(HANDLE_COMMON_PHRASES, handle_common_idiom_path)
+        operations.append("从常见词库中删除")
+    if idiom in HANDLE_ANSWER_PHRASES:
+        del HANDLE_ANSWER_PHRASES[idiom]
+        HANDLE_ANSWER_PHRASES["##UpdateTime##更新时间"] = {
+            "explanation": (date_now := DateTime.now()).strftime("%Y%m%d %H%M%S"),
+            "pinyin": [
+                (cndate := date_now.chinesize).date_hanzify(),
+                cndate.time_hanzify(),
+                cndate.__str__(),
+            ],
+        }
+        updump(HANDLE_ANSWER_PHRASES, handle_answer_path)
+        operations.append("从释义词库中删除")
+    global handle_now_all_idioms, handle_now_common_idioms
+    if idiom in handle_now_all_idioms:
+        handle_now_all_idioms.remove(idiom)
+        operations.append("从完整流动词库中删除")
+    if idiom in handle_now_common_idioms:
+        handle_now_common_idioms.remove(idiom)
+        operations.append("从常见流动词库中删除")
+    return operations
 
 
 def legal_idiom(word: str) -> bool:
@@ -129,7 +167,18 @@ def legal_idiom(word: str) -> bool:
 
 
 def random_idiom(is_hard: bool = False) -> Tuple[str, str]:
-    answer = random.choice(HANDLE_LEGAL_PHRASES if is_hard else HANDLE_COMMON_PHRASES)
+    if is_hard:
+        global handle_now_all_idioms
+        if not handle_now_all_idioms:
+            handle_now_all_idioms = HANDLE_LEGAL_PHRASES.copy()
+            random.shuffle(handle_now_all_idioms)
+        answer = handle_now_all_idioms.pop()
+    else:
+        global handle_now_common_idioms
+        if not handle_now_common_idioms:
+            handle_now_common_idioms = HANDLE_COMMON_PHRASES.copy()
+            random.shuffle(handle_now_common_idioms)
+        answer = handle_now_common_idioms.pop()
     return answer, HANDLE_ANSWER_PHRASES[answer]["explanation"]
 
 
@@ -185,7 +234,7 @@ def get_pinyin(
         split_pinyin(py)
         for py in (
             wordbase_updater(idiom, explanation=None, pinyin=None, hard=None)[2]
-            if HANDLE_ANSWER_PHRASES.get(idiom, None)
+            if idiom in HANDLE_ANSWER_PHRASES
             else [
                 j
                 for i in py_get_pinyin(idiom, style=Style.TONE3, v_to_u=True)
