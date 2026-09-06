@@ -9,13 +9,13 @@ Copyright (C) 2020-2024 LiteyukiStudio. All Rights Reserved
 @Software: PyCharm
 """
 import json
-import os.path
 import platform
+from pathlib import Path
 from aiohttp import ClientSession
 from git import Repo
 
 from liteyuki.plugin import PluginMetadata, PluginType
-from liteyuki import get_bot, logger
+from liteyuki import get_bot, get_config, logger
 
 __plugin_meta__ = PluginMetadata(
     name="注册服务",
@@ -23,7 +23,13 @@ __plugin_meta__ = PluginMetadata(
 )
 
 liteyuki = get_bot()
-commit_hash = Repo(".").head.commit.hexsha
+
+
+def get_commit_hash() -> str:
+    try:
+        return Repo(".").head.commit.hexsha
+    except Exception:
+        return "unknown"
 
 
 async def register_bot():
@@ -31,7 +37,7 @@ async def register_bot():
     data = {
             "name"     : "尹灵温|轻雪-睿乐",
             "version"  : "即时更新",
-            "hash"     : commit_hash,
+            "hash"     : get_commit_hash(),
             "version_i": 99,
             "python"   : f"{platform.python_implementation()} {platform.python_version()}",
             "os"       : f"{platform.system()} {platform.version()} {platform.machine()}"
@@ -51,12 +57,15 @@ async def register_bot():
                 else:
                     raise ValueError(f"无法向 Liteyuki 服务器注册：{resp.status}")
     except Exception as e:
-        logger.warning(f"虽然向 Liteyuki 服务器注册失败，但无关紧要：{e}")
+        logger.debug(f"Liteyuki 远程注册不可用，已跳过：{e}")
 
 
 @liteyuki.on_before_start
 async def _():
-    if not os.path.exists("data/liteyuki/liteyuki.json"):
-        if not os.path.exists("data/liteyuki"):
-            os.makedirs("data/liteyuki")
+    if not get_config("liteyuki.remote_register", False):
+        return
+
+    registration_file = Path("data/liteyuki/liteyuki.json")
+    if not registration_file.exists():
+        registration_file.parent.mkdir(parents=True, exist_ok=True)
         await register_bot()

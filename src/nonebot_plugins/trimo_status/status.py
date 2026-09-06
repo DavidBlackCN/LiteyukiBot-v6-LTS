@@ -64,20 +64,19 @@ CHINESE_DATE_EVENT_YANLUN: Dict[Tuple[Tuple[int, int], ...], List[str]] = {
 async def update_yanlun():
     global yanlun_texts, yanlun_seqs
 
-    nonebot.logger.info("正在获取言·论信息")
-
     if status_config.yanlun_type == "url":
-        try:
-            async with aiohttp.ClientSession() as client:
-                resp = await client.get(status_config.yanlun_path, timeout=15)
-                yanlun_texts = (await resp.text()).strip("\n").split("\n")
-        except (ConnectionError, aiohttp.ClientError, aiohttp.WebSocketError) as err:
-            nonebot.logger.warning("读取言·论信息发生网络连接错误：\n{}".format(err))
+        if not status_config.yanlun_remote_enabled:
             yanlun_texts = ["以梦想为驱使 创造属于自己的未来"]
-        # noinspection PyBroadException
-        except BaseException as err:
-            nonebot.logger.warning("读取言·论信息发生未知错误：\n{}".format(err))
-            yanlun_texts = ["灵光焕发 深艺献心"]
+        else:
+            nonebot.logger.info("正在获取言·论信息")
+            try:
+                async with aiohttp.ClientSession() as client:
+                    async with client.get(status_config.yanlun_path, timeout=10) as resp:
+                        resp.raise_for_status()
+                        yanlun_texts = (await resp.text()).strip("\n").split("\n")
+            except (TimeoutError, aiohttp.ClientError) as err:
+                nonebot.logger.debug(f"言·论远程服务不可用，已使用内置内容：{err}")
+                yanlun_texts = ["以梦想为驱使 创造属于自己的未来"]
     elif status_config.yanlun_type == "file":
         try:
             yanlun_texts = (
