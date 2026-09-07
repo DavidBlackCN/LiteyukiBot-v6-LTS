@@ -37,3 +37,11 @@ handle_require_tome: true
 # Built-in QWeather plugin. Keep secrets in config.yml, .env, or system env.
 weather_api_host: ""
 weather_key: ""
+
+# nonebot_plugin_remind
+# 定时提醒插件配置
+# 私聊执行“/提醒列表”时，是否列出私聊及群聊中的全部提醒。
+private_list_all: true
+# 触发“提醒”关键词但解析失败时，是否向用户发送错误提示。
+remind_keyword_error: true
+# 可选 GLM 解析默认关闭；glm_4_model、glm_4_model_cron、glm_api_key 均留空不配置。
