@@ -127,10 +127,24 @@ function createDiskBar(title, percent, name) {
 
 function applyBackground() {
     document.body.style.setProperty("--status-mask-opacity", clampPercent(numeric(background["mask"]) * 100) / 100);
-    if (background["image"]) {
-        document.body.style.setProperty("--status-background-image", `url("${background["image"]}")`);
-        document.body.classList.add("has-remote-background");
+    const image = document.getElementById("status-background-image");
+    if (!background["image"]) {
+        console.debug("[status/background] no remote image; using Liteyuki fallback");
+        return;
     }
+
+    image.addEventListener("load", () => {
+        console.debug(
+            `[status/background] image loaded: ${image.naturalWidth}x${image.naturalHeight}`
+        );
+    }, { once: true });
+    image.addEventListener("error", () => {
+        document.body.classList.remove("has-remote-background");
+        image.removeAttribute("src");
+        console.debug("[status/background] image load failed; using Liteyuki fallback");
+    }, { once: true });
+    document.body.classList.add("has-remote-background");
+    image.src = background["image"];
 }
 
 function main() {

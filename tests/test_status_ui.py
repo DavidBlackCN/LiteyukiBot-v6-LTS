@@ -92,10 +92,18 @@ def test_status_ui_has_scoped_background_and_real_bot_avatar_contract() -> None:
     assert 'class="brand-logo" src="./img/liteyuki.png"' in status_html
     assert 'id="summary-info"' in status_html
     assert 'id="bots-info"' in status_html
-    assert "--status-background-image" in status_js
+    assert 'id="status-background-image"' in status_html
+    assert 'image.src = background["image"]' in status_js
+    assert "[status/background] image loaded" in status_js
+    assert "[status/background] image load failed" in status_js
+    assert "--status-background-image" not in status_js
+    assert "--status-background-image" not in status_css
     assert "has-remote-background" in status_js
     assert 'image.src = bot["icon"]' in status_js
     assert ".status-page.has-remote-background" in status_css
+    assert "object-fit: cover" in status_css
+    assert "position: fixed" not in status_css
+    assert "position: absolute" in status_css
     assert "backdrop-filter" in status_css
     assert "blur(8px)" in status_css
     assert "rgba(255, 255, 255, 0.84)" in status_css

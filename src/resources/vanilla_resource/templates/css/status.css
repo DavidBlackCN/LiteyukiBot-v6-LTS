@@ -8,13 +8,14 @@
 
 .status-background,
 .status-mask {
-    position: fixed;
-    inset: -36px;
+    position: absolute;
+    inset: 0;
     pointer-events: none;
 }
 
 .status-background {
     z-index: 0;
+    overflow: hidden;
     background-image: radial-gradient(circle at 10% 5%, rgba(91, 177, 255, 0.48), transparent 34%), radial-gradient(circle at 92% 28%, rgba(185, 222, 255, 0.5), transparent 32%), linear-gradient(150deg, #edf7ff 0%, #dcecf9 52%, #f4f9fd 100%);
     background-position: center;
     background-size: cover;
@@ -23,8 +24,19 @@
 }
 
 .status-page.has-remote-background .status-background {
-    background-image: var(--status-background-image);
     filter: blur(3px) saturate(0.95) brightness(0.79);
+}
+
+#status-background-image {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0;
+}
+
+.status-page.has-remote-background #status-background-image {
+    opacity: 1;
 }
 
 .status-mask {
