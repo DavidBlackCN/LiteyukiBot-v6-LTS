@@ -3,18 +3,18 @@
     position: relative;
     isolation: isolate;
     padding: 34px;
-    background: #dcecf9;
+    background: transparent;
 }
 
 .status-background,
 .status-mask {
     position: fixed;
     inset: -36px;
-    z-index: -2;
     pointer-events: none;
 }
 
 .status-background {
+    z-index: 0;
     background-image: radial-gradient(circle at 10% 5%, rgba(91, 177, 255, 0.48), transparent 34%), radial-gradient(circle at 92% 28%, rgba(185, 222, 255, 0.5), transparent 32%), linear-gradient(150deg, #edf7ff 0%, #dcecf9 52%, #f4f9fd 100%);
     background-position: center;
     background-size: cover;
@@ -28,9 +28,14 @@
 }
 
 .status-mask {
-    z-index: -1;
+    z-index: 1;
     background: rgba(232, 243, 252, calc(var(--status-mask-opacity) * 0.43));
     backdrop-filter: blur(1px);
+}
+
+.status-shell {
+    position: relative;
+    z-index: 2;
 }
 
 .status-page .info-box {
