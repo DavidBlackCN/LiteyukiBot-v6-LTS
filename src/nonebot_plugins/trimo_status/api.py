@@ -319,6 +319,7 @@ async def generate_status_card(
                 "background": await get_status_background(),
             }
         },
+        wait=500,
     )
 
 

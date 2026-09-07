@@ -94,8 +94,11 @@ def test_status_ui_has_scoped_background_and_real_bot_avatar_contract() -> None:
     assert 'id="bots-info"' in status_html
     assert 'id="status-background-image"' in status_html
     assert 'image.src = background["image"]' in status_js
-    assert "[status/background] image loaded" in status_js
-    assert "[status/background] image load failed" in status_js
+    assert "window.statusBackgroundReady = false" in status_js
+    assert "window.statusBackgroundReady = true" in status_js
+    assert "image.decode()" in status_js
+    assert "[status/background] decode succeeded" in status_js
+    assert "[status/background] fallback" in status_js
     assert "--status-background-image" not in status_js
     assert "--status-background-image" not in status_css
     assert "has-remote-background" in status_js

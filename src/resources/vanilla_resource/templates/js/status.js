@@ -8,6 +8,7 @@ const background = data["background"] || {};
 const acknowledgement = data["acknowledgement"] || "";
 const units = localData["units"] || { GHz: "GHz", Byte: "B", Bin_Units: [""] };
 const binaryUnits = units["Bin_Units"] || [""];
+window.statusBackgroundReady = false;
 
 function clampPercent(value) {
     const number = Number(value);
@@ -125,30 +126,69 @@ function createDiskBar(title, percent, name) {
     return disk;
 }
 
-function applyBackground() {
+function finishBackground(mode) {
+    if (window.statusBackgroundReady) return;
+    window.statusBackgroundReady = true;
+    console.debug(`[status/background] ready: ${mode}`);
+}
+
+function useBackgroundFallback(image, reason) {
+    if (window.statusBackgroundReady) return;
+    document.body.classList.remove("has-remote-background");
+    image.removeAttribute("src");
+    console.debug(`[status/background] fallback: ${reason}`);
+    finishBackground("fallback");
+}
+
+async function applyBackground() {
     document.body.style.setProperty("--status-mask-opacity", clampPercent(numeric(background["mask"]) * 100) / 100);
     const image = document.getElementById("status-background-image");
     if (!background["image"]) {
-        console.debug("[status/background] no remote image; using Liteyuki fallback");
+        useBackgroundFallback(image, "no remote image");
         return;
     }
 
     image.addEventListener("load", () => {
         console.debug(
-            `[status/background] image loaded: ${image.naturalWidth}x${image.naturalHeight}`
+            `[status/background] load event: ${image.naturalWidth}x${image.naturalHeight}`
         );
     }, { once: true });
     image.addEventListener("error", () => {
-        document.body.classList.remove("has-remote-background");
-        image.removeAttribute("src");
-        console.debug("[status/background] image load failed; using Liteyuki fallback");
+        useBackgroundFallback(image, "image load error");
     }, { once: true });
-    document.body.classList.add("has-remote-background");
     image.src = background["image"];
+
+    try {
+        if (typeof image.decode === "function") {
+            await Promise.race([
+                image.decode(),
+                new Promise((_, reject) => setTimeout(
+                    () => reject(new Error("image decode timeout")),
+                    400
+                )),
+            ]);
+        } else {
+            await new Promise((resolve, reject) => {
+                image.addEventListener("load", resolve, { once: true });
+                image.addEventListener("error", reject, { once: true });
+            });
+        }
+        if (window.statusBackgroundReady) return;
+        document.body.classList.add("has-remote-background");
+        await new Promise((resolve) => requestAnimationFrame(
+            () => requestAnimationFrame(resolve)
+        ));
+        console.debug(
+            `[status/background] decode succeeded: ${image.naturalWidth}x${image.naturalHeight}`
+        );
+        finishBackground("decoded and painted");
+    } catch (error) {
+        useBackgroundFallback(image, error instanceof Error ? error.message : "decode failed");
+    }
 }
 
-function main() {
-    applyBackground();
+async function main() {
+    const backgroundReady = applyBackground();
     const bots = botData["bots"] || [];
     const total = (key) => bots.reduce((sum, bot) => sum + numeric(bot[key]), 0);
     document.getElementById("status-title").innerText = liteyukiData["name"] || "LiteyukiBot v6 LTS";
@@ -210,6 +250,10 @@ function main() {
     document.getElementById("motto-from").innerText = motto["source"] ? `— ${motto["source"]}` : "";
     if (!motto["text"]) document.getElementById("motto-info").style.display = "none";
     document.getElementById("addition-info").innerText = acknowledgement;
+    await backgroundReady;
 }
 
-main();
+main().catch((error) => {
+    console.debug(`[status/background] fallback: ${error}`);
+    window.statusBackgroundReady = true;
+});
