@@ -13,7 +13,9 @@ def get_user_id(event: T_MessageEvent):
 def get_group_id(event: T_GroupMessageEvent):
     if isinstance(event, satori.event.Event):
         return event.guild.id
-    elif isinstance(event, onebot.v11.GroupMessageEvent):
+    elif isinstance(
+        event, (onebot.v11.GroupMessageEvent, onebot.v12.GroupMessageEvent)
+    ):
         return event.group_id
     else:
         return None
@@ -22,5 +24,7 @@ def get_group_id(event: T_GroupMessageEvent):
 def get_message_type(event: T_MessageEvent) -> str:
     if isinstance(event, satori.event.Event):
         return "private" if event.guild is None else "group"
+    elif isinstance(event, onebot.v12.MessageEvent):
+        return event.detail_type
     else:
         return event.message_type

@@ -213,8 +213,11 @@ def load_resources():
     """
     # 加载默认资源和语言
     # 清空临时资源包路径data/liteyuki/resources
+    from src.utils.base.word_bank import clear_word_bank
+
     _loaded_resource_packs.clear()
     loaded_functions.clear()
+    clear_word_bank()
     if os.path.exists(temp_resource_root):
         shutil.rmtree(temp_resource_root)
     os.makedirs(temp_resource_root, exist_ok=True)
@@ -324,8 +327,8 @@ def change_priority(name: str, delta: int) -> bool:
     new_resource_list = old_resource_list.copy()
     if name in old_resource_list:
         index = old_resource_list.index(name)
-        if 0 <= index + delta < len(old_resource_list):
-            new_index = index + delta
+        new_index = 0 if delta == 0 else index + delta
+        if 0 <= new_index < len(old_resource_list):
             new_resource_list.remove(name)
             new_resource_list.insert(new_index, name)
             json.dump(

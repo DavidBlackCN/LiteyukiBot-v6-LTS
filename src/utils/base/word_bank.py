@@ -8,6 +8,11 @@ import nonebot
 word_bank: dict[str, set[str]] = {}
 
 
+def clear_word_bank() -> None:
+    """Clear all loaded word-bank entries before a full resource reload."""
+    word_bank.clear()
+
+
 def load_from_file(file_path: str):
     """
     从json文件中加载词库
@@ -51,7 +56,7 @@ def get_reply(kws: Iterable[str]) -> str | None:
     Returns:
     """
     for kw in kws:
-        if kw in word_bank:
-            return random.choice(list(word_bank[kw]))
+        if replies := word_bank.get(kw):
+            return random.choice(list(replies))
 
     return None

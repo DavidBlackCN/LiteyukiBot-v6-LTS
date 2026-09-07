@@ -51,6 +51,34 @@ def _load_htmlrender_plugin():
     return plugin
 
 
+def _load_alconna_plugin():
+    """Register the command framework before built-ins import its API types."""
+    plugin_name = "nonebot_plugin_alconna"
+    plugin = nonebot.get_plugin(plugin_name)
+    if plugin is not None:
+        return plugin
+
+    try:
+        nonebot.load_plugin(plugin_name)
+    except Exception as e:
+        logger.exception(
+            f"无法通过 NoneBot PluginManager 加载核心命令插件 {plugin_name}: {e}"
+        )
+        raise RuntimeError(
+            f"Failed to load required NoneBot plugin: {plugin_name}"
+        ) from e
+
+    plugin = nonebot.get_plugin(plugin_name)
+    if plugin is None:
+        logger.error(
+            "核心命令插件 nonebot_plugin_alconna 导入后未注册到 NoneBot PluginManager"
+        )
+        raise RuntimeError(
+            "nonebot_plugin_alconna was not registered with NoneBot PluginManager"
+        )
+    return plugin
+
+
 def nb_run(*args, **kwargs):
     """
     初始化NoneBot并运行在子进程
@@ -70,6 +98,7 @@ def nb_run(*args, **kwargs):
     # LTS compatibility fix for Liteyuki v6 Issue #90: register htmlrender
     # before Liteyuki, built-in, or dynamically installed NoneBot plugins.
     _load_htmlrender_plugin()
+    _load_alconna_plugin()
 
     try:
         # nonebot.load_plugin("nonebot-plugin-lnpm")  # 尝试加载轻雪NoneBot插件加载器（Nonebot插件）
