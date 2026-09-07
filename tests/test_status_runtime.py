@@ -83,7 +83,7 @@ class FakeOneBot:
         return [1]
 
     async def get_status(self):
-        return {"stat": {"message_sent": 3, "message_received": 4}}
+        raise AssertionError("status counters must not depend on OneBot get_status()")
 
     async def get_version_info(self):
         return {"app_name": "SnowLuma", "protocol_name": 0}
@@ -124,6 +124,35 @@ async def main():
     assert bots["bots"][0]["icon"] == "https://q.qlogo.cn/g?b=qq&nk=123456&s=640"
     assert bots["bots"][0]["groups"] == 2
     assert bots["bots"][0]["friends"] == 1
+    assert bots["bots"][0]["message_sent"] == 0
+    assert bots["bots"][0]["message_received"] == 0
+
+    from src.nonebot_plugins.trimo_status import runtime
+    from src.utils.base import runtime as runtime_metrics
+
+    runtime_metrics.mark_process_started()
+
+    class FakeMessageEvent:
+        def get_type(self):
+            return "message"
+
+    await runtime.count_received_message(FakeOneBot(), FakeMessageEvent())
+    await runtime.count_sent_message(
+        FakeOneBot(), None, "send_msg", {"message": "ok"}, {"message_id": 1}
+    )
+    await runtime.count_sent_message(
+        FakeOneBot(), RuntimeError("failed"), "send_msg", {}, None
+    )
+    await runtime.count_sent_message(FakeOneBot(), None, "get_status", {}, {})
+
+    bots = await api.get_bots_data()
+    assert bots["bots"][0]["message_sent"] == 1
+    assert bots["bots"][0]["message_received"] == 1
+
+    runtime_metrics._process_started_at -= 12.5
+    api.get_config = lambda key, default=None: ["Liteyuki"] if key == "nickname" else default
+    liteyuki_data = await api.get_liteyuki_data()
+    assert 12.0 <= liteyuki_data["runtime"] < 14.0
 
     render_call = {}
 

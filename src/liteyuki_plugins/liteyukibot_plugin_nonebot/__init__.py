@@ -14,6 +14,7 @@ from liteyuki.utils import IS_MAIN_PROCESS
 from liteyuki.plugin import PluginMetadata, PluginType
 from .nb_utils import adapter_manager, driver_manager  # type: ignore
 from liteyuki.log import logger
+from src.utils.base.runtime import mark_process_started
 
 __plugin_meta__ = PluginMetadata(
     name="NoneBot2启动器",
@@ -87,6 +88,8 @@ def nb_run(*args, **kwargs):
 
     Returns:
     """
+    # Record this NoneBot worker's lifetime before framework initialization.
+    mark_process_started()
     # 给子进程传递通道对象
     kwargs.update(kwargs.get("nonebot", {}))  # nonebot配置优先
     nonebot.init(**kwargs)

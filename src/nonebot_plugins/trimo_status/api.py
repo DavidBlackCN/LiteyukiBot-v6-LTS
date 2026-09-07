@@ -1,6 +1,5 @@
 import base64
 import platform
-import time
 
 import aiohttp
 import nonebot
@@ -13,14 +12,14 @@ from liteyuki import __version__
 from liteyuki.utils import for_in
 from src.utils import __NAME__
 from src.utils.base.config import get_config
-from src.utils.base.data_manager import TempConfig, common_db
 from src.utils.base.language import Language
 from src.utils.base.resource import get_loaded_resource_packs, get_path
+from src.utils.base.runtime import get_message_counts, get_process_uptime
 from src.utils.message.html_tool import template2image_element, md_to_pic
 from src.utils import satori_utils
 
-from .counter_for_satori import satori_counter
 from .config import status_config
+from . import runtime as _runtime  # noqa: F401
 # require("nonebot_plugin_apscheduler")
 # from nonebot_plugin_apscheduler import scheduler
 
@@ -413,7 +412,6 @@ async def get_bots_data(self_id: str = "0") -> dict:
     for bot_id, bot in nonebot.get_bots().items():
         groups = 0
         friends = 0
-        status = {}
         bot_name = bot_id
         version_info = {}
         if isinstance(bot, satori.Bot):
@@ -421,7 +419,6 @@ async def get_bots_data(self_id: str = "0") -> dict:
                 bot_name = (await satori_utils.user_infos.get(bot.self_id)).name
                 groups = str(await satori_utils.count_groups(bot))
                 friends = str(await satori_utils.count_friends(bot))
-                status = {}
                 version_info = await bot.get_version_info()  # type: ignore
             except Exception:
                 pass
@@ -431,12 +428,11 @@ async def get_bots_data(self_id: str = "0") -> dict:
                 bot_name = (await bot.get_login_info())["nickname"]
                 groups = len(await bot.get_group_list())
                 friends = len(await bot.get_friend_list())
-                status = await bot.get_status()
                 version_info = await bot.get_version_info()
             except Exception:
                 pass
 
-        statistics = status.get("stat", {})
+        message_sent, message_received = get_message_counts(bot_id)
         app_name = version_info.get("app_name", "未知应用接口")
         if isinstance(bot, satori.Bot):
             app_name = "Satori"
@@ -456,16 +452,8 @@ async def get_bots_data(self_id: str = "0") -> dict:
             ),
             "groups": groups,
             "friends": friends,
-            "message_sent": (
-                satori_counter.msg_sent
-                if isinstance(bot, satori.Bot)
-                else statistics.get("message_sent", 0)
-            ),
-            "message_received": (
-                satori_counter.msg_received
-                if isinstance(bot, satori.Bot)
-                else statistics.get("message_received", 0)
-            ),
+            "message_sent": message_sent,
+            "message_received": message_received,
             "app_name": app_name,
         }
         result["bots"].append(bot_data)
@@ -566,7 +554,6 @@ async def get_hardware_data(lang_code) -> dict:
 
 
 async def get_liteyuki_data() -> dict:
-    temp_data: TempConfig = common_db.where_one(TempConfig(), default=TempConfig())
     result = {
         "name": list(get_config("nickname", [__NAME__]))[0],
         "version": f"{__version__}{'-' + commit_hash[:7] if (commit_hash and len(commit_hash) > 8) else ''}",
@@ -575,8 +562,7 @@ async def get_liteyuki_data() -> dict:
         "nonebot": f"{nonebot.__version__}",
         "python": f"{platform.python_implementation()} {platform.python_version()}",
         "system": f"{platform.system()} {platform.release()}",
-        "runtime": time.time()
-        - temp_data.data.get("start_time", time.time()),  # 运行时间秒数
+        "runtime": get_process_uptime(),
         "bots": len(nonebot.get_bots()),
     }
     return result
