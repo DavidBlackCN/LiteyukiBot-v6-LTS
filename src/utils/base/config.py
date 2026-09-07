@@ -1,51 +1,16 @@
 import os
-import platform
-from typing import List
 
 import nonebot
-import yaml
-from pydantic import BaseModel
 
-from liteyuki.config import get_loaded_config, load_from_yaml as primary_load_from_yaml
-
-from ..message.tools import random_hex_string
+from liteyuki.config import (
+    BasicConfig,
+    ensure_config_file,
+    get_loaded_config,
+    load_from_yaml as primary_load_from_yaml,
+)
 
 
 config = {}  # 全局配置，确保加载后读取
-
-
-class SatoriNodeConfig(BaseModel):
-    host: str = ""
-    port: str = "5500"
-    path: str = ""
-    token: str = ""
-
-
-class SatoriConfig(BaseModel):
-    comment: str = "此皆正处于开发之中，切勿在生产环境中启用。"
-    enable: bool = False
-    hosts: List[SatoriNodeConfig] = [SatoriNodeConfig()]
-
-
-class BasicConfig(BaseModel):
-    host: str = "127.0.0.1"
-    port: int = 20247
-    superusers: list[str] = []
-    command_start: list[str] = ["/", ""]
-    nickname: list[str] = [f"灵温-{random_hex_string(6)}"]
-    default_language: str = "zh-WY"
-    default_interact_language: str = "zh-CN"
-    satori: SatoriConfig = SatoriConfig()
-    data_path: str = "data/liteyuki"
-    chromium_path: str = (
-        "/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome" # pyright: ignore[reportInvalidStringEscapeSequence]
-        if platform.system() == "Darwin"
-        else (
-            "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe"
-            if platform.system() == "Windows"
-            else "/usr/bin/chromium-browser"
-        )
-    )
 
 
 def load_from_yaml(file_: str) -> dict:
@@ -53,11 +18,7 @@ def load_from_yaml(file_: str) -> dict:
     global config
     nonebot.logger.debug("正在从 {} 中加载配置项".format(file_))
     if not os.path.exists(file_):
-        nonebot.logger.warning(
-            f"未寻得配置文件 {file_} ，已以默认配置创建，请在重启后更改为你所需的内容。"
-        )
-        with open(file_, "w", encoding="utf-8") as f:
-            yaml.dump(BasicConfig().dict(), f, default_flow_style=False)
+        ensure_config_file(file_)
 
     conf = init_conf(primary_load_from_yaml(file_))
     if not conf:

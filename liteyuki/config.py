@@ -11,15 +11,70 @@
 import os
 import json
 import copy
+import shutil
 import toml
 import yaml
 
 from typing import Any
 
+from pydantic import BaseModel, Field
+
 from liteyuki.log import logger
 
 _SUPPORTED_CONFIG_FORMATS = (".yaml", ".yml", ".json", ".toml")
 _loaded_config: dict[str, Any] = {}
+
+
+class SatoriNodeConfig(BaseModel):
+    host: str = ""
+    port: str = "5500"
+    path: str = ""
+    token: str = ""
+
+
+class SatoriConfig(BaseModel):
+    comment: str = "此皆正处于开发之中，切勿在生产环境中启用。"
+    enable: bool = False
+    hosts: list[SatoriNodeConfig] = Field(default_factory=lambda: [SatoriNodeConfig()])
+
+
+class BasicConfig(BaseModel):
+    """Program defaults and fallback validation model, not the YAML layout."""
+
+    host: str = "127.0.0.1"
+    port: int = 20247
+    superusers: list[str] = Field(default_factory=list)
+    command_start: list[str] = Field(default_factory=lambda: ["/"])
+    nickname: list[str] = Field(default_factory=lambda: ["Liteyuki"])
+    default_language: str = "zh-CN"
+    default_interact_language: str = "zh-CN"
+    satori: SatoriConfig = Field(default_factory=SatoriConfig)
+    data_path: str = "data/liteyuki"
+
+
+def ensure_config_file(
+    config_path: str = "config.yml", template_path: str = "config.example.yml"
+) -> bool:
+    """Create the primary config from its maintained template when absent."""
+    if os.path.exists(config_path):
+        return False
+
+    if os.path.isfile(template_path):
+        shutil.copyfile(template_path, config_path)
+        logger.warning(
+            f"未发现 {config_path}，已根据 {template_path} 创建默认配置，请按需修改后重启。"
+        )
+        return True
+
+    defaults = BasicConfig().model_dump()
+    defaults["satori"] = {"enable": defaults["satori"]["enable"]}
+    with open(config_path, "w", encoding="utf-8") as file:
+        yaml.safe_dump(defaults, file, allow_unicode=True, sort_keys=False)
+    logger.warning(
+        f"未发现 {config_path}，且模板 {template_path} 不存在，"
+        "已使用程序默认值创建配置，请按需修改后重启。"
+    )
+    return True
 
 
 def get_loaded_config() -> dict[str, Any]:
@@ -125,6 +180,7 @@ def load_config_in_default(no_waring: bool = False) -> dict[str, Any]:
     项目目录下的config.*和config目录下的所有配置文件
     项目目录下的配置文件优先
     """
+    ensure_config_file()
     config = load_configs_from_dirs("config", no_waring=no_waring)
     config.update(
         load_from_files(
