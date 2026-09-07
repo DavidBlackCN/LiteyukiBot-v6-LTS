@@ -1,9 +1,16 @@
+import asyncio
+import importlib.metadata
+import json
 import os
+from collections.abc import Awaitable, Callable
+from pathlib import Path
+import re
+import subprocess
 import sys
+
 import aiohttp
+import aiofiles
 import nonebot.plugin
-import pip
-from io import StringIO
 from arclet.alconna import MultiVar
 from nonebot import Bot, require  # type: ignore
 from nonebot.exception import FinishedException, IgnoredException, MockApiException
@@ -44,6 +51,94 @@ enable_global = "enable-global"
 disable_global = "disable-global"
 enable = "enable"
 disable = "disable"
+
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+LTS_CONSTRAINTS = PROJECT_ROOT / "constraints-lts.txt"
+PIP_TIMEOUT = 600
+REGISTRY_TIMEOUT = aiohttp.ClientTimeout(total=15, connect=5, sock_read=15)
+PIP_MIRRORS = (
+    "https://pypi.tuna.tsinghua.edu.cn/simple",
+    "https://pypi.org/simple",
+)
+PROTECTED_DISTRIBUTIONS = {
+    "nonebot2",
+    "nonebot-adapter-onebot",
+    "nonebot-plugin-alconna",
+    "arclet-alconna",
+    "tarina",
+    "pydantic",
+    "nonebot-plugin-htmlrender",
+}
+
+
+def is_global_toggle_request(subcommands: dict) -> bool:
+    return bool(subcommands.get(enable_global) or subcommands.get(disable_global))
+
+
+def can_manage_global(subcommands: dict, is_superuser: bool) -> bool:
+    return is_global_toggle_request(subcommands) and is_superuser
+
+
+def registry_package_name(store_plugin: StorePlugin) -> str | None:
+    """Return the Registry's PyPI project name after conservative validation."""
+    package_name = str(store_plugin.project_link or "").strip()
+    if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", package_name):
+        return package_name
+    return None
+
+
+def _normalized_distribution(name: str) -> str:
+    return re.sub(r"[-_.]+", "-", name).lower()
+
+
+def is_protected_plugin(module_name: str, package_name: str = "") -> bool:
+    if _normalized_distribution(package_name) in PROTECTED_DISTRIBUTIONS:
+        return True
+    if module_name in {"nonebot_plugin_alconna", "nonebot_plugin_htmlrender"}:
+        return True
+    return (PROJECT_ROOT / "src" / "nonebot_plugins" / module_name).is_dir()
+
+
+async def install_registry_plugin(
+    module_name: str,
+    upgrade: bool = False,
+    before_install: Callable[[StorePlugin], Awaitable[None]] | None = None,
+) -> tuple[StorePlugin | None, str | None, bool, str]:
+    """Resolve a Registry module before allowing pip to install its project."""
+    store_plugin = await get_store_plugin(module_name)
+    if store_plugin is None:
+        return None, None, False, "Plugin is not present in the NoneBot Registry"
+    package_name = registry_package_name(store_plugin)
+    if package_name is None:
+        return store_plugin, None, False, "Registry entry has no valid PyPI project name"
+    if before_install is not None:
+        await before_install(store_plugin)
+    success, output = await npm_install(package_name, upgrade=upgrade)
+    return store_plugin, package_name, success, output
+
+
+async def uninstall_pacman_plugin(module_name: str) -> tuple[str, str]:
+    """Uninstall only packages recorded as Pacman-managed installations."""
+    record = plugin_db.where_one(
+        InstalledPlugin(), "module_name = ?", module_name
+    )
+    if record is None:
+        return "not-managed", ""
+
+    store_plugin = await get_store_plugin(module_name)
+    package_name = registry_package_name(store_plugin) if store_plugin else module_name
+    if not package_name or is_protected_plugin(module_name, package_name):
+        return "protected", ""
+
+    if not is_distribution_installed(package_name):
+        plugin_db.delete(InstalledPlugin(), "module_name = ?", module_name)
+        return "missing-cleaned", ""
+
+    success, output = await npm_uninstall(package_name)
+    if not success:
+        return "failed", output
+    plugin_db.delete(InstalledPlugin(), "module_name = ?", module_name)
+    return "success", output
 
 
 @on_alconna(
@@ -213,11 +308,10 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot, npm: Matcher):
             )  # + str(session_id) 这里应该不需增加一个id，在任何语言文件里，这句话都不是这样翻的，你是不是调试的时候忘删了？
         )
 
-    elif (
-        sc.get(enable_global)
-        or result.subcommands.get(disable_global)
-        and await SUPERUSER(bot, event)
-    ):
+    elif is_global_toggle_request(sc):
+        if not can_manage_global(sc, perm_s):
+            await npm.finish(ulang.get("liteyuki.permission_denied"))
+
         plugin_exist = get_plugin_exist(plugin_name)
 
         toggle = result.subcommands.get(enable_global) is not None
@@ -307,42 +401,32 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot, npm: Matcher):
 
     elif sc.get("install") and perm_s:
         plugin_name: str = result.subcommands["install"].args.get("plugin_name")
-        store_plugin = await get_store_plugin(plugin_name)
-        await npm.send(ulang.get("npm.installing", NAME=plugin_name))
+        found_in_db_plugin = plugin_db.where_one(
+            InstalledPlugin(), "module_name = ?", plugin_name
+        )
 
-        r, log = await npm_install(plugin_name)
-        log = log.replace("\\", "/")
+        async def announce_install(_: StorePlugin) -> None:
+            await npm.send(ulang.get("npm.installing", NAME=plugin_name))
 
-        if not store_plugin:
+        store_plugin, package_name, r, log = await install_registry_plugin(
+            plugin_name,
+            upgrade=found_in_db_plugin is not None,
+            before_install=announce_install,
+        )
+        if store_plugin is None:
             await npm.finish(ulang.get("npm.plugin_not_found", NAME=plugin_name))
+        if package_name is None:
+            await npm.finish(
+                f"Registry 插件 {plugin_name} 缺少有效的 PyPI 包名，已取消安装"
+            )
 
+        log = log.replace("\\", "/")
         homepage_btn = md.btn_cmd(ulang.get("npm.homepage"), store_plugin.homepage)
         if r:
-            r_load = nonebot.load_plugin(plugin_name)  # 加载插件
-            installed_plugin = InstalledPlugin(
-                module_name=plugin_name
-            )  # 构造插件信息模型
-            found_in_db_plugin = plugin_db.where_one(
-                InstalledPlugin(), "module_name = ?", plugin_name
-            )  # 查询数据库中是否已经安装
-            if r_load:
-                if found_in_db_plugin is None:
-                    plugin_db.save(installed_plugin)
-                    info = md.escape(
-                        ulang.get("npm.install_success", NAME=store_plugin.name)
-                    )  # markdown转义
-                    await npm.send(f"{info}\n\n" + f"\n{log}\n")
-                else:
-                    await npm.finish(
-                        ulang.get(
-                            "npm.plugin_already_installed", NAME=store_plugin.name
-                        )
-                    )
-            else:
-                info = ulang.get(
-                    "npm.load_failed", NAME=plugin_name, HOMEPAGE=homepage_btn
-                ).replace("_", r"\\_")
-                await npm.finish(f"{info}\n\n" f"```\n{log}\n```\n")
+            if found_in_db_plugin is None:
+                plugin_db.save(InstalledPlugin(module_name=plugin_name))
+            info = md.escape(ulang.get("npm.install_success", NAME=store_plugin.name))
+            await npm.finish(f"{info}\n\n{log}\n\n请重启 Bot/NoneBot 后使插件生效。")
         else:
             info = ulang.get(
                 "npm.install_failed", NAME=plugin_name, HOMEPAGE=homepage_btn
@@ -351,15 +435,21 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot, npm: Matcher):
 
     elif sc.get("uninstall") and perm_s:
         plugin_name: str = result.subcommands["uninstall"].args.get("plugin_name")  # type: ignore
-        found_installed_plugin: InstalledPlugin = plugin_db.where_one(
-            InstalledPlugin(), "module_name = ?", plugin_name
-        )
-        if found_installed_plugin:
-            plugin_db.delete(InstalledPlugin(), "module_name = ?", plugin_name)
-            reply = f"{ulang.get('npm.uninstall_success', NAME=found_installed_plugin.module_name)}"
-            await npm.finish(reply)
-        else:
+        status, log = await uninstall_pacman_plugin(plugin_name)
+        if status == "not-managed":
             await npm.finish(ulang.get("npm.plugin_not_installed", NAME=plugin_name))
+        if status == "protected":
+            await npm.finish(f"{plugin_name} 是 LTS 内置插件或核心依赖，禁止卸载")
+        if status == "missing-cleaned":
+            await npm.finish(
+                f"{plugin_name} 的 pip 包已不存在，已安全清理 Pacman 安装记录。"
+            )
+        log = log.replace("\\", "/")
+        if status == "success":
+            reply = ulang.get("npm.uninstall_success", NAME=plugin_name)
+            await npm.finish(f"{reply}\n\n{log}\n\n请重启 Bot/NoneBot 后完全生效。")
+        if status == "failed":
+            await npm.finish(f"卸载 {plugin_name} 失败，已保留安装记录。\n\n{log}")
 
     elif sc.get("list"):
         loaded_plugin_list = sorted(nonebot.get_loaded_plugins(), key=lambda x: x.name)
@@ -775,17 +865,43 @@ async def npm_update() -> bool:
     Returns:
         bool: 是否成功更新
     """
-    url_list = [
-        "https://registry.nonebot.dev/plugins.json",
-    ]
-    for url in url_list:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url) as resp:
-                if resp.status == 200:
-                    async with aiofiles.open("data/liteyuki/plugins.json", "wb") as f:
+    url_list = ["https://registry.nonebot.dev/plugins.json"]
+    try:
+        async with aiohttp.ClientSession(timeout=REGISTRY_TIMEOUT) as session:
+            for url in url_list:
+                try:
+                    async with session.get(url) as resp:
+                        resp.raise_for_status()
                         data = await resp.read()
-                        await f.write(data)
+                    payload = json.loads(data.decode("utf-8"))
+                    if not isinstance(payload, list):
+                        raise ValueError("Registry 响应不是插件列表")
+                    # Validate before replacing the last known-good cache.
+                    for item in payload:
+                        StorePlugin(**item)
+
+                    REGISTRY_CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
+                    temporary_path = REGISTRY_CACHE_PATH.with_suffix(".json.tmp")
+                    try:
+                        async with aiofiles.open(temporary_path, "wb") as f:
+                            await f.write(data)
+                        os.replace(temporary_path, REGISTRY_CACHE_PATH)
+                    finally:
+                        temporary_path.unlink(missing_ok=True)
                     return True
+                except (
+                    aiohttp.ClientError,
+                    asyncio.TimeoutError,
+                    UnicodeError,
+                    json.JSONDecodeError,
+                    ValueError,
+                    OSError,
+                ) as e:
+                    nonebot.logger.warning(
+                        f"更新 NoneBot Registry 失败，保留现有插件缓存：{e}"
+                    )
+    except (aiohttp.ClientError, asyncio.TimeoutError, OSError) as e:
+        nonebot.logger.warning(f"无法创建 Registry 请求会话，保留现有插件缓存：{e}")
     return False
 
 
@@ -806,10 +922,13 @@ async def npm_search(keywords: list[str]) -> list[StorePlugin]:
     ]
 
     results = []
-    async with aiofiles.open("data/liteyuki/plugins.json", "r", encoding="utf-8") as f:
-        plugins: list[StorePlugin] = [
-            StorePlugin(**pobj) for pobj in json.loads(await f.read())
-        ]
+    try:
+        async with aiofiles.open(REGISTRY_CACHE_PATH, "r", encoding="utf-8") as f:
+            plugins: list[StorePlugin] = [
+                StorePlugin(**pobj) for pobj in json.loads(await f.read())
+            ]
+    except (FileNotFoundError, OSError, UnicodeError, json.JSONDecodeError, ValueError):
+        return []
     for plugin in plugins:
         if plugin.module_name in plugin_blacklist:
             continue
@@ -827,8 +946,26 @@ async def npm_search(keywords: list[str]) -> list[StorePlugin]:
     return results
 
 
+def _run_pip(arguments: list[str]) -> tuple[bool, str]:
+    command = [sys.executable, "-m", "pip", *arguments]
+    try:
+        result = subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=PIP_TIMEOUT,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError) as e:
+        return False, str(e)
+    output = "\n".join(part for part in (result.stdout, result.stderr) if part)
+    return result.returncode == 0, output
+
+
 @run_sync
-def npm_install(plugin_package_name) -> tuple[bool, str]:
+def npm_install(plugin_package_name: str, upgrade: bool = False) -> tuple[bool, str]:
     """
     异步安装插件，使用pip安装
     Args:
@@ -838,44 +975,35 @@ def npm_install(plugin_package_name) -> tuple[bool, str]:
         tuple[bool, str]: 是否成功，输出信息
 
     """
-    # 重定向标准输出
-    buffer = StringIO()
-    sys.stdout = buffer
-    sys.stderr = buffer
+    if not LTS_CONSTRAINTS.is_file():
+        return False, f"LTS constraints file not found: {LTS_CONSTRAINTS}"
 
-    update = False
-    if get_plugin_exist(plugin_package_name):
-        update = True
+    logs: list[str] = []
+    for mirror in PIP_MIRRORS:
+        nonebot.logger.info(f"pip install try mirror: {mirror}")
+        arguments = ["install", "--constraint", str(LTS_CONSTRAINTS)]
+        if upgrade:
+            arguments.append("--upgrade")
+        arguments.extend([plugin_package_name, "--index-url", mirror])
+        success, output = _run_pip(arguments)
+        logs.append(output)
+        if success:
+            return True, "\n".join(logs)
+        nonebot.logger.warning("pip install failed, try next mirror")
+    return False, "\n".join(logs)
 
-    mirrors = [
-        "https://pypi.tuna.tsinghua.edu.cn/simple",  # 清华大学
-        "https://pypi.org/simple",  # 官方源
-    ]
 
-    # 使用pip安装包，对每个镜像尝试一次，成功后返回值
-    success = False
-    for mirror in mirrors:
-        try:
-            nonebot.logger.info(f"pip install try mirror: {mirror}")
-            if update:
-                result = pip.main(
-                    ["install", "--upgrade", plugin_package_name, "-i", mirror]
-                )
-            else:
-                result = pip.main(["install", plugin_package_name, "-i", mirror])
-            success = result == 0
-            if success:
-                break
-            else:
-                nonebot.logger.warning(f"pip install failed, try next mirror.")
-        except Exception as e:
-            success = False
-            continue
+@run_sync
+def npm_uninstall(plugin_package_name: str) -> tuple[bool, str]:
+    return _run_pip(["uninstall", "-y", plugin_package_name])
 
-    sys.stdout = sys.__stdout__
-    sys.stderr = sys.__stderr__
 
-    return success, buffer.getvalue()
+def is_distribution_installed(plugin_package_name: str) -> bool:
+    try:
+        importlib.metadata.distribution(plugin_package_name)
+    except importlib.metadata.PackageNotFoundError:
+        return False
+    return True
 
 
 def search_loaded_plugin(keyword: str) -> list[Plugin]:

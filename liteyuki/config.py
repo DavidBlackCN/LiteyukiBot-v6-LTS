@@ -19,6 +19,12 @@ from typing import Any
 from liteyuki.log import logger
 
 _SUPPORTED_CONFIG_FORMATS = (".yaml", ".yml", ".json", ".toml")
+_loaded_config: dict[str, Any] = {}
+
+
+def get_loaded_config() -> dict[str, Any]:
+    """Return a copy of the configuration loaded by the Liteyuki entrypoint."""
+    return _loaded_config.copy()
 
 
 def flat_config(config: dict[str, Any]) -> dict[str, Any]:
@@ -129,4 +135,6 @@ def load_config_in_default(no_waring: bool = False) -> dict[str, Any]:
             no_warning=no_waring,
         )
     )
-    return config
+    _loaded_config.clear()
+    _loaded_config.update(config)
+    return config.copy()

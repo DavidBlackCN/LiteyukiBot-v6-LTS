@@ -1,0 +1,31 @@
+# Liteyuki v6 LTS configuration example.
+# Copy this file to config.yml and replace only the values needed by your instance.
+
+host: 127.0.0.1
+port: 20247
+superusers: []
+command_start:
+  - /
+nickname:
+  - Liteyuki
+default_language: zh-CN
+default_interact_language: zh-CN
+data_path: data/liteyuki
+log_level: INFO
+safe_mode: false
+auto_update: false
+
+# Legacy Liteyuki remote services are opt-in in this LTS fork.
+liteyuki:
+  remote_register: false
+yanlun_remote_enabled: false
+
+# Built-in idiom game.
+handle_strict_mode: false
+handle_color_enhance: false
+handle_superuser_get_answer: true
+handle_require_tome: true
+
+# Built-in QWeather plugin. Keep secrets in config.yml, .env, or system env.
+weather_api_host: ""
+weather_key: ""

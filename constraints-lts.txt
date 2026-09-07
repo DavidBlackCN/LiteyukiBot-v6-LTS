@@ -1,0 +1,9 @@
+# Keep this file synchronized with the matching entries in requirements.txt.
+# Pacman supplies it to pip so third-party plugins cannot replace the LTS core stack.
+nonebot2~=2.3.3
+nonebot-adapter-onebot~=2.4.3
+nonebot-plugin-alconna~=0.46.3
+arclet-alconna==1.8.15
+tarina>=0.5.0,<0.6.0
+pydantic==2.8.2
+nonebot-plugin-htmlrender~=0.3.1

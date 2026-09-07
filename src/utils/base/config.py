@@ -6,6 +6,8 @@ import nonebot
 import yaml
 from pydantic import BaseModel
 
+from liteyuki.config import get_loaded_config, load_from_yaml as primary_load_from_yaml
+
 from ..message.tools import random_hex_string
 
 
@@ -47,6 +49,7 @@ class BasicConfig(BaseModel):
 
 
 def load_from_yaml(file_: str) -> dict:
+    """Legacy wrapper around Liteyuki's primary YAML loader."""
     global config
     nonebot.logger.debug("正在从 {} 中加载配置项".format(file_))
     if not os.path.exists(file_):
@@ -56,40 +59,33 @@ def load_from_yaml(file_: str) -> dict:
         with open(file_, "w", encoding="utf-8") as f:
             yaml.dump(BasicConfig().dict(), f, default_flow_style=False)
 
-    with open(file_, "r", encoding="utf-8") as f:
-        conf = init_conf(yaml.load(f, Loader=yaml.FullLoader))
-        config = conf
-        if conf is None:
-            nonebot.logger.warning(
-                f"配置文件 {file_} 为空，已以默认配置创建，请在重启后更改为你所需的内容。"
-            )
-            conf = BasicConfig().dict()
-        return conf
+    conf = init_conf(primary_load_from_yaml(file_))
+    if not conf:
+        nonebot.logger.warning(
+            f"配置文件 {file_} 为空，已使用默认配置，请在重启后更改为你所需的内容。"
+        )
+        conf = BasicConfig().dict()
+    config.clear()
+    config.update(conf)
+    return config.copy()
 
 
 def get_config(key: str, default=None):
-    """获取配置项，优先级：bot > config > db > yaml"""
+    """Legacy config API backed by NoneBot and Liteyuki's loaded config."""
     try:
-        bot = nonebot.get_bot()
-    except:
-        bot = None
+        driver_config = nonebot.get_driver().config
+        if hasattr(driver_config, "model_dump"):
+            current_config = driver_config.model_dump()
+        else:
+            current_config = driver_config.dict()
+    except (RuntimeError, ValueError):
+        current_config = {}
 
-    if bot is None:
-        bot_config = {}
-    else:
-        bot_config = bot.config.dict()
-
-    if key in bot_config:
-        return bot_config[key]
-
-    elif key in config:
+    if key in current_config:
+        return current_config[key]
+    if key in config:
         return config[key]
-
-    elif key in load_from_yaml("config.yml"):
-        return load_from_yaml("config.yml")[key]
-
-    else:
-        return default
+    return get_loaded_config().get(key, default)
 
 
 def init_conf(conf: dict) -> dict:

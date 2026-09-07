@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 from typing import Optional
 
 import aiofiles
@@ -21,6 +22,7 @@ __group_data = {}  # 群数据缓存, {group_id: Group}
 __user_data = {}  # 用户数据缓存, {user_id: User}
 __default_enable = {}  # 插件默认启用状态缓存, {plugin_name: bool} static
 __global_enable = {}  # 插件全局启用状态缓存, {plugin_name: bool} dynamic
+REGISTRY_CACHE_PATH = Path("data/liteyuki/plugins.json")
 
 
 class PluginTag(LiteModel):
@@ -69,10 +71,13 @@ async def get_store_plugin(plugin_name: str) -> Optional[StorePlugin]:
     Returns:
         Optional[StorePlugin]: 插件信息
     """
-    async with aiofiles.open("data/liteyuki/plugins.json", "r", encoding="utf-8") as f:
-        plugins: list[StorePlugin] = [
-            StorePlugin(**pobj) for pobj in json.loads(await f.read())
-        ]
+    try:
+        async with aiofiles.open(REGISTRY_CACHE_PATH, "r", encoding="utf-8") as f:
+            plugins: list[StorePlugin] = [
+                StorePlugin(**pobj) for pobj in json.loads(await f.read())
+            ]
+    except (FileNotFoundError, OSError, UnicodeError, json.JSONDecodeError, ValueError):
+        return None
     for plugin in plugins:
         if plugin.module_name == plugin_name:
             return plugin
