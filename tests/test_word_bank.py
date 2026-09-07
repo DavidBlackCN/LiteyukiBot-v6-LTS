@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import zipfile
 from pathlib import Path
 
 import pytest
@@ -147,14 +148,24 @@ def test_builtin_resources_use_explicit_order(
     resources = tmp_path / "resources"
     resources.mkdir()
     (resources / "index.json").write_text("[]", encoding="utf-8")
-    for name in ("liteyuki_words", "vanilla_resource", "vanilla_language"):
+    for name in (
+        "liteyuki_words_aojiao.zip",
+        "liteyuki_words_kawaii.zip",
+        "vanilla_resource",
+        "vanilla_language",
+    ):
         _write_template_pack(builtins / name, name)
 
     original_listdir = resource.os.listdir
 
     def reversed_builtin_listdir(path: str | Path) -> list[str]:
         if Path(path) == Path("src/resources"):
-            return ["liteyuki_words", "vanilla_resource", "vanilla_language"]
+            return [
+                "liteyuki_words_kawaii.zip",
+                "vanilla_resource",
+                "liteyuki_words_aojiao.zip",
+                "vanilla_language",
+            ]
         return original_listdir(path)
 
     monkeypatch.chdir(tmp_path)
@@ -167,12 +178,43 @@ def test_builtin_resources_use_explicit_order(
 
     assert (resource.temp_resource_root / "templates" / "shared.txt").read_text(
         encoding="utf-8"
-    ) == "liteyuki_words"
+    ) == "liteyuki_words_kawaii.zip"
     assert [pack.folder for pack in resource.get_loaded_resource_packs()] == [
-        "liteyuki_words",
+        "liteyuki_words_kawaii.zip",
+        "liteyuki_words_aojiao.zip",
         "vanilla_resource",
         "vanilla_language",
     ]
+
+
+def test_builtin_smart_reply_archives_load_and_merge(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    archive_paths = [
+        Path("src/resources/liteyuki_words_aojiao.zip"),
+        Path("src/resources/liteyuki_words_kawaii.zip"),
+    ]
+    expected: dict[str, set[str]] = {}
+    for archive_path in archive_paths:
+        with zipfile.ZipFile(archive_path) as archive:
+            assert archive.testzip() is None
+            for filename in archive.namelist():
+                if filename.startswith("word_bank/") and filename.endswith(".json"):
+                    data = json.loads(archive.read(filename).decode("utf-8"))
+                    for key, replies in data.items():
+                        expected.setdefault(key, set()).update(replies)
+
+    monkeypatch.setattr(
+        resource, "temp_resource_root", tmp_path / "data" / "liteyuki" / "resources"
+    )
+    monkeypatch.setattr(
+        resource, "temp_extract_root", tmp_path / "data" / "liteyuki" / "temp"
+    )
+    for archive_path in archive_paths:
+        resource.load_resource_from_dir(str(archive_path))
+
+    assert word_bank == expected
+    assert get_reply([next(iter(expected))]) in expected[next(iter(expected))]
 
 
 def test_external_resource_priority_still_overrides_builtins(
