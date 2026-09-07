@@ -1,7 +1,105 @@
-#addition-info {
-    font-size: 36px;
-    word-wrap: break-word;
+.rank-header {
+    padding: 34px 38px;
+    background:
+        radial-gradient(circle at 90% 10%, rgba(118, 190, 255, 0.25), transparent 34%),
+        var(--card-bg);
+}
+
+.rank-kicker {
+    margin-bottom: 7px;
+    color: var(--color-primary);
+    font-size: 20px;
+    font-weight: 650;
+    letter-spacing: 0.4px;
+}
+
+#rank-title {
     color: var(--main-text-color);
+    font-size: 34px;
+    font-weight: 700;
+    line-height: 1.38;
+    overflow-wrap: anywhere;
+}
+
+#rank-list {
+    padding: 20px 26px;
+}
+
+.rank-row {
+    display: grid;
+    grid-template-columns: 74px 76px minmax(0, 1fr) auto;
+    min-height: 92px;
+    align-items: center;
+    gap: 16px;
+    padding: 10px 16px;
+    border-bottom: 1px solid #e4edf6;
+}
+
+.rank-row:last-child {
+    border-bottom: 0;
+}
+
+.rank-row[data-rank="1"],
+.rank-row[data-rank="2"],
+.rank-row[data-rank="3"] {
+    margin: 4px 0;
+    background: #f7fbff;
+    border: 1px solid rgba(38, 121, 201, 0.1);
+    border-radius: 18px;
+}
+
+.row-position {
+    color: var(--tip-text-color);
+    font-size: 24px;
+    font-weight: 700;
     text-align: center;
-    margin: 30px 0 10px 0;
+}
+
+.rank-row[data-rank="1"] .row-position {
+    color: #d69d22;
+}
+
+.rank-row[data-rank="2"] .row-position {
+    color: #718399;
+}
+
+.rank-row[data-rank="3"] .row-position {
+    color: #b77b50;
+}
+
+.row-icon {
+    width: 66px;
+    height: 66px;
+    object-fit: cover;
+    background: var(--color-primary-soft);
+    border: 1px solid rgba(38, 121, 201, 0.12);
+    border-radius: 18px;
+}
+
+.row-name {
+    min-width: 0;
+    overflow: hidden;
+    color: var(--main-text-color);
+    font-size: 27px;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.row-count {
+    min-width: 94px;
+    padding: 7px 15px;
+    color: var(--color-primary);
+    font-size: 27px;
+    font-weight: 700;
+    text-align: center;
+    background: var(--color-primary-soft);
+    border-radius: 13px;
+}
+
+.rank-empty {
+    padding: 70px 20px;
+    color: var(--tip-text-color);
+    font-size: 26px;
+    text-align: center;
 }

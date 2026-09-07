@@ -1,27 +1,38 @@
-let data = JSON.parse(document.getElementById("data").innerText)    // object
+const data = JSON.parse(document.getElementById("data").innerText);
+const rowTemplate = document.getElementById("row-template").content;
+const rankList = document.getElementById("rank-list");
 
-const rowDiv = document.importNode(document.getElementById("row-template").content, true)
-
-function randomHideChar(str) {
-    // 随机隐藏6位以上字符串的中间连续5位字符，用 代替
-    if (str.length <= 6) {
-        return str
-    }
-    let start = Math.floor(str.length / 2) - 2
-    return str.slice(0, start) + "(¬‿¬)" + str.slice(start + 5)
+function hidePrivateIdentifier(value) {
+    const text = `${value ?? ""}`;
+    if (text.length <= 6) return text;
+    const start = Math.floor(text.length / 2) - 2;
+    return text.slice(0, start) + "(¬‿¬)" + text.slice(start + 5);
 }
-data["ranking"].forEach((item) => {
-    let row = rowDiv.cloneNode(true)
-    let rowID = item["name"]
-    let rowIconSrc = item["icon"]
-    let rowCount = item["count"]
 
-    row.querySelector(".row-name").innerText = randomHideChar(rowID)
-    row.querySelector(".row-icon").src = rowIconSrc
-    row.querySelector(".row-count").innerText = rowCount
+document.getElementById("rank-title").innerText = data["name"] || "";
 
-    document.body.appendChild(row)
-})
+const ranking = data["ranking"] || [];
+ranking.forEach((item, index) => {
+    const fragment = document.importNode(rowTemplate, true);
+    const row = fragment.querySelector(".rank-row");
+    const image = fragment.querySelector(".row-icon");
+    const rank = index + 1;
 
+    row.dataset.rank = rank;
+    fragment.querySelector(".row-position").innerText = `#${rank}`;
+    fragment.querySelector(".row-name").innerText = hidePrivateIdentifier(item["name"]);
+    fragment.querySelector(".row-count").innerText = item["count"] ?? 0;
+    image.src = item["icon"] || "./img/liteyuki.png";
+    image.onerror = () => {
+        image.onerror = null;
+        image.src = "./img/liteyuki.png";
+    };
+    rankList.appendChild(fragment);
+});
 
-document.getElementById('addition-info').innerText = '感谢 锅炉 云裳工作室 提供服务器支持'
+if (!ranking.length) {
+    const empty = document.createElement("div");
+    empty.className = "rank-empty";
+    empty.innerText = "—";
+    rankList.appendChild(empty);
+}

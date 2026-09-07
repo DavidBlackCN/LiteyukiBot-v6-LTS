@@ -40,6 +40,14 @@ def _write_pack(path: Path, data: dict[str, list[str]]) -> None:
     )
 
 
+def _write_template_pack(path: Path, value: str) -> None:
+    (path / "templates").mkdir(parents=True)
+    (path / "metadata.yml").write_text(
+        "name: test\ndescription: test\nversion: 1.0.0\n", encoding="utf-8"
+    )
+    (path / "templates" / "shared.txt").write_text(value, encoding="utf-8")
+
+
 def test_word_bank_loads_json_and_returns_one_of_the_replies(tmp_path: Path) -> None:
     word_dir = tmp_path / "word_bank"
     word_dir.mkdir()
@@ -129,4 +137,68 @@ def test_resource_priority_up_down_and_top(
     assert json.loads((resources / "index.json").read_text(encoding="utf-8")) == [
         "pack_b",
         "pack_a",
+    ]
+
+
+def test_builtin_resources_use_explicit_order(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    builtins = tmp_path / "src" / "resources"
+    resources = tmp_path / "resources"
+    resources.mkdir()
+    (resources / "index.json").write_text("[]", encoding="utf-8")
+    for name in ("liteyuki_words", "vanilla_resource", "vanilla_language"):
+        _write_template_pack(builtins / name, name)
+
+    original_listdir = resource.os.listdir
+
+    def reversed_builtin_listdir(path: str | Path) -> list[str]:
+        if Path(path) == Path("src/resources"):
+            return ["liteyuki_words", "vanilla_resource", "vanilla_language"]
+        return original_listdir(path)
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(resource.os, "listdir", reversed_builtin_listdir)
+    monkeypatch.setattr(
+        resource, "temp_resource_root", tmp_path / "data" / "liteyuki" / "resources"
+    )
+
+    resource.load_resources()
+
+    assert (resource.temp_resource_root / "templates" / "shared.txt").read_text(
+        encoding="utf-8"
+    ) == "liteyuki_words"
+    assert [pack.folder for pack in resource.get_loaded_resource_packs()] == [
+        "liteyuki_words",
+        "vanilla_resource",
+        "vanilla_language",
+    ]
+
+
+def test_external_resource_priority_still_overrides_builtins(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _write_template_pack(
+        tmp_path / "src" / "resources" / "vanilla_resource", "builtin"
+    )
+    _write_template_pack(tmp_path / "resources" / "external_high", "high")
+    _write_template_pack(tmp_path / "resources" / "external_low", "low")
+    (tmp_path / "resources" / "index.json").write_text(
+        json.dumps(["external_high", "external_low"]), encoding="utf-8"
+    )
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        resource, "temp_resource_root", tmp_path / "data" / "liteyuki" / "resources"
+    )
+
+    resource.load_resources()
+
+    assert (resource.temp_resource_root / "templates" / "shared.txt").read_text(
+        encoding="utf-8"
+    ) == "high"
+    assert [pack.folder for pack in resource.get_loaded_resource_packs()] == [
+        "external_high",
+        "external_low",
+        "vanilla_resource",
     ]

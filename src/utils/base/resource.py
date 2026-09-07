@@ -18,6 +18,16 @@ temp_resource_root = Path("data/liteyuki/resources")
 temp_extract_root = Path("data/liteyuki/temp")
 lang = Language(get_default_lang_code())
 
+# Base packs load first; plugin-specific packs may then override shared files.
+BUILTIN_RESOURCE_ORDER = (
+    "vanilla_language",
+    "vanilla_resource",
+    "liteyuki_statistics",
+    "liteyuki_weather",
+    "liteyuki_words",
+    "trim_plugin_msctconverter",
+)
+
 
 class ResourceMetadata(LiteModel):
     name: str = "Unknown"
@@ -224,7 +234,18 @@ def load_resources():
 
     # 加载内置资源
     standard_resources_path = "src/resources"
-    for resource_dir in os.listdir(standard_resources_path):
+    discovered_resources = os.listdir(standard_resources_path)
+    ordered_resources = [
+        name for name in BUILTIN_RESOURCE_ORDER if name in discovered_resources
+    ]
+    ordered_resources.extend(
+        sorted(
+            name
+            for name in discovered_resources
+            if name not in BUILTIN_RESOURCE_ORDER
+        )
+    )
+    for resource_dir in ordered_resources:
         load_resource_from_dir(os.path.join(standard_resources_path, resource_dir))
 
     # 加载其他资源包

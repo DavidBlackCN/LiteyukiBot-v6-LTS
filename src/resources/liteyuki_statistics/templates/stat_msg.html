@@ -1,26 +1,30 @@
 <!DOCTYPE html>
-<html lang="zh" xmlns="http://www.w3.org/1999/html">
+<html lang="zh-CN">
 
-    <head>
-        <meta charset="UTF-8">
-        <title>Liteyuki Stats Message</title>
-        <link rel="stylesheet" href="./css/card.css">
-        <link rel="stylesheet" href="./css/fonts.css">
-        <link rel="stylesheet" href="./css/stat_msg.css">
-    </head>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Liteyuki Message Statistics</title>
+    <link rel="stylesheet" href="./css/card.css">
+    <link rel="stylesheet" href="./css/fonts.css">
+    <link rel="stylesheet" href="./css/stat_msg.css">
+</head>
 
-    <body>
+<body>
+    <template id="sign-chart-template">
+        <article class="info-box sign-chart">
+            <header class="chart-header">
+                <div class="chart-title"></div>
+                <div class="chart-total"></div>
+            </header>
+            <div class="chart-stage"></div>
+        </article>
+    </template>
 
-        <template id="sign-chart-template">
-            <div class="info-box sign-chart">
-            </div>
-        </template>
+    <div class="data-storage" id="data">{{ data | tojson }}</div>
+    <main id="charts"></main>
+    <script src="./js/card.js"></script>
+    <script src="./js/stat_msg.js"></script>
+</body>
 
-        <div class="data-storage" id="data">{{ data | tojson }}</div>
-
-        <div class="info-box" id="addition-info"></div>
-        <script
-            src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.5.0/echarts.min.js"></script>
-        <script src="./js/stat_msg.js"></script>
-        <script src="./js/card.js"></script>
-    </body>
+</html>

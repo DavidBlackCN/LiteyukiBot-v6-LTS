@@ -5,6 +5,7 @@ host: 127.0.0.1
 port: 20247
 superusers: []
 command_start: ["/"]
+alconna_use_command_start: true
 nickname: [Liteyuki]
 default_language: zh-CN
 default_interact_language: zh-CN

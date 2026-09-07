@@ -1,188 +1,248 @@
-:root {
-    --main-text-color: #fff;
-    --sub-text-color: #ccc;
-    --tip-text-color: #999;
-    --device-info-width: 240px;
-    --sub-border-radius: 60px;
-}
-
 #weather-info {
-    color: white;
-    /*justify-content: center;*/
-    /*align-items: center;*/
-    /*align-content: center;*/
+    padding: 36px 42px 34px;
+    background:
+        radial-gradient(circle at 84% 12%, rgba(118, 190, 255, 0.27), transparent 34%),
+        var(--card-bg);
 }
 
-.icon {
-    /*    icon 类img阴影*/
-    filter: drop-shadow(1px 1px 10px #00000044);
+#detail-info {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    color: var(--tip-text-color);
+    font-size: 21px;
+    font-weight: 500;
+}
+
+#time {
+    flex-shrink: 0;
+    text-align: right;
+}
+
+#adm {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+#city {
+    margin-top: 12px;
+    overflow-wrap: anywhere;
+    font-size: 54px;
+    font-weight: 700;
+    line-height: 1.16;
+    letter-spacing: -0.8px;
 }
 
 #main-info {
     display: flex;
-    justify-content: center;
     align-items: center;
+    justify-content: center;
+    min-height: 260px;
 }
 
 #main-left {
     display: flex;
+    flex: 0 0 42%;
+    align-items: center;
     justify-content: flex-end;
-    width: 50%;
+    padding-right: 28px;
 }
 
 #main-right {
-    width: 50%;
+    flex: 1;
+    min-width: 0;
 }
 
-#time {
-    font-size: 25px;
-    font-weight: bold;
-    font-style: italic;
-    text-align: right;
-    color: var(--sub-text-color);
-
+.icon {
+    filter: drop-shadow(0 9px 14px rgba(42, 79, 120, 0.16));
 }
 
-#adm {
-    font-size: 32px;
-    font-weight: bold;
-    text-align: center;
-    color: var(--sub-text-color);
-}
-
-#city {
-    margin-top: 20px;
-    font-size: 70px;
-    font-weight: bold;
-    text-align: center;
+.main-icon {
+    width: 230px;
+    height: 230px;
+    object-fit: contain;
 }
 
 #temperature {
     display: flex;
     align-items: baseline;
-
+    gap: 13px;
 }
 
 #temperature-now {
-    font-size: 70px;
-    font-weight: bold;
+    font-size: 84px;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -3px;
 }
 
 #temperature-range {
-    font-size: 40px;
-    font-weight: bold;
-    color: var(--sub-text-color);
+    color: var(--tip-text-color);
+    font-size: 30px;
+    font-weight: 500;
 }
 
 #description {
-    font-size: 50px;
-    font-weight: bold;
+    margin-top: 8px;
+    color: var(--sub-text-color);
+    font-size: 38px;
+    font-weight: 600;
 }
 
-
 #aqi {
-    height: 50px;
+    display: inline-flex;
+    height: 44px;
+    align-items: center;
+    justify-content: center;
+    margin-left: 42%;
+    padding: 5px 16px;
+    color: var(--sub-text-color);
+    font-size: 22px;
+    font-weight: 500;
+    background: var(--color-primary-soft);
+    border-radius: 999px;
+}
+
+#aqi-dot {
+    width: 16px;
+    height: 16px;
+    margin-right: 10px;
+    background: var(--tip-text-color);
+    border: 3px solid rgba(255, 255, 255, 0.8);
+    border-radius: 50%;
+    box-shadow: 0 0 0 1px rgba(66, 86, 107, 0.15);
+}
+
+#sub-info {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.sub-item {
     display: flex;
-    border-radius: 60px;
-    padding: 5px;
-    font-size: 40px;
+    min-height: 64px;
+    align-items: center;
+    gap: 13px;
+    padding: 10px 16px;
+    overflow: hidden;
+    color: var(--sub-text-color);
+    font-size: 23px;
+    font-weight: 500;
+    background: #f7fbff;
+    border: 1px solid rgba(38, 121, 201, 0.1);
+    border-radius: 15px;
+}
+
+.sub-icon-wrap {
+    display: flex;
+    flex: 0 0 42px;
+    width: 42px;
+    height: 42px;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.sub-svg {
+    width: 34px;
+    height: 34px;
+    transform: translateY(-60px);
+    filter: drop-shadow(var(--color-primary) 0 60px);
+}
+
+#hours-info {
+    display: grid;
+    grid-template-columns: repeat(8, minmax(0, 1fr));
+    gap: 10px;
+    padding: 26px;
+}
+
+.hourly-item {
+    min-width: 0;
+    padding: 14px 6px 13px;
+    color: var(--sub-text-color);
     text-align: center;
-    align-content: center;
+    background: #f7fbff;
+    border: 1px solid rgba(38, 121, 201, 0.1);
+    border-radius: 18px;
+}
+
+.hourly-time {
+    color: var(--tip-text-color);
+    font-size: 18px;
+    font-weight: 500;
+}
+
+.hourly-icon {
+    width: 72px;
+    height: 72px;
+    margin: 7px auto 4px;
+    object-fit: contain;
+}
+
+.hourly-temperature {
+    color: var(--main-text-color);
+    font-size: 26px;
+    font-weight: 700;
+}
+
+#days-info {
+    padding: 24px 28px;
+}
+
+.daily-item {
+    display: grid;
+    grid-template-columns: 150px minmax(150px, 1fr) 150px 180px;
+    min-height: 82px;
+    align-items: center;
+    gap: 18px;
+    padding: 8px 18px;
+    color: var(--sub-text-color);
+    border-bottom: 1px solid #e4edf6;
+}
+
+.daily-item:last-child {
+    border-bottom: 0;
+}
+
+.daily-day {
+    color: var(--main-text-color);
+    font-size: 24px;
+    font-weight: 650;
+}
+
+.daily-weather {
+    overflow: hidden;
+    font-size: 22px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.daily-icons {
+    display: flex;
     align-items: center;
     justify-content: center;
 }
 
-#aqi-dot {
-    height: 80%;
-    aspect-ratio: 1 / 1;
-    border-radius: 50%;
-    background-color: var(--sub-text-color);
-    margin-right: 20px;
-}
-
-.main-icon {
-    width: 240px;
-    height: 240px;
-}
-
-#hours-info {
-    display: flex;
-    justify-content: space-between;
-}
-
-.hourly-item {
-    text-align: center;
-    background-color: #ffffff44;
-    border-radius: var(--sub-border-radius);
-    align-items: center;
-    padding: 20px 10px;
-}
-
-.hourly-icon {
-    width: 80%;
-    margin-bottom: 20px;
-}
-
-.hourly-temperature {
-    text-align: center;
-    color: var(--main-text-color);
-    font-size: 30px;
-    margin-bottom: 20px;
-}
-
-.hourly-time {
-    text-align: center;
-    color: var(--main-text-color);
-    font-size: 25px;
-    margin-bottom: 10px;
-}
-
-/**/
-.daily-item {
-    display: flex;
-    position: relative;
-    justify-content: space-between;
-    align-items: center;
-    background-color: #ffffff44;
-    height: 90px;
-    border-radius: var(--sub-border-radius);
-    margin-bottom: 20px;
-    padding: 0 30px;
-}
-
-/*最后一个没有margin_button*/
-.daily-item:last-child {
-    margin-bottom: 0;
-}
-
-.icon-day {
-    position: absolute;
-    left: 60%;
-    height: 80px;
+.daily-icon {
+    width: 62px;
+    height: 62px;
+    object-fit: contain;
 }
 
 .icon-night {
-    position: absolute;
-    left: 70%;
-    height: 80px;
-}
-
-.daily-weather {
-    position: absolute;
-    left: 30%;
+    margin-left: -10px;
 }
 
 .daily-temperature {
-    position: absolute;
-    left: 83%;
-}
-
-.daily-day,
-.daily-weather,
-.daily-temperature {
-    text-align: center;
     color: var(--main-text-color);
-    font-size: 30px;
+    font-size: 25px;
+    font-weight: 650;
+    text-align: right;
+    white-space: nowrap;
 }
 
 .ad-box {
@@ -190,51 +250,24 @@
 }
 
 #ad {
-    border-radius: 60px;
-}
-
-#sub-info {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 10px;
-    color: var(--main-text-color);
-    font-size: 36px;
-    align-items: center;
-}
-
-.sub-item {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    overflow: hidden;
-    padding-left: 20px;
-}
-
-/*要问就问为什么html调svg那么不友好*/
-.sub-svg {
-    transform: translateY(-80px);
-    /*此处用作自定义颜色*/
-    filter: drop-shadow(var(--main-text-color) 0 80px);
-    /*此处用作自定义透明度*/
-    opacity: 1;
-    padding-right: 10px;
+    max-width: 100%;
+    border-radius: var(--card-radius);
 }
 
 .attribution-box {
-    margin: 0;
-    position: relative;
     display: flex;
     justify-content: center;
+    padding: 0 24px 4px;
 }
 
 #attribution-info {
-    backdrop-filter: blur(10px);
-    padding: 0 5px 0;
-    background-color: rgba(0, 0, 0, 0.5);
-    font-size: 25px;
-    justify-content: space-between;
-    display: inline-flex;
-    word-wrap: break-word;
-    color: var(--sub-text-color);
+    color: var(--tip-text-color);
+    font-size: 17px;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
     text-align: center;
+}
+
+#attribution-info:empty {
+    display: none;
 }

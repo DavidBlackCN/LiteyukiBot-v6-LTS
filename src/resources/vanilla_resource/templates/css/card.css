@@ -1,39 +1,50 @@
 :root {
-    --main-text-color: #000;
-    --sub-text-color: #333;
-    --tip-text-color: #777;
-    --device-info-width: 240px;
+    --card-bg: rgba(255, 255, 255, 0.94);
+    --card-border: rgba(148, 180, 214, 0.28);
+    --card-radius: 28px;
+    --card-shadow: 0 14px 36px rgba(42, 79, 120, 0.13);
+    --color-primary: #2679c9;
+    --color-primary-soft: #e8f3ff;
+    --main-text-color: #172534;
+    --sub-text-color: #42566b;
+    --tip-text-color: #718399;
+    --device-info-width: 220px;
 }
 
+* {
+    box-sizing: border-box;
+}
+
+html {
+    background: #eaf3fc;
+}
+
+body {
+    width: 1080px;
+    min-height: 100vh;
+    margin: 0;
+    padding: 28px;
+    color: var(--main-text-color);
+    background:
+        radial-gradient(circle at 8% 2%, rgba(117, 190, 255, 0.34), transparent 32%),
+        radial-gradient(circle at 96% 24%, rgba(176, 217, 255, 0.3), transparent 30%),
+        linear-gradient(155deg, #f4f9ff 0%, #eaf4fd 54%, #f8fbff 100%);
+}
 
 .data-storage {
     display: none;
 }
 
-body {
-    background-repeat: repeat-y;
-    background-size: cover;
-    background-position: center;
-    text-shadow: 1px 1px 2px white;
-    margin: 20px;
-}
-
 .info-box {
-    /* border-radius: 60px; */
-    padding: 40px;
-    backdrop-filter: blur(10px);
-    background-color: rgba(255, 255, 255, 0.5);
     margin-bottom: 20px;
+    padding: 32px;
+    overflow: hidden;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: var(--card-radius);
+    box-shadow: var(--card-shadow);
 }
 
-#author-description {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-}
-
-#author-text {
-    margin-left: 20px;
-    color: var(--sub-text-color);
-    font-size: 30px;
+.info-box:last-child {
+    margin-bottom: 0;
 }

@@ -102,8 +102,6 @@
         }
     )
 
-    // 从/js/motto.js中读取mottos{}，随机选择一句
-    // let motto = mottos[Math.floor(Math.random() * mottos.length)];
     // 正文在中间，作者和来源格式为--作者 来源，在右下方
     let mottoDiv = document.getElementById('motto-info');
     let mottoText = document.createElement('div');

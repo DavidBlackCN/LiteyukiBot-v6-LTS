@@ -1,58 +1,33 @@
 <!DOCTYPE html>
-<html lang="zh" xmlns="http://www.w3.org/1999/html">
+<html lang="zh-CN">
 
-    <head>
-        <meta charset="UTF-8">
-        <title>Liteyuki Stats Message</title>
-        <link rel="stylesheet" href="./css/card.css">
-        <link rel="stylesheet" href="./css/fonts.css">
-        <link rel="stylesheet" href="./css/stat_rank.css">
-        <style>
-        .row {
-            height: 100px;
-            display: flex;
-            background-color: rgba(255, 255, 255, 0.9);
-            /* border-radius: 100px; */
-            margin-bottom: 10px;
-            padding-right: 10px;
-        }
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Liteyuki Statistics Ranking</title>
+    <link rel="stylesheet" href="./css/card.css">
+    <link rel="stylesheet" href="./css/fonts.css">
+    <link rel="stylesheet" href="./css/stat_rank.css">
+</head>
 
-        .row-name {
-            font-size: 40px;
-            align-content: center;
-            width: 100px;
-            text-align: left;
-        }
+<body>
+    <template id="row-template">
+        <article class="rank-row">
+            <div class="row-position"></div>
+            <img src="./img/liteyuki.png" alt="avatar" class="row-icon">
+            <div class="row-name"></div>
+            <div class="row-count"></div>
+        </article>
+    </template>
 
-        .row-icon {
-            /* border-radius: 50%; */
-            margin-right: auto;
-        }
+    <div class="data-storage" id="data">{{ data | tojson }}</div>
+    <header class="info-box rank-header">
+        <div class="rank-kicker">LiteyukiBot v6 LTS</div>
+        <div id="rank-title"></div>
+    </header>
+    <main class="info-box" id="rank-list"></main>
+    <script src="./js/card.js"></script>
+    <script src="./js/stat_rank.js"></script>
+</body>
 
-        .row-count {
-            align-content: center;
-            font-size: 40px;
-            /*    靠右*/
-            margin-left: auto;
-        }
-    </style>
-    </head>
-
-    <body>
-
-        <template id="row-template">
-            <div class="row">
-                <img src="./img/arrow-up.svg" alt="up" class="row-icon">
-                <div class="row-name"></div>
-                <div class="row-count"></div>
-            </div>
-        </template>
-
-        <div class="data-storage" id="data">{{ data | tojson }}</div>
-
-        <div class="info-box" id="addition-info"></div>
-        <script
-            src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.5.0/echarts.min.js"></script>
-        <script src="./js/stat_rank.js"></script>
-        <script src="./js/card.js"></script>
-    </body>
+</html>

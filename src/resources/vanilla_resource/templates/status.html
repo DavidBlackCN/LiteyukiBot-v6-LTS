@@ -1,55 +1,49 @@
 <!DOCTYPE html>
-<html lang="zh">
+<html lang="zh-CN">
 
 <head>
     <meta charset="UTF-8">
-    <title>Liteyuki Status</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LiteyukiBot v6 LTS Status</title>
     <link rel="stylesheet" href="./css/card.css">
     <link rel="stylesheet" href="./css/status.css">
     <link rel="stylesheet" href="./css/fonts.css">
-
 </head>
 
 <body>
     <template id="bot-template">
-        <div class="info-box bot-info" style="justify-content: space-between;">
-            <div class="bot-icon" style="text-align:start;">
+        <article class="info-box bot-info">
+            <div class="bot-icon">
                 <img class="bot-icon-img" src="" alt="bot-icon">
             </div>
             <div class="bot-detail">
-                <div class="bot-name" style="text-align:start">
-                    TriMO-Liteyuki
-                </div>
-                <hr>
-                <div class="bot-icon-tags">
-                    <!-- <div style="text-align:start; width: 10px;"> <img src="./img/empty.png"></div> -->
-                    <div class="bot-tags">
-                        <!--                tag span-->
-                    </div>
-                </div>
+                <div class="bot-name">LiteyukiBot v6 LTS</div>
+                <div class="bot-divider"></div>
+                <div class="bot-tags"></div>
             </div>
-        </div>
+        </article>
     </template>
 
     <template id="device-info">
-        <div class="device-info">
+        <article class="device-info">
             <div class="device-chart">
+                <div class="device-chart-content">
+                    <div class="device-chart-value"></div>
+                    <div class="device-chart-label"></div>
+                </div>
             </div>
-            <div class="device-tags">
-            </div>
-        </div>
+            <div class="device-tags"></div>
+        </article>
     </template>
 
     <div class="data-storage" id="data">{{ data | tojson }}</div>
-    <div class="info-box" id="hardware-info"></div>
-    <div class="info-box" id="disk-info"></div>
-    <div class="info-box" id="motto-info">
+    <section class="info-box" id="hardware-info"></section>
+    <section class="info-box" id="disk-info"></section>
+    <section class="info-box" id="motto-info">
         <div id="motto-text"></div>
         <div id="motto-from"></div>
-    </div>
-    <div class="info-box" id="addition-info"></div>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.5.0/echarts.min.js"></script>
-    <!-- <script src="./js/motto.js"></script> -->
+    </section>
+    <section class="info-box" id="addition-info"></section>
     <script src="./js/card.js"></script>
     <script src="./js/status.js"></script>
 </body>

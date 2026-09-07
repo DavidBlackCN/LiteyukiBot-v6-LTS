@@ -1,10 +1,8 @@
-
-
 <h1 style="text-align: center;"> {local_description} </h1>
 
-<h2> <img src="./img/litetrimo.png" width="50"> &nbsp; {liteyuki_name} - 睿乐 </h2>
+<h2> <img src="./img/liteyuki.png" width="50"> &nbsp; {liteyuki_name} </h2>
 
- - 灵温 {liteyuki_version} | Nonebot {liteyuki_nonebot}
+ - LiteyukiBot v6 LTS {liteyuki_version} | NoneBot {liteyuki_nonebot}
  - {liteyuki_system} {liteyuki_python}
  - {local_plugins}{liteyuki_plugins} | {local_resources}{liteyuki_resources}
  - {local_bots}{liteyuki_bots}
@@ -46,5 +44,3 @@
 <div align="right">——{motto_source}</div>
 
 #### <div align="center">{acknowledgement}</div>
-
-#### <div align="center">该页样式由 <img src="https://q.qlogo.cn/g?b=qq&nk=2647547478&s=640" width=40>金羿Eilles 设计</div>
