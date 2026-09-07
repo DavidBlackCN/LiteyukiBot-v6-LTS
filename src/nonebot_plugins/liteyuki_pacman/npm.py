@@ -200,7 +200,7 @@ async def uninstall_pacman_plugin(module_name: str) -> tuple[str, str]:
             Args["page", int, 1]["num", int, 10],
             Option(
                 "-m|--markdown",
-                default=False,
+                default=True,
                 action=store_true,
                 help_text="以 Markdown 交互形式显示列表",
             ),

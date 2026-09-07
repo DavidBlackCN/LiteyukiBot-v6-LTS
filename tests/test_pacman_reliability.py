@@ -228,3 +228,51 @@ async def main():
 asyncio.run(main())
 """
     )
+
+
+def test_npm_and_rpm_list_default_to_rendered_images() -> None:
+    _run_python(
+        BOOTSTRAP
+        + """
+import asyncio
+import nonebot
+from src.nonebot_plugins.liteyuki_pacman import rpm
+
+npm_command = next(
+    matcher.command
+    for matcher in nonebot.get_plugin("liteyuki_pacman").matcher
+    if str(matcher.command.command) == "npm"
+)
+result = npm_command.parse("npm list")
+assert result.matched
+assert result.subcommands["list"].options["markdown"].value is True
+
+async def main():
+    calls = []
+
+    async def fake_md_to_pic(markdown):
+        calls.append(("render", markdown))
+        return b"image-bytes"
+
+    class FakeUniMessage:
+        @staticmethod
+        def image(*, raw):
+            calls.append(("image", raw))
+            return ("image", raw)
+
+        @staticmethod
+        async def send(message):
+            calls.append(("send", message))
+
+    rpm.md_to_pic = fake_md_to_pic
+    rpm.UniMessage = FakeUniMessage
+    await rpm._send_list_image("# resources")
+    assert calls == [
+        ("render", "# resources"),
+        ("image", b"image-bytes"),
+        ("send", ("image", b"image-bytes")),
+    ]
+
+asyncio.run(main())
+"""
+    )

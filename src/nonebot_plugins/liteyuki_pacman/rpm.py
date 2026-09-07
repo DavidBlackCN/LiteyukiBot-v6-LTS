@@ -9,6 +9,7 @@ from nonebot.permission import SUPERUSER
 from src.utils.base.language import get_user_lang
 from src.utils.base.ly_typing import T_Bot, T_MessageEvent
 from src.utils.message.message import MarkdownMessage as md
+from src.utils.message.html_tool import md_to_pic
 from src.utils.base.resource import (
     ResourceMetadata,
     add_resource_pack,
@@ -22,7 +23,19 @@ from src.utils.base.resource import (
 )
 
 require("nonebot_plugin_alconna")
-from nonebot_plugin_alconna import Alconna, Args, on_alconna, Arparma, Subcommand
+from nonebot_plugin_alconna import (
+    Alconna,
+    Args,
+    on_alconna,
+    Arparma,
+    Subcommand,
+    UniMessage,
+)
+
+
+async def _send_list_image(markdown: str) -> None:
+    image = await md_to_pic(markdown)
+    await UniMessage.send(UniMessage.image(raw=image))
 
 
 @on_alconna(
@@ -198,7 +211,7 @@ async def _(bot: T_Bot, event: T_MessageEvent, result: Arparma, matcher: Matcher
     else:
         pass
     if send_as_md:
-        await matcher.send(reply)
+        await _send_list_image(reply)
     else:
         if reply:
             await matcher.finish(reply)
