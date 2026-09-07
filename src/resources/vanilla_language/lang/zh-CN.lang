@@ -173,16 +173,6 @@ status.arch.unknown=未知架构
 status.disk.other=虚拟磁盘及其他
 
 status.unit.GHz=GHz
-status.unit.Byte=字节
-status.unit.binary_middile=二进制幂
-status.unit.Bit_Units=千;兆;吉;太;拍;艾;泽;尧;容;昆
-
-yanlun.refresh.success=言论更新成功，共 {COUNT} 条
-yanlun.refresh.failed=更新言论信息时发生 {ERR} 错误：{ERRCODE}
-yanlun.errtype.net=网络
-yanlun.errtype.unknown=未知
-yanlun.count.head=出处数量(占比)
-yanlun.count.tail=...(共 {NUM} 条)
-yanlun.length.toolong=言论过多
-yanlun.length.tooshort=言论过少
-yanlun.length.float=言论数量不可为非整数
+status.unit.Byte=
+status.unit.binary_middile=
+status.unit.Bit_Units=KB;MB;GB;TB;PB;EB;ZB;YB;RB;QB

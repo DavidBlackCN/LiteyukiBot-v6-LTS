@@ -185,46 +185,16 @@
 
 自动接龙默认在会话内开启，可能响应任意用户发送的合法四字成语；不需要时应通过上述命令关闭或停用插件。
 
-### `trimo_plugin_msctconverter` — 伶伦转换器
+### `trimo_status` — 状态与实用查询
 
-面向 Minecraft 音乐与命令数据的转换工具。插件会缓存用户上传的受支持文件，并按点数及缓存限制执行较重的转换任务。
-
-基础命令：
-
-- `查看帮助`：显示转换帮助；别名包括 `转换帮助`、`cvt_help`、`convert_help`。
-- `查看缓存`：列出自己的缓存文件；别名包括 `listCache`、`查看文件缓存`。
-- `清除缓存`：清理自己的转换缓存；另有大小写不同的英文别名。
-- 上传文件后，根据适配器提供的文件事件自动加入当前用户缓存。
-
-音乐命令：
-
-- `llmscvt`：把 MIDI 等输入转换为 Minecraft 可用格式；别名包括 `linglun_convert`、`音乐转换`、`midi转换`、`转换音乐`。
-- 常用选项包括 `-f|--file`、`-ps|--play-speed`、`-dftp|--default-tempo`、`-t|-type`、`-s|--scoreboard-name`、`-p|--player-selector`、`-l|--height-limit`、`-a|--author`、`--debug`。
-- `音乐合成`：把音乐文件合成为试听音频；别名包括 `midi合成`、`音乐预览`、`mscprv`、`music_preview`。常用选项为 `-n|-f|--file-name`、`-m|--mode`、`-g|--get-value-method`、`-o|--output-file`。
-
-命令与结构工具：
-
-- `写入文本文件 [文件名]`：把命令消息首行之后的内容写入缓存文件；首行带 `-a` 时追加。
-- `指令转结构`：把 Minecraft 指令文件转换为结构；别名包括 `函数转结构`、`cmd2struct`、`command2structure`、`mcfunction2struct`。
-- 常用选项：`-n|-f|--file-name`、`-t|-type`、`-e|-x|--expand-axis`、`-l|--length-limit`、`-a|--author`、`--debug`。
-- `指令自动更新`：切换当前会话的 Minecraft `execute` 指令自动转换；开启后，以 `execute` 开头的消息会被处理。
-- `设置点数 -p|--people <用户> -v|--value <数值> -i|--item <项目>`：超级用户调整转换点数。
-
-该插件选项较多，实际使用时优先执行 `查看帮助` 获取当前版本的完整格式。音频预览依赖 `librosa`、`soundfile`、`mido`、`numpy`、`scipy` 等音频栈，首次处理大型文件可能耗时较长。
-
-### `trimo_status` — 状态、言论与实用查询
-
-提供实例状态卡、随机言论、中文日期时间和数字读法。
+提供实例状态卡、中文日期时间和数字读法。状态卡底部的一言按需获取，失败时使用固定本地文案。
 
 - `status`：生成状态卡；别名 `状态`。
 - `status -r|--refresh`：绕过状态卡缓存重新生成。
 - `status -t|-md|--markdown`：使用 Markdown 路径生成状态卡。
 - `status memory` 与 `status process` 已注册，但当前处理器是占位实现。
-- `言论 [-r|--refresh] [-s|--special] [-c|--count] [-l|--length <数量>]`：随机言论、刷新或统计言论库；别名 `yanlun`、`言·论`、`yan_lun`。
 - `时间`：返回中文历法时间；别名 `时间查询`、`timeq`、`timequery`。
 - `读数 <整数> [-g|--group]`：把整数转换为中文读法；`--group` 使用分组读法，别名 `readout_number`、`number_read`。
-
-远程言论配置：`yanlun_remote_enabled` 默认 `false`；关闭或远程不可用时使用内置言论。`yanlun_type` 可为 `file` 或 `url`，数据位置由 `yanlun_path` 指定。
 
 ### `liteyuki_uniblacklist` — 联合黑名单（测试中）
 
@@ -259,6 +229,6 @@ Satori 适配器的临时用户数据维护插件：在消息预处理阶段更�
 
 - `trimo_plugin_handle`、`trimo_plugin_dockdragon` 使用 `nonebot-plugin-alconna` 与 `nonebot-plugin-session` 的统一会话能力，具体支持范围取决于这两个插件和当前适配器。
 - `liteyuki_satori_user_info` 仅服务于 Satori；核心同时包含 OneBot V11、OneBot V12 与 Satori 的分支处理。
-- 文件上传、群文件和富媒体渲染在不同适配器实现上可能有差异，`trimo_plugin_msctconverter` 与 Markdown 测试插件尤其依赖适配器能力。
+- 文件上传、群文件和富媒体渲染在不同适配器实现上可能有差异，Markdown 测试插件尤其依赖适配器能力。
 - `webdash` 需要支持 HTTP 路由注册的驱动。
-- 插件商店、联合黑名单、远程注册和远程言论均涉及外部网络；其中远程注册与远程言论在当前 fork 默认关闭，其他网络功能应按部署需求单独启停。
+- 插件商店、联合黑名单、远程注册和状态卡一言均涉及外部网络；其中远程注册默认关闭，状态卡一言失败时会使用本地文案，其他网络功能应按部署需求单独启停。

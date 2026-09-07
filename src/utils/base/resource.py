@@ -26,7 +26,6 @@ BUILTIN_RESOURCE_ORDER = (
     "liteyuki_weather",
     "liteyuki_words_aojiao.zip",
     "liteyuki_words_kawaii.zip",
-    "trim_plugin_msctconverter",
 )
 
 
