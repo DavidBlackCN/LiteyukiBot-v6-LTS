@@ -1,6 +1,8 @@
+import base64
 import platform
 import time
 
+import aiohttp
 import nonebot
 import psutil
 from cpuinfo import cpuinfo
@@ -23,6 +25,9 @@ from .config import status_config
 # from nonebot_plugin_apscheduler import scheduler
 
 commit_hash = Repo(".").head.commit.hexsha
+
+STATUS_BACKGROUND_MAX_BYTES = 12 * 1024 * 1024
+_status_background_cache: tuple[str, str] | None = None
 
 protocol_names = {
     0: "苹果iPad",
@@ -311,9 +316,40 @@ async def generate_status_card(
                 "localization": await get_local_data(lang),
                 "motto": motto,
                 "acknowledgement": status_config.status_acknowledgement,
+                "background": await get_status_background(),
             }
         },
     )
+
+
+async def get_status_background() -> dict:
+    """Fetch an optional status-only background and quietly fall back locally."""
+    global _status_background_cache
+
+    mask = status_config.status_background_mask
+    url = status_config.status_background_url.strip()
+    if not status_config.status_background_enabled or not url:
+        return {"image": None, "mask": mask}
+
+    timeout = aiohttp.ClientTimeout(total=status_config.status_background_timeout)
+    try:
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.get(url) as response:
+                response.raise_for_status()
+                media_type = response.headers.get("Content-Type", "").split(";", 1)[0]
+                if not media_type.startswith("image/"):
+                    raise ValueError(f"unexpected content type: {media_type or 'unknown'}")
+                content = await response.read()
+                if not content or len(content) > STATUS_BACKGROUND_MAX_BYTES:
+                    raise ValueError("empty or oversized image response")
+    except (aiohttp.ClientError, TimeoutError, ValueError) as err:
+        nonebot.logger.debug(f"Status background unavailable, using fallback: {err}")
+        cached = _status_background_cache
+        return {"image": cached[1] if cached and cached[0] == url else None, "mask": mask}
+
+    image = f"data:{media_type};base64,{base64.b64encode(content).decode('ascii')}"
+    _status_background_cache = (url, image)
+    return {"image": image, "mask": mask}
 
 
 async def get_local_data(lang_code) -> dict:
@@ -395,13 +431,15 @@ async def get_bots_data(self_id: str = "0") -> dict:
 
         statistics = status.get("stat", {})
         app_name = version_info.get("app_name", "未知应用接口")
-        if app_name in ["Lagrange.OneBot", "LLOneBot", "Shamrock", "NapCat.Onebot"]:
-            icon = f"https://q.qlogo.cn/g?b=qq&nk={bot_id}&s=640"
-        elif isinstance(bot, satori.Bot):
+        if isinstance(bot, satori.Bot):
             app_name = "Satori"
-            icon = (await bot.login_get()).user.avatar
+            try:
+                icon = (await bot.login_get()).user.avatar
+            except Exception:
+                icon = None
         else:
-            icon = None
+            # OneBot-compatible clients (including SnowLuma) use the Bot QQ avatar.
+            icon = f"https://q.qlogo.cn/g?b=qq&nk={bot_id}&s=640"
         bot_data = {
             "name": bot_name,
             "icon": icon,

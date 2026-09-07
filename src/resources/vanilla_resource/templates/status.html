@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,17 +8,23 @@
     <link rel="stylesheet" href="./css/status.css">
     <link rel="stylesheet" href="./css/fonts.css">
 </head>
+<body class="status-page">
+    <div class="status-background" aria-hidden="true"></div>
+    <div class="status-mask" aria-hidden="true"></div>
 
-<body>
     <template id="bot-template">
-        <article class="info-box bot-info">
-            <div class="bot-icon">
-                <img class="bot-icon-img" src="" alt="bot-icon">
-            </div>
+        <article class="bot-info">
+            <img class="bot-icon-img" src="" alt="Bot avatar">
             <div class="bot-detail">
-                <div class="bot-name">LiteyukiBot v6 LTS</div>
-                <div class="bot-divider"></div>
+                <div class="bot-heading">
+                    <div>
+                        <div class="bot-name">LiteyukiBot</div>
+                        <div class="bot-identity"></div>
+                    </div>
+                    <span class="online-dot">ONLINE</span>
+                </div>
                 <div class="bot-tags"></div>
+                <div class="bot-stat-grid"></div>
             </div>
         </article>
     </template>
@@ -37,15 +42,51 @@
     </template>
 
     <div class="data-storage" id="data">{{ data | tojson }}</div>
-    <section class="info-box" id="hardware-info"></section>
-    <section class="info-box" id="disk-info"></section>
-    <section class="info-box" id="motto-info">
-        <div id="motto-text"></div>
-        <div id="motto-from"></div>
-    </section>
-    <section class="info-box" id="addition-info"></section>
+    <main class="status-shell">
+        <header class="info-box status-hero">
+            <div class="brand-lockup">
+                <img class="brand-logo" src="./img/liteyuki.png" alt="Liteyuki logo">
+                <div>
+                    <div class="hero-kicker">LITEYUKI STATUS</div>
+                    <h1 id="status-title">LiteyukiBot v6 LTS</h1>
+                    <p id="status-subtitle">LiteyukiBot v6 LTS Status Dashboard</p>
+                </div>
+            </div>
+            <div class="hero-meta" id="hero-meta"></div>
+        </header>
+
+        <section class="summary-grid" id="summary-info"></section>
+
+        <section class="info-box status-section" id="bot-section">
+            <div class="section-heading">
+                <div><span class="section-kicker">BOT CONNECTIONS</span><h2>Bot 实例</h2></div>
+                <span class="section-count" id="bot-count"></span>
+            </div>
+            <div id="bots-info"></div>
+        </section>
+
+        <section class="info-box status-section">
+            <div class="section-heading">
+                <div><span class="section-kicker">SYSTEM HEALTH</span><h2>运行资源</h2></div>
+            </div>
+            <div id="hardware-info"></div>
+        </section>
+
+        <section class="info-box status-section" id="disk-section">
+            <div class="section-heading">
+                <div><span class="section-kicker">STORAGE</span><h2 id="disk-title">磁盘</h2></div>
+            </div>
+            <div id="disk-info"></div>
+        </section>
+
+        <section class="info-box quote-card" id="motto-info">
+            <div class="quote-mark">“</div>
+            <div id="motto-text"></div>
+            <div id="motto-from"></div>
+        </section>
+        <footer id="addition-info"></footer>
+    </main>
     <script src="./js/card.js"></script>
     <script src="./js/status.js"></script>
 </body>
-
 </html>

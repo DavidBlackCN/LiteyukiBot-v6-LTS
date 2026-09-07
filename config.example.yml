@@ -21,6 +21,13 @@ liteyuki:
   remote_register: false
 yanlun_remote_enabled: false
 
+# Optional background for the public /status card only. The URL must return
+# image bytes directly (HTTP redirects are supported).
+status_background_enabled: false
+status_background_url: ""
+status_background_timeout: 6
+status_background_mask: 0.72
+
 # Built-in idiom game.
 handle_strict_mode: false
 handle_color_enhance: false

@@ -82,3 +82,27 @@ def test_status_ui_uses_lts_brand_and_native_charts() -> None:
     assert "box-shadow" in card_css
     assert "echarts" not in status_html.lower()
     assert "echarts" not in status_js.lower()
+
+
+def test_status_ui_has_scoped_background_and_real_bot_avatar_contract() -> None:
+    status_html = (TEMPLATE_ROOT / "status.html").read_text(encoding="utf-8")
+    status_js = (TEMPLATE_ROOT / "js" / "status.js").read_text(encoding="utf-8")
+    status_css = (TEMPLATE_ROOT / "css" / "status.css").read_text(encoding="utf-8")
+
+    assert 'class="brand-logo" src="./img/liteyuki.png"' in status_html
+    assert 'id="summary-info"' in status_html
+    assert 'id="bots-info"' in status_html
+    assert "--status-background-image" in status_js
+    assert "has-remote-background" in status_js
+    assert 'image.src = bot["icon"]' in status_js
+    assert ".status-page.has-remote-background" in status_css
+    assert "backdrop-filter" in status_css
+
+
+def test_status_background_config_is_safe_by_default() -> None:
+    config = Path("config.example.yml").read_text(encoding="utf-8")
+
+    assert "status_background_enabled: false" in config
+    assert 'status_background_url: ""' in config
+    assert "status_background_timeout: 6" in config
+    assert "status_background_mask: 0.72" in config
