@@ -28,10 +28,14 @@ starter._load_alconna_plugin()
 assert nonebot.load_plugin("src.nonebot_plugins.trimo_status") is not None
 
 from src.nonebot_plugins.trimo_status import api
+from src.nonebot_plugins.trimo_status.config import TrimoStatusConfig
+
+assert TrimoStatusConfig().status_background_mask == 0.35
 
 
 class FakeResponse:
     headers = {"Content-Type": "image/png"}
+    url = "https://cdn.example.test/final.png"
 
     async def __aenter__(self):
         return self
@@ -86,6 +90,13 @@ class FakeOneBot:
 
 
 async def main():
+    debug_logs = []
+
+    class FakeLogger:
+        def debug(self, message):
+            debug_logs.append(message)
+
+    api.nonebot.logger = FakeLogger()
     api.status_config.status_background_enabled = True
     api.status_config.status_background_url = "https://example.test/background"
     api.status_config.status_background_timeout = 4
@@ -97,6 +108,10 @@ async def main():
         "image": "data:image/png;base64," + base64.b64encode(b"valid-image").decode(),
         "mask": 0.68,
     }
+    assert debug_logs == [
+        "Status background loaded: url=https://cdn.example.test/final.png, "
+        "content_type=image/png, size=11 bytes"
+    ]
 
     api.aiohttp.ClientSession = OfflineSession
     assert await api.get_status_background() == background

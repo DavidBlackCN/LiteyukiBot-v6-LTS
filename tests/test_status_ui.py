@@ -97,6 +97,9 @@ def test_status_ui_has_scoped_background_and_real_bot_avatar_contract() -> None:
     assert 'image.src = bot["icon"]' in status_js
     assert ".status-page.has-remote-background" in status_css
     assert "backdrop-filter" in status_css
+    assert "blur(8px)" in status_css
+    assert "rgba(255, 255, 255, 0.84)" in status_css
+    assert "rgba(255, 255, 255, 0.78)" in status_css
 
 
 def test_status_background_config_is_safe_by_default() -> None:
@@ -105,4 +108,4 @@ def test_status_background_config_is_safe_by_default() -> None:
     assert "status_background_enabled: false" in config
     assert 'status_background_url: ""' in config
     assert "status_background_timeout: 6" in config
-    assert "status_background_mask: 0.72" in config
+    assert "status_background_mask: 0.35" in config

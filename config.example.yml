@@ -26,7 +26,7 @@ yanlun_remote_enabled: false
 status_background_enabled: false
 status_background_url: ""
 status_background_timeout: 6
-status_background_mask: 0.72
+status_background_mask: 0.35
 
 # Built-in idiom game.
 handle_strict_mode: false

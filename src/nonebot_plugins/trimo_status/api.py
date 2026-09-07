@@ -342,6 +342,7 @@ async def get_status_background() -> dict:
                 content = await response.read()
                 if not content or len(content) > STATUS_BACKGROUND_MAX_BYTES:
                     raise ValueError("empty or oversized image response")
+                final_url = str(response.url)
     except (aiohttp.ClientError, TimeoutError, ValueError) as err:
         nonebot.logger.debug(f"Status background unavailable, using fallback: {err}")
         cached = _status_background_cache
@@ -349,6 +350,10 @@ async def get_status_background() -> dict:
 
     image = f"data:{media_type};base64,{base64.b64encode(content).decode('ascii')}"
     _status_background_cache = (url, image)
+    nonebot.logger.debug(
+        f"Status background loaded: url={final_url}, "
+        f"content_type={media_type}, size={len(content)} bytes"
+    )
     return {"image": image, "mask": mask}
 
 
