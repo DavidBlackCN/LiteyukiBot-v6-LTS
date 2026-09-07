@@ -19,3 +19,7 @@ weather.now-vis=能见
 weather.now-cloud=云量
 weather.astronomy-sunrise=日出
 weather.astronomy-sunset=日落
+weather.no_host=未设置和风天气 API Host，请配置 weather_api_host
+weather.no_location=请指定城市，或先在个人资料中设置默认 location
+weather.no_template=天气卡资源尚未加载，请执行 rpm reload
+weather.request_failed=天气服务暂时不可用：{ERROR}

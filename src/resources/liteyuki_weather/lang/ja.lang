@@ -19,3 +19,7 @@ weather.now-vis=能視距離
 weather.now-cloud=雲量
 weather.astronomy-sunrise=日出
 weather.astronomy-sunset=日没
+weather.no_host=和風天気 API Host が未設定です。weather_api_host を設定してください
+weather.no_location=都市を指定するか、プロフィールにデフォルトの location を設定してください
+weather.no_template=天気カードのリソースが未読み込みです。rpm reload を実行してください
+weather.request_failed=天気サービスは一時的に利用できません：{ERROR}

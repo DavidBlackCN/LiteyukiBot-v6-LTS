@@ -19,3 +19,7 @@ weather.now-vis=VIS
 weather.now-cloud=CC
 weather.astronomy-sunrise=SR
 weather.astronomy-sunset=SS
+weather.no_host=QWeather API Host is not configured. Please set weather_api_host
+weather.no_location=Please specify a city or set a default location in your profile
+weather.no_template=Weather card resources are not loaded. Please run rpm reload
+weather.request_failed=Weather service is temporarily unavailable: {ERROR}
