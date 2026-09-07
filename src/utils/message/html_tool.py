@@ -1,6 +1,9 @@
 import os
+from pathlib import Path
+
 import aiofiles
 import nonebot
+from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 
 from nonebot import require
 
@@ -12,6 +15,7 @@ from nonebot_plugin_htmlrender import (
     md_to_pic,
     init,
 )
+from nonebot_plugin_htmlrender.browser import get_new_page
 
 from .tools import random_hex_string
 
@@ -83,3 +87,42 @@ async def template2image(
         device_scale_factor=scale_factor,
         ###
     )
+
+
+async def template2image_element(
+    template: str,
+    templates: dict,
+    selector: str,
+    *,
+    pages: dict | None = None,
+    wait_for: str | None = None,
+    wait_timeout: int = 1000,
+    scale_factor: float = 1,
+) -> bytes:
+    """Render one template element without changing the shared full-page path."""
+    if pages is None:
+        pages = {"viewport": {"width": 1080, "height": 10}}
+
+    template_path = os.path.dirname(template)
+    html = await template_to_html(
+        template_path=template_path,
+        template_name=os.path.basename(template),
+        **templates,
+    )
+    async with get_new_page(scale_factor, **pages) as page:
+        page.on(
+            "console",
+            lambda message: nonebot.logger.debug(
+                f"Browser console: {message.type}: {message.text}"
+            ),
+        )
+        await page.goto(Path(template_path).resolve().as_uri())
+        await page.set_content(html, wait_until="networkidle")
+        if wait_for:
+            try:
+                await page.wait_for_function(wait_for, timeout=wait_timeout)
+            except PlaywrightTimeoutError:
+                nonebot.logger.debug(
+                    f"Element render wait timed out after {wait_timeout}ms: {wait_for}"
+                )
+        return await page.locator(selector).screenshot(type="png")

@@ -133,17 +133,19 @@ async def main():
     async def fake_local_data(lang):
         return {"language": lang}
 
-    async def fake_template2image(template, templates, **kwargs):
+    async def fake_template2image_element(template, templates, selector, **kwargs):
         render_call.update(template=template, templates=templates, kwargs=kwargs)
+        render_call["selector"] = selector
         return b"rendered"
 
     api.get_status_background = fake_background
     api.get_local_data = fake_local_data
     api.get_path = lambda *args, **kwargs: "status.html"
-    api.template2image = fake_template2image
+    api.template2image_element = fake_template2image_element
     rendered = await api.generate_status_card({}, {}, {}, lang="zh-CN")
     assert rendered == b"rendered"
-    assert render_call["kwargs"]["wait"] == 500
+    assert render_call["selector"] == ".status-page"
+    assert render_call["kwargs"]["wait_for"] == "window.statusBackgroundReady === true"
     assert render_call["templates"]["data"]["background"]["image"] is None
 
 

@@ -16,7 +16,7 @@ from src.utils.base.config import get_config
 from src.utils.base.data_manager import TempConfig, common_db
 from src.utils.base.language import Language
 from src.utils.base.resource import get_loaded_resource_packs, get_path
-from src.utils.message.html_tool import template2image, md_to_pic
+from src.utils.message.html_tool import template2image_element, md_to_pic
 from src.utils import satori_utils
 
 from .counter_for_satori import satori_counter
@@ -306,7 +306,7 @@ async def generate_status_card(
     bot_id="0",  # 兼容性
 ) -> bytes:
     # print(get_config("status_acknowledgement"))
-    return await template2image(
+    return await template2image_element(
         get_path("templates/status.html", abs_path=True),
         {
             "data": {
@@ -319,7 +319,8 @@ async def generate_status_card(
                 "background": await get_status_background(),
             }
         },
-        wait=500,
+        selector=".status-page",
+        wait_for="window.statusBackgroundReady === true",
     )
 
 
