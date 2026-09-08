@@ -196,13 +196,13 @@
 - `时间`：返回中文历法时间；别名 `时间查询`、`timeq`、`timequery`。
 - `读数 <整数> [-g|--group]`：把整数转换为中文读法；`--group` 使用分组读法，别名 `readout_number`、`number_read`。
 
-### `liteyuki_uniblacklist` — 联合黑名单（测试中）
+### `liteyuki_access_control` — 本地权限控制与限流
 
-启动后定期从远端下载 QQ 号黑名单，并在事件预处理阶段拒绝命中用户的消息。无聊天命令。
+统一提供本地用户/群黑名单、白名单、插件访问规则和内存限流。规则保存到本地 JSON，不访问联合黑名单或其他外部服务。
 
-- 远端地址当前为 `https://cdn.liteyuki.icu/static/ubl/qq.txt`。
-- 更新周期约 10 分钟。
-- 这是标记为测试中的网络功能；部署前应评估外部名单来源、网络可用性和误封风险，不需要时可停用插件。
+- `/access blacklist-user <用户 ID>`、`/access unblacklist-user <用户 ID>`：管理用户黑名单。
+- `/access blacklist-group <群 ID>`、`/access unblacklist-group <群 ID>`：管理群黑名单。
+- 黑名单优先于白名单和插件显式启用；管理命令仅限 SUPERUSER。
 
 ### `webdash` — 网页监控面板（基础骨架）
 
@@ -220,4 +220,4 @@
 - `liteyuki_satori_user_info` 仅服务于 Satori；核心同时包含 OneBot V11、OneBot V12 与 Satori 的分支处理。
 - 文件上传、群文件和富媒体渲染在不同适配器实现上可能有差异，Markdown 测试插件尤其依赖适配器能力。
 - `webdash` 需要支持 HTTP 路由注册的驱动。
-- 插件商店、联合黑名单、远程注册和状态卡一言均涉及外部网络；其中远程注册默认关闭，状态卡一言失败时会使用本地文案，其他网络功能应按部署需求单独启停。
+- 插件商店、远程注册和状态卡一言涉及外部网络；其中远程注册默认关闭，状态卡一言失败时会使用本地文案，其他网络功能应按部署需求单独启停。

@@ -176,6 +176,25 @@ def test_nonebot_hook_and_commands(tmp_path):
         async def main():
             assert not await commands.access.permission(bot, event)
             assert await api.is_allowed("liteyuki_smart_reply", "2", "100")
+            api.add_blacklist("2")
+            try:
+                await hooks.guard(bot, event, matcher)
+            except IgnoredException:
+                pass
+            else:
+                raise AssertionError("blacklisted user was not blocked")
+            await hooks.clear_decisions(bot, event)
+            api.remove_blacklist("2")
+            api.add_blacklist("100", scope="group")
+            try:
+                await hooks.guard(bot, event, matcher)
+            except IgnoredException:
+                pass
+            else:
+                raise AssertionError("blacklisted group was not blocked")
+            await hooks.clear_decisions(bot, event)
+            api.remove_blacklist("100", scope="group")
+            bot.send.reset_mock()
             commands.execute_command("disable plugin foo", 100)
             try:
                 await hooks.guard(bot, event, matcher)
@@ -220,4 +239,29 @@ def test_disabled_plugin_has_no_hooks_or_storage(tmp_path):
         assert plugin is not None and not plugin.matcher
         assert before == _run_preprocessors
         assert not (Path(os.environ["ACCESS_TEST_DIR"]) / "rules.json").exists()
+    ''', tmp_path)
+
+
+def test_access_control_loads_without_remote_blacklist_request(tmp_path):
+    source = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in (ROOT / "src").rglob("*.py")
+    )
+    assert "static/ubl/" not in source
+    run_python('''
+        import os
+        import aiohttp
+        import nonebot
+
+        requests = []
+        class ForbiddenSession:
+            def __init__(self, *args, **kwargs):
+                requests.append((args, kwargs))
+                raise AssertionError("plugin startup attempted an HTTP request")
+
+        aiohttp.ClientSession = ForbiddenSession
+        nonebot.init(access_control_data_path=os.environ["ACCESS_TEST_DIR"])
+        plugin = nonebot.load_plugin("src.nonebot_plugins.liteyuki_access_control")
+        assert plugin is not None
+        assert requests == []
     ''', tmp_path)
