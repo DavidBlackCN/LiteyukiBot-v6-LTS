@@ -65,6 +65,12 @@ __plugin_meta__ = PluginMetadata(
     supported_adapters=inherit_supported_adapters(
         "nonebot_plugin_alconna", "nonebot_plugin_uninfo"
     ),
+    extra={
+        "liteyuki": True,
+        "toggleable": True,
+        "default_enable": True,
+        "help_category": "builtin"
+    },
 )
 
 

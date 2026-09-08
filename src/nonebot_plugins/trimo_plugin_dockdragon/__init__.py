@@ -61,6 +61,10 @@ __plugin_meta__ = PluginMetadata(
     ),
     extra={
         "example": "@小羿 接龙",
+        "help_category": "builtin",
+        "liteyuki": True,
+        "toggleable": True,
+        "default_enable": True,
     },
 )
 

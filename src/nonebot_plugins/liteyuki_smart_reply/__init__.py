@@ -14,5 +14,6 @@ __plugin_meta__ = PluginMetadata(
         "liteyuki": True,
         "toggleable": True,
         "default_enable": True,
+        "help_category": "builtin"
     },
 )

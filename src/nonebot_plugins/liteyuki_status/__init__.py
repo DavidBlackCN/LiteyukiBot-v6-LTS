@@ -2,9 +2,9 @@ from nonebot.plugin import PluginMetadata
 from .config import TrimoStatusConfig
 from .status import *
 
-__author__ = "神羽SnowyKami & 金羿Eilles"
+__author__ = "神羽SnowyKami & 金羿Eilles & DavidBlackCN"
 __plugin_meta__ = PluginMetadata(
-    name="灵温状态查看",
+    name="轻雪状态查看器",
     description="",
     usage=(
         "MARKDOWN### 状态查看器\n"
@@ -21,5 +21,6 @@ __plugin_meta__ = PluginMetadata(
         "liteyuki": True,
         "toggleable": False,
         "default_enable": True,
+        "help_category": "builtin"
     },
 )
