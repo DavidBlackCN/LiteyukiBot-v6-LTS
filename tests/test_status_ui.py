@@ -73,7 +73,7 @@ def test_status_ui_uses_lts_brand_and_native_charts() -> None:
     status_html = (TEMPLATE_ROOT / "status.html").read_text(encoding="utf-8")
     status_js = (TEMPLATE_ROOT / "js" / "status.js").read_text(encoding="utf-8")
     card_css = (TEMPLATE_ROOT / "css" / "card.css").read_text(encoding="utf-8")
-    status_css = (TEMPLATE_ROOT / "css" / "status.css").read_text(encoding="utf-8")
+    status_css = (TEMPLATE_ROOT / "css" / "status.css").read_text(encoding="utf-8") + (TEMPLATE_ROOT / "css" / "card_background.css").read_text(encoding="utf-8")
 
     assert "LiteyukiBot v6 LTS" in status_html
     assert "liteyukiData[\"name\"]" in status_js
@@ -89,6 +89,8 @@ def test_status_ui_has_scoped_background_and_real_bot_avatar_contract() -> None:
     status_js = (TEMPLATE_ROOT / "js" / "status.js").read_text(encoding="utf-8")
     status_css = (TEMPLATE_ROOT / "css" / "status.css").read_text(encoding="utf-8")
 
+    status_css += (TEMPLATE_ROOT / "css" / "card_background.css").read_text(encoding="utf-8")
+
     assert 'class="brand-logo" src="./img/liteyuki.png"' in status_html
     assert 'id="summary-info"' in status_html
     assert 'id="bots-info"' in status_html
@@ -103,7 +105,7 @@ def test_status_ui_has_scoped_background_and_real_bot_avatar_contract() -> None:
     assert "--status-background-image" not in status_css
     assert "has-remote-background" in status_js
     assert 'image.src = bot["icon"]' in status_js
-    assert ".status-page.has-remote-background" in status_css
+    assert ".card-background-page).has-remote-background" in status_css
     assert "object-fit: cover" in status_css
     assert "position: fixed" not in status_css
     assert "position: absolute" in status_css
@@ -116,7 +118,7 @@ def test_status_ui_has_scoped_background_and_real_bot_avatar_contract() -> None:
 def test_status_background_config_is_safe_by_default() -> None:
     config = Path("config.example.yml").read_text(encoding="utf-8")
 
-    assert "status_background_enabled: false" in config
-    assert 'status_background_url: ""' in config
-    assert "status_background_timeout: 6" in config
-    assert "status_background_mask: 0.35" in config
+    assert "card_background_enabled: false" in config
+    assert 'card_background_url: ""' in config
+    assert "card_background_timeout: 6" in config
+    assert "card_background_mask: 0.35" in config

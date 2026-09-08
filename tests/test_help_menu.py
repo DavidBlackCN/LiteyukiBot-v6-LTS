@@ -28,12 +28,12 @@ def plugin(name="weather", module="src.nonebot_plugins.weather", **extra):
 
 def test_metadata_and_source():
     items = catalog.collect_plugins([plugin(category="utility")], Config())
-    assert items[0]["category_label"] == "实用工具"
+    assert items[0]["category_label"] == "基础插件"
     assert items[0]["source"] == "LTS 内置"
     assert catalog.source_of("other", {"liteyuki": True}) == "Liteyuki 原生"
     assert catalog.source_of("other", {}) == "第三方 NoneBot"
     item = catalog.collect_plugins([NS(name="missing", module_name="missing", metadata=None)], Config())[0]
-    assert item["name"] == "missing" and item["category"] == "other"
+    assert item["name"] == "missing" and item["category"] == "third_party"
 
 
 @pytest.mark.parametrize("mode", ["hidden", "library", "config", "third_party"])
@@ -56,9 +56,9 @@ def test_search(query):
 
 def test_pagination_and_detail():
     items = catalog.collect_plugins([plugin(str(n), category="utility") for n in range(23)], Config())
-    assert len(catalog.page_context(items, "工具 2")["items"]) == 10
-    assert len(catalog.page_context(items, "工具 3")["items"]) == 3
-    with pytest.raises(ValueError): catalog.page_context(items, "工具 4")
+    assert len(catalog.page_context(items, "基础 2")["items"]) == 10
+    assert len(catalog.page_context(items, "基础 3")["items"]) == 3
+    with pytest.raises(ValueError): catalog.page_context(items, "基础 4")
     p = plugin(help_commands=[{"command": "天气 深圳", "description": "查询"}])
     items = catalog.collect_plugins([p], Config())
     detail = catalog.page_context(items, "weather")["detail"]
@@ -105,10 +105,11 @@ p = nonebot.load_plugin("src.nonebot_plugins.liteyuki_help_menu")
 assert p is not None and p.matcher
 from src.nonebot_plugins.liteyuki_help_menu import handlers as h
 assert h.menu.priority == 0 and h.menu.block
-assert h.parse_request("帮助 工具 2", {"/"}) == "工具 2"
+assert h.parse_request("帮助 基础 2", {"/"}) == "基础 2"
 assert h.parse_request("/help weather", {"/"}) == "weather"
 assert h.parse_request("菜单", {"/"}) == ""
 assert h.parse_request("帮助我一下", {"/"}) is None
+h.get_card_background = AsyncMock(return_value={"image": None, "mask": 0.35})
 h.get_path = lambda _: "mock.html"
 h.template2image_element = AsyncMock(return_value=b"png")
 async def main():
@@ -117,6 +118,7 @@ async def main():
     assert h.template2image_element.await_count == 1
     await h.render_menu({"title":"b"})
     assert h.template2image_element.await_count == 2
+    assert h.template2image_element.call_args.args[1]["data"]["background"] == {"image": None, "mask": 0.35}
 asyncio.run(main())
 '''
     result = subprocess.run([sys.executable, "-c", source], cwd=ROOT,

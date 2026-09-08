@@ -17,7 +17,7 @@ __plugin_meta__ = PluginMetadata(
     homepage="https://github.com/DavidBlackCN/LiteyukiBot-v6-LTS",
     config=GroupManagerConfig,
     extra={
-        "liteyuki": True,
+        "liteyuki": True, "lts_builtin": True,
         "toggleable": True,
         "default_enable": True,
     },

@@ -98,16 +98,17 @@ group_manager_allow_admin_kick: true
 
 # ==================== 三、功能插件配置 ====================
 
-# -------------------- 状态卡背景 --------------------
+# -------------------- 公共卡片背景 --------------------
 
-# 仅用于公开的 /status 状态卡，默认关闭。
-status_background_enabled: false
+# Status 和帮助菜单主动使用；npm/rpm 管理卡不受影响，默认关闭。
+# 兼容旧 status_background_*；同名新 card_background_* 显式配置优先。
+card_background_enabled: false
 # 背景图片地址，需直接返回图片数据，支持 HTTP 重定向。
-status_background_url: ""
+card_background_url: ""
 # 获取背景图片的超时时间，单位为秒。
-status_background_timeout: 6
+card_background_timeout: 6
 # 背景遮罩强度。
-status_background_mask: 0.35
+card_background_mask: 0.35
 
 # -------------------- 和风天气 --------------------
 

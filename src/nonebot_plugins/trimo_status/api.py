@@ -1,4 +1,3 @@
-import base64
 import platform
 
 import aiohttp
@@ -18,6 +17,7 @@ from src.utils.base.runtime import get_message_counts, get_process_uptime
 from src.utils.message.html_tool import template2image_element, md_to_pic
 from src.utils import satori_utils
 
+from src.utils.message.card_background import get_card_background
 from .config import status_config
 from . import runtime as _runtime  # noqa: F401
 # require("nonebot_plugin_apscheduler")
@@ -25,8 +25,6 @@ from . import runtime as _runtime  # noqa: F401
 
 commit_hash = Repo(".").head.commit.hexsha
 
-STATUS_BACKGROUND_MAX_BYTES = 12 * 1024 * 1024
-_status_background_cache: tuple[str, str] | None = None
 
 protocol_names = {
     0: "苹果iPad",
@@ -315,47 +313,12 @@ async def generate_status_card(
                 "localization": await get_local_data(lang),
                 "motto": motto,
                 "acknowledgement": status_config.status_acknowledgement,
-                "background": await get_status_background(),
+                "background": await get_card_background(),
             }
         },
         selector=".status-page",
         wait_for="window.statusBackgroundReady === true",
     )
-
-
-async def get_status_background() -> dict:
-    """Fetch an optional status-only background and quietly fall back locally."""
-    global _status_background_cache
-
-    mask = status_config.status_background_mask
-    url = status_config.status_background_url.strip()
-    if not status_config.status_background_enabled or not url:
-        return {"image": None, "mask": mask}
-
-    timeout = aiohttp.ClientTimeout(total=status_config.status_background_timeout)
-    try:
-        async with aiohttp.ClientSession(timeout=timeout) as session:
-            async with session.get(url) as response:
-                response.raise_for_status()
-                media_type = response.headers.get("Content-Type", "").split(";", 1)[0]
-                if not media_type.startswith("image/"):
-                    raise ValueError(f"unexpected content type: {media_type or 'unknown'}")
-                content = await response.read()
-                if not content or len(content) > STATUS_BACKGROUND_MAX_BYTES:
-                    raise ValueError("empty or oversized image response")
-                final_url = str(response.url)
-    except (aiohttp.ClientError, TimeoutError, ValueError) as err:
-        nonebot.logger.debug(f"Status background unavailable, using fallback: {err}")
-        cached = _status_background_cache
-        return {"image": cached[1] if cached and cached[0] == url else None, "mask": mask}
-
-    image = f"data:{media_type};base64,{base64.b64encode(content).decode('ascii')}"
-    _status_background_cache = (url, image)
-    nonebot.logger.debug(
-        f"Status background loaded: url={final_url}, "
-        f"content_type={media_type}, size={len(content)} bytes"
-    )
-    return {"image": image, "mask": mask}
 
 
 async def get_local_data(lang_code) -> dict:

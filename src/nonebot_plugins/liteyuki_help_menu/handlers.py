@@ -16,6 +16,7 @@ from .catalog import collect_plugins, page_context
 
 require("nonebot_plugin_alconna")
 from nonebot_plugin_alconna import UniMessage
+from src.utils.message.card_background import get_card_background
 from src.utils.base.resource import get_path
 from src.utils.message.html_tool import template2image_element
 
@@ -77,6 +78,7 @@ async def visible_catalog(bot, event):
 
 
 async def render_menu(data):
+    data = dict(data, background=await get_card_background())
     template = get_path("templates/help_menu.html")
     # Context includes visible plugin metadata and current status. Never cache by
     # query alone: users may have different access rules. Bound memory and TTL.

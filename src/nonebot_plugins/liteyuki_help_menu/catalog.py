@@ -3,11 +3,30 @@ import re
 from difflib import SequenceMatcher
 
 CATEGORIES = {
-    "basic": "基础功能", "group": "群管理", "utility": "实用工具",
-    "minecraft": "Minecraft", "reminder": "提醒", "entertainment": "娱乐",
-    "system": "系统", "other": "其他",
+    "system": "系统插件", "basic": "基础插件",
+    "builtin": "内置插件", "third_party": "第三方插件",
 }
-ALIASES = {**{v: k for k, v in CATEGORIES.items()}, "基础": "basic", "工具": "utility"}
+ALIASES = {**{v: k for k, v in CATEGORIES.items()}, "系统": "system",
+           "基础": "basic", "内置": "builtin", "第三方": "third_party"}
+SYSTEM_MODULES = {
+    "nonebot_plugin_htmlrender", "nonebot_plugin_apscheduler",
+    "nonebot_plugin_localstore", "nonebot_plugin_alconna",
+}
+
+
+def category_of(module_name, extra, kind=""):
+    explicit = extra.get("help_category")
+    if isinstance(explicit, str) and explicit in CATEGORIES:
+        return explicit
+    if extra.get("lts_builtin") is True:
+        return "builtin"
+    if kind in ("library", "internal") or extra.get("internal") is True or extra.get("category") in ("system", "library", "internal"):
+        return "system"
+    if any(module_name == name or module_name.startswith(name + ".") for name in SYSTEM_MODULES):
+        return "system"
+    if module_name.startswith(("src.nonebot_plugins.", "src.liteyuki_plugins.", "liteyuki.plugins.")) or extra.get("liteyuki") is True:
+        return "basic"
+    return "third_party"
 
 
 def source_of(module_name, extra):
@@ -38,9 +57,7 @@ def collect_plugins(plugins, config):
         source = source_of(module, extra)
         if source == "第三方 NoneBot" and not config.help_menu_show_third_party:
             continue
-        category = extra.get("category", "other")
-        if not isinstance(category, str) or category not in CATEGORIES:
-            category = "other"
+        category = category_of(module, extra, kind)
         commands = extra.get("help_commands", [])
         if not isinstance(commands, list):
             commands = []

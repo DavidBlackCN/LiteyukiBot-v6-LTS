@@ -44,6 +44,6 @@ if (data.detail) {
     if (!entries.length) paragraph(grid, "没有匹配的可见插件");
     content.appendChild(grid);
 }
-document.fonts.ready.then(() => {
+Promise.all([document.fonts.ready, window.applyCardBackground(data.background || {})]).then(() => {
     requestAnimationFrame(() => requestAnimationFrame(() => { window.helpMenuReady = true; }));
 });

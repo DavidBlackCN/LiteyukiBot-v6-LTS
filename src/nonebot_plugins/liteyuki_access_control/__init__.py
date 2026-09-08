@@ -12,7 +12,7 @@ __plugin_meta__ = PluginMetadata(
     usage="/access status；/access list（仅 SUPERUSER）",
     type="application",
     config=AccessControlConfig,
-    extra={"liteyuki": True, "toggleable": True, "default_enable": True},
+    extra={"liteyuki": True, "lts_builtin": True, "toggleable": True, "default_enable": True},
 )
 
 if config.access_control_enabled:

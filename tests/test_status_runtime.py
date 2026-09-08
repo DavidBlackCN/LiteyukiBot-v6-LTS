@@ -28,6 +28,7 @@ starter._load_alconna_plugin()
 assert nonebot.load_plugin("src.nonebot_plugins.trimo_status") is not None
 
 from src.nonebot_plugins.trimo_status import api
+from src.utils.message import card_background as bg
 from src.nonebot_plugins.trimo_status.config import TrimoStatusConfig
 
 assert TrimoStatusConfig().status_background_mask == 0.35
@@ -46,8 +47,14 @@ class FakeResponse:
     def raise_for_status(self):
         return None
 
-    async def read(self):
-        return b"valid-image"
+    content_length = None
+
+    @property
+    def content(self):
+        return self
+
+    async def iter_chunked(self, size):
+        yield b"valid-image"
 
 
 class FakeSession:
@@ -97,26 +104,28 @@ async def main():
             debug_logs.append(message)
 
     api.nonebot.logger = FakeLogger()
-    api.status_config.status_background_enabled = True
-    api.status_config.status_background_url = "https://example.test/background"
-    api.status_config.status_background_timeout = 4
-    api.status_config.status_background_mask = 0.68
+    bg.logger = FakeLogger()
+    nonebot.get_driver().config.status_background_enabled = True
+    nonebot.get_driver().config.status_background_url = "https://example.test/background"
+    nonebot.get_driver().config.status_background_timeout = 4
+    nonebot.get_driver().config.status_background_mask = 0.68
     api.aiohttp.ClientSession = FakeSession
 
-    background = await api.get_status_background()
+    background = await api.get_card_background()
     assert background == {
         "image": "data:image/png;base64," + base64.b64encode(b"valid-image").decode(),
         "mask": 0.68,
     }
     assert debug_logs == [
-        "Status background loaded: url=https://cdn.example.test/final.png, "
+        "Card background loaded: url=https://cdn.example.test/final.png, "
         "content_type=image/png, size=11 bytes"
     ]
 
     api.aiohttp.ClientSession = OfflineSession
-    assert await api.get_status_background() == background
-    api.status_config.status_background_url = "https://example.test/other"
-    assert await api.get_status_background() == {"image": None, "mask": 0.68}
+    bg._next_request = 0
+    assert await api.get_card_background() == background
+    nonebot.get_driver().config.status_background_url = "https://example.test/other"
+    assert await api.get_card_background() == {"image": None, "mask": 0.68}
 
     api.nonebot.get_bots = lambda: {"123456": FakeOneBot()}
     bots = await api.get_bots_data()
@@ -167,7 +176,7 @@ async def main():
         render_call["selector"] = selector
         return b"rendered"
 
-    api.get_status_background = fake_background
+    api.get_card_background = fake_background
     api.get_local_data = fake_local_data
     api.get_path = lambda *args, **kwargs: "status.html"
     api.template2image_element = fake_template2image_element
