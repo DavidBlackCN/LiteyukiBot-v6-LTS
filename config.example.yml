@@ -38,6 +38,39 @@ handle_require_tome: true
 weather_api_host: ""
 weather_key: ""
 
+# Liteyuki 群管理（OneBot V11）。总开关关闭后不注册管理命令和群通知。
+group_manager_enabled: true
+# 新成员入群时发送欢迎消息。
+group_manager_join_notice_enabled: true
+# 成员退群时发送通知。
+group_manager_leave_notice_enabled: true
+# 支持 {nickname}、{user_id}、{group_id} 占位符。
+group_manager_join_message: "欢迎 {nickname}（{user_id}）加入本群"
+# 支持 {nickname}、{user_id}、{group_id} 占位符。
+group_manager_leave_message: "{nickname}（{user_id}）离开了本群"
+# 禁言命令未指定时间时使用的秒数。
+group_manager_default_ban_seconds: 600
+# 单次禁言允许的最大秒数（OneBot V11 上限为 30 天）。
+group_manager_max_ban_seconds: 2592000
+# 是否允许群管理员使用踢人命令；关闭后仅群主和超级用户可用。
+group_manager_allow_admin_kick: true
+
+# Liteyuki LTS 轻量权限 / 限流；关闭后不注册拦截器，重启生效。
+access_control_enabled: true
+# 未配置规则的插件默认允许，保留 Smart Reply 等现有行为。
+access_control_default_allow: true
+# 超级用户绕过本插件的访问和限流规则。
+access_control_superuser_bypass: true
+# 拒绝访问 / 限流时发送简短提示（每条事件最多一次）。
+access_control_reply_on_denied: true
+access_control_reply_on_rate_limited: true
+# 保护插件绕过本插件规则；access_control 自身始终受保护。
+access_control_protected_plugins:
+  - liteyuki_access_control
+  - liteyuki_group_manager
+# JSON 规则存储目录，勿与其他运行实例共用。
+access_control_data_path: data/liteyuki_access_control
+
 # nonebot_plugin_remind
 # 定时提醒插件配置
 # 私聊执行“/提醒列表”时，是否列出私聊及群聊中的全部提醒。
