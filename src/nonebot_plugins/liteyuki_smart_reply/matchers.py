@@ -104,16 +104,18 @@ def is_registered_command(
 
     stripped = text.lstrip()
     starts = {str(start) for start in get_driver().config.command_start}
-    candidates = []
-    for start in sorted((start for start in starts if start), key=len, reverse=True):
-        if stripped.startswith(start):
-            candidates.append(stripped[len(start) :].lstrip())
-    if "" in starts:
-        candidates.append(stripped)
-    candidates = [candidate for candidate in dict.fromkeys(candidates) if candidate]
-    if not candidates:
+    if any(
+        stripped.startswith(start)
+        for start in starts
+        if start
+    ):
+        # Command-prefixed messages are never conversational word-bank input.
+        # This remains reliable even if an earlier matcher transformed the event.
+        return True
+    if not stripped:
         return False
 
+    candidates = [stripped]
     loaded_plugins = get_loaded_plugins() if plugins is None else plugins
     for plugin in loaded_plugins:
         for command_matcher in getattr(plugin, "matcher", ()):
@@ -129,6 +131,30 @@ def is_registered_command(
                     # A third-party parser must not break Smart Reply handling.
                     continue
     return False
+
+
+def message_text_candidates(event: T_MessageEvent) -> list[str]:
+    """Keep both the current message and adapter-provided immutable text."""
+    values = []
+    message = event.get_message()
+    if message is not None:
+        values.append(message.extract_plain_text())
+    for attribute in ("raw_message", "alt_message"):
+        value = getattr(event, attribute, None)
+        if isinstance(value, str):
+            values.append(value)
+    original = getattr(event, "original_message", None)
+    extract = getattr(original, "extract_plain_text", None)
+    if callable(extract):
+        values.append(extract())
+    return [value for value in dict.fromkeys(values) if value and value.strip()]
+
+
+async def smart_reply_rule(event: T_MessageEvent, state: T_State) -> bool:
+    texts = message_text_candidates(event)
+    if not texts:
+        return False
+    return not any(is_registered_command(text, state) for text in texts)
 
 
 @on_alconna(
@@ -167,13 +193,14 @@ async def _(bot: Bot):
     load_group_probabilities()
 
 
-@on_message(priority=100).handle()
+smart_reply = on_message(rule=smart_reply_rule, priority=100)
+
+
+@smart_reply.handle()
 async def _(event: T_MessageEvent, bot: Bot, state: T_State, matcher: Matcher):
     message = event.get_message()
     plain_text = message.extract_plain_text() if message is not None else ""
     if not plain_text or not plain_text.strip():
-        return
-    if is_registered_command(plain_text, state):
         return
 
     kws = await get_keywords(plain_text)

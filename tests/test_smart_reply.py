@@ -54,18 +54,42 @@ def test_smart_reply_loads_from_builtin_plugin_directory() -> None:
         assert plugin.metadata.extra["toggleable"] is True
         assert plugin.metadata.extra["default_enable"] is True
 
+        import asyncio
+        from types import SimpleNamespace
         from nonebot.consts import CMD_KEY, PREFIX_KEY
-        from src.nonebot_plugins.liteyuki_smart_reply.matchers import is_registered_command
+        from src.nonebot_plugins.liteyuki_smart_reply.matchers import (
+            is_registered_command,
+            smart_reply_rule,
+        )
 
         weather = nonebot.get_plugin("liteyuki_weather")
         assert weather is not None
         assert is_registered_command("/天气", {}, [weather])
         assert is_registered_command("/weather 深圳", {}, [weather])
+        assert is_registered_command("天气 深圳", {}, [weather])
+        assert is_registered_command("/不存在的命令", {}, [weather])
         assert is_registered_command(
             "anything", {PREFIX_KEY: {CMD_KEY: ("registered",)}}, []
         )
-        assert not is_registered_command("/不存在的命令", {}, [weather])
         assert not is_registered_command("今天天气真好", {}, [weather])
+
+        class Message:
+            def __init__(self, text):
+                self.text = text
+
+            def extract_plain_text(self):
+                return self.text
+
+        # Simulate a previous command matcher changing the current message while
+        # OneBot raw_message still retains the actual command text.
+        command_event = SimpleNamespace(
+            get_message=lambda: Message("深圳"),
+            raw_message="/天气 深圳",
+            original_message=Message("/天气 深圳"),
+        )
+        chat_event = SimpleNamespace(get_message=lambda: Message("今天天气真好"))
+        assert not asyncio.run(smart_reply_rule(command_event, {}))
+        assert asyncio.run(smart_reply_rule(chat_event, {}))
         """
     )
 
