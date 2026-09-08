@@ -1,3 +1,21 @@
+# Liteyuki LTS 图片帮助菜单；修改开关后重启。
+help_menu_enabled: true
+# 每页显示插件数（1–12）。
+help_menu_page_size: 10
+# 展示第三方 NoneBot 插件。
+help_menu_show_third_party: true
+# 使用现有 pypinyin 支持名称全拼和首字母搜索。
+help_menu_enable_pinyin_search: true
+# 可选：隐藏 Access Control 明确拒绝的插件，不消耗限流额度。
+help_menu_filter_access: false
+# 隐藏模块名；library 类型和 extra.hidden 自动隐藏。
+help_menu_hidden_plugins:
+  - nonebot_plugin_htmlrender
+  - nonebot_plugin_apscheduler
+  - nonebot_plugin_localstore
+  - to_liteyuki
+  - liteyuki_eventpush
+
 # Liteyuki v6 LTS configuration example.
 # Copy this file to config.yml and replace only the values needed by your instance.
 

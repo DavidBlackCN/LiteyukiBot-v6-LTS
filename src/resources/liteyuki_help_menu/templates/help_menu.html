@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>Liteyuki LTS 帮助中心</title>
+    <link rel="stylesheet" href="./css/card.css">
+    <link rel="stylesheet" href="./css/fonts.css">
+    <link rel="stylesheet" href="./css/help_menu.css">
+</head>
+<body class="help-menu">
+    <div id="data" class="data-storage">{{ data | tojson }}</div>
+    <header class="info-box"><div class="eyebrow">LITEYUKI · HELP CENTER</div>
+        <h1 id="title"></h1><p id="subtitle"></p></header>
+    <main id="content"></main>
+    <footer class="info-box"><p id="pagination"></p><p id="hint"></p></footer>
+    <template id="entry"><article class="info-box entry"><h2></h2><p class="label"></p><p class="description"></p></article></template>
+    <script src="./js/card.js"></script>
+    <script src="./js/help_menu.js"></script>
+</body>
+</html>
