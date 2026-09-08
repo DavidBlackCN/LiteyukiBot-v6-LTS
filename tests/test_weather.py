@@ -57,9 +57,9 @@ from src.nonebot_plugins.liteyuki_weather.qweather import (
 )
 
 assert nonebot.get_plugin("liteyuki_weather") is plugin
-assert weather_command.command.parse("weather 深圳").matched
-assert weather_command.command.parse("天气 深圳").matched
-assert weather_command.command.parse("weather 深圳").main_args["keywords"] == ("深圳",)
+assert weather_command.command().parse("weather 深圳").matched
+assert weather_command.command().parse("天气 深圳").matched
+assert weather_command.command().parse("weather 深圳").main_args["keywords"] == ("深圳",)
 assert "/" in nonebot.get_driver().config.command_start
 assert natural_weather.priority == 90
 assert natural_weather.block is True

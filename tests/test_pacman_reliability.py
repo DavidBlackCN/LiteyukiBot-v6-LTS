@@ -239,9 +239,9 @@ import nonebot
 from src.nonebot_plugins.liteyuki_pacman import rpm
 
 npm_command = next(
-    matcher.command
+    matcher.command()
     for matcher in nonebot.get_plugin("liteyuki_pacman").matcher
-    if str(matcher.command.command) == "npm"
+    if str(matcher.command().command) == "npm"
 )
 result = npm_command.parse("npm list")
 assert result.matched

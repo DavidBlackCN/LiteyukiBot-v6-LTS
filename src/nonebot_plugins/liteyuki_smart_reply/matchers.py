@@ -120,6 +120,8 @@ def is_registered_command(
     for plugin in loaded_plugins:
         for command_matcher in getattr(plugin, "matcher", ()):
             command = getattr(command_matcher, "command", None)
+            if callable(command):
+                command = command()
             parse = getattr(command, "parse", None)
             if not callable(parse):
                 continue

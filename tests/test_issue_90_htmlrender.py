@@ -45,9 +45,9 @@ def _write_require_plugin(directory: Path, module_name: str) -> None:
             require("nonebot_plugin_htmlrender")
 
             from nonebot_plugin_htmlrender import (
-                html_to_pic,
-                md_to_pic,
-                template_to_pic,
+                render_html,
+                render_markdown,
+                render_template,
             )
             """
         ),

@@ -9,6 +9,7 @@ Copyright (C) 2020-2024 LiteyukiStudio. All Rights Reserved
 @Software: PyCharm
 """
 
+from pathlib import Path
 import nonebot
 from liteyuki.utils import IS_MAIN_PROCESS
 from liteyuki.plugin import PluginMetadata, PluginType
@@ -92,6 +93,17 @@ def nb_run(*args, **kwargs):
     mark_process_started()
     # 给子进程传递通道对象
     kwargs.update(kwargs.get("nonebot", {}))  # nonebot配置优先
+    # htmlrender 0.8 no longer selects a provider by default. Preserve the
+    # Liteyuki v6 rendering behavior unless the user configured it explicitly.
+    render_config = kwargs.setdefault("render", {})
+    if isinstance(render_config, dict):
+        render_config.setdefault("provider", "playwright")
+        render_config.setdefault("startup", "warmup")
+        resources = render_config.setdefault("resources", {})
+        if isinstance(resources, dict):
+            local_access = resources.setdefault("local_access", {})
+            if isinstance(local_access, dict):
+                local_access.setdefault("allowed_paths", [str(Path.cwd().resolve())])
     nonebot.init(**kwargs)
 
     driver_manager.init(config=kwargs)

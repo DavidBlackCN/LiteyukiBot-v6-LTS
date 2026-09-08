@@ -12,7 +12,7 @@ spec.loader.exec_module(catalog)
     ("nonebot_plugin_htmlrender", {}, "", "system"),
     ("nonebot_plugin_alconna.uniseg", {}, "", "system"),
     ("dependency", {"liteyuki": True}, "library", "system"),
-    ("src.nonebot_plugins.trimo_status", {}, "", "basic"),
+    ("src.nonebot_plugins.liteyuki_status", {}, "", "basic"),
     ("native", {"liteyuki": True}, "", "basic"),
     ("src.nonebot_plugins.liteyuki_group_manager", {"lts_builtin": True}, "", "builtin"),
     ("src.nonebot_plugins.liteyuki_help_menu", {"lts_builtin": True, "category": "system"}, "", "builtin"),

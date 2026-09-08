@@ -152,9 +152,9 @@ def test_statistics_plugin_commands_still_load_and_parse() -> None:
         from src.nonebot_plugins.liteyuki_statistics.stat_matchers import stat_msg
 
         assert nonebot.get_plugin("liteyuki_statistics") is plugin
-        assert stat_msg.command.parse("statistic message").matched
-        assert stat_msg.command.parse("statistic rank").matched
-        assert stat_msg.command.parse("stat message").matched
+        assert stat_msg.command().parse("statistic message").matched
+        assert stat_msg.command().parse("statistic rank").matched
+        assert stat_msg.command().parse("stat message").matched
         assert "/" in nonebot.get_driver().config.command_start
         """
     )

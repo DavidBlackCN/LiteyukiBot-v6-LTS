@@ -25,11 +25,11 @@ nonebot.init()
 nonebot.get_driver().register_adapter(Adapter)
 starter._load_htmlrender_plugin()
 starter._load_alconna_plugin()
-assert nonebot.load_plugin("src.nonebot_plugins.trimo_status") is not None
+assert nonebot.load_plugin("src.nonebot_plugins.liteyuki_status") is not None
 
-from src.nonebot_plugins.trimo_status import api
+from src.nonebot_plugins.liteyuki_status import api
 from src.utils.message import card_background as bg
-from src.nonebot_plugins.trimo_status.config import TrimoStatusConfig
+from src.nonebot_plugins.liteyuki_status.config import TrimoStatusConfig
 
 assert TrimoStatusConfig().status_background_mask == 0.35
 
@@ -136,7 +136,7 @@ async def main():
     assert bots["bots"][0]["message_sent"] == 0
     assert bots["bots"][0]["message_received"] == 0
 
-    from src.nonebot_plugins.trimo_status import runtime
+    from src.nonebot_plugins.liteyuki_status import runtime
     from src.utils.base import runtime as runtime_metrics
 
     runtime_metrics.mark_process_started()
