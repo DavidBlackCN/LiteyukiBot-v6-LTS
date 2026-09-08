@@ -175,4 +175,4 @@ status.disk.other=虚拟磁盘及其他
 status.unit.GHz=GHz
 status.unit.Byte=
 status.unit.binary_middile=
-status.unit.Bit_Units=KB;MB;GB;TB;PB;EB;ZB;YB;RB;QB
+status.unit.Bit_Units=B;KB;MB;GB;TB;PB;EB;ZB;YB;RB;QB
