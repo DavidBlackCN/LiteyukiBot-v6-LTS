@@ -3,7 +3,8 @@ import math
 import random
 
 import nonebot
-from nonebot import Bot, get_driver, on_message, require
+from nonebot import Bot, get_driver, get_loaded_plugins, on_message, require
+from nonebot.consts import CMD_KEY, PREFIX_KEY
 from nonebot.internal.matcher import Matcher
 from nonebot.permission import SUPERUSER
 from nonebot.rule import to_me
@@ -91,6 +92,45 @@ def get_bot_nicknames(bot: Bot) -> set[str]:
     return {str(nickname) for nickname in configured if str(nickname)}
 
 
+def is_registered_command(
+    text: str,
+    state: T_State,
+    plugins: object = None,
+) -> bool:
+    """Return whether a message matched a loaded NoneBot/Alconna command."""
+    prefix_state = state.get(PREFIX_KEY, {})
+    if isinstance(prefix_state, dict) and prefix_state.get(CMD_KEY) is not None:
+        return True
+
+    stripped = text.lstrip()
+    starts = {str(start) for start in get_driver().config.command_start}
+    candidates = []
+    for start in sorted((start for start in starts if start), key=len, reverse=True):
+        if stripped.startswith(start):
+            candidates.append(stripped[len(start) :].lstrip())
+    if "" in starts:
+        candidates.append(stripped)
+    candidates = [candidate for candidate in dict.fromkeys(candidates) if candidate]
+    if not candidates:
+        return False
+
+    loaded_plugins = get_loaded_plugins() if plugins is None else plugins
+    for plugin in loaded_plugins:
+        for command_matcher in getattr(plugin, "matcher", ()):
+            command = getattr(command_matcher, "command", None)
+            parse = getattr(command, "parse", None)
+            if not callable(parse):
+                continue
+            for candidate in candidates:
+                try:
+                    if getattr(parse(candidate), "matched", False):
+                        return True
+                except Exception:
+                    # A third-party parser must not break Smart Reply handling.
+                    continue
+    return False
+
+
 @on_alconna(
     command=Alconna(
         "set-reply-probability",
@@ -132,6 +172,8 @@ async def _(event: T_MessageEvent, bot: Bot, state: T_State, matcher: Matcher):
     message = event.get_message()
     plain_text = message.extract_plain_text() if message is not None else ""
     if not plain_text or not plain_text.strip():
+        return
+    if is_registered_command(plain_text, state):
         return
 
     kws = await get_keywords(plain_text)

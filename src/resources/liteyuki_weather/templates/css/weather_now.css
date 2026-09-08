@@ -5,6 +5,12 @@
         var(--card-bg);
 }
 
+.card-background-page.has-remote-background #weather-info {
+    background:
+        radial-gradient(circle at 84% 12%, rgba(118, 190, 255, 0.27), transparent 34%),
+        rgba(255, 255, 255, 0.69);
+}
+
 #detail-info {
     display: flex;
     align-items: center;

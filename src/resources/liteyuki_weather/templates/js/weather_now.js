@@ -1,3 +1,4 @@
+window.weatherCardReady = false;
 let data = JSON.parse(document.getElementById("data").innerText);
 let localData = data.localization || {};
 let current = data.current || {};
@@ -124,3 +125,15 @@ daily.slice(0, 7).forEach((item, index) => {
 });
 
 setText("attribution-info", (data.attributions || []).join(" · "));
+
+(async () => {
+    try {
+        await Promise.all([
+            document.fonts.ready,
+            window.applyCardBackground(data.background || {}),
+        ]);
+        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    } finally {
+        window.weatherCardReady = true;
+    }
+})();

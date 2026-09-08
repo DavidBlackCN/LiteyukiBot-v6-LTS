@@ -14,7 +14,8 @@ from src.utils.base.data_manager import User, user_db
 from src.utils.base.language import Language, get_user_lang
 from src.utils.base.ly_typing import T_MessageEvent
 from src.utils.base.resource import get_path
-from src.utils.message.html_tool import template2image
+from src.utils.message.card_background import get_card_background
+from src.utils.message.html_tool import template2image_element
 
 from .qw_api import QWeatherClient, QWeatherError, get_local_data, get_qw_lang
 from .qw_models import normalize_weather_data
@@ -146,12 +147,19 @@ async def build_weather_card(
         extra_attribution=str(get_config("weather_attr", "") or "").strip(),
         geo_reference=city_info.refer,
     )
+    view_model["background"] = await get_card_background()
     template = get_path("templates/weather_now.html", abs_path=True)
     if not template:
         raise WeatherUserError(
             _message(ulang, "weather.no_template", "天气卡资源尚未加载，请执行 rpm reload")
         )
-    return await template2image(template=template, templates={"data": view_model})
+    return await template2image_element(
+        template,
+        {"data": view_model},
+        "body",
+        wait_for="window.weatherCardReady === true",
+        wait_timeout=5000,
+    )
 
 
 async def get_weather_now_card(

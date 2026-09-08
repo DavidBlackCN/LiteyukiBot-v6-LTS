@@ -123,7 +123,9 @@ def test_only_opt_in_templates_include_background():
     root = ROOT / "src/resources/vanilla_resource/templates"
     status = (root / "status.html").read_text(encoding="utf-8")
     help_html = (ROOT / "src/resources/liteyuki_help_menu/templates/help_menu.html").read_text(encoding="utf-8")
-    assert "card_background.css" in status and "card_background.css" in help_html
-    assert 'id="card-background-image"' in help_html
+    weather_html = (ROOT / "src/resources/liteyuki_weather/templates/weather_now.html").read_text(encoding="utf-8")
+    for template in (status, help_html, weather_html):
+        assert "card_background.css" in template
+    assert 'id="card-background-image"' in help_html and 'id="card-background-image"' in weather_html
     for plugin in ("npm.py", "rpm.py"):
         assert "get_card_background" not in (ROOT / "src/nonebot_plugins/liteyuki_pacman" / plugin).read_text(encoding="utf-8")

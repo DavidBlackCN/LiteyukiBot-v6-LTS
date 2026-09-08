@@ -7,10 +7,13 @@
     <title>Liteyuki Weather</title>
     <link rel="stylesheet" href="./css/card.css">
     <link rel="stylesheet" href="./css/fonts.css">
+    <link rel="stylesheet" href="./css/card_background.css">
     <link rel="stylesheet" href="./css/weather_now.css">
 </head>
 
-<body>
+<body class="card-background-page">
+    <div class="card-background" aria-hidden="true"><img id="card-background-image" alt=""></div>
+    <div class="card-mask" aria-hidden="true"></div>
     <template id="hourly-item-template">
         <article class="hourly-item">
             <div class="hourly-time">02:00</div>
@@ -41,6 +44,7 @@
     </template>
 
     <div class="data-storage" id="data">{{ data | tojson }}</div>
+    <main class="card-content">
     <section class="info-box" id="weather-info">
         <div id="detail-info">
             <div id="adm"></div>
@@ -72,8 +76,10 @@
     <footer class="attribution-box">
         <div id="attribution-info"></div>
     </footer>
+    </main>
 
     <script src="./js/card.js"></script>
+    <script src="./js/card_background.js"></script>
     <script src="./js/weather_now.js"></script>
 </body>
 

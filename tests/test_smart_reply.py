@@ -53,6 +53,19 @@ def test_smart_reply_loads_from_builtin_plugin_directory() -> None:
         assert plugin is not None
         assert plugin.metadata.extra["toggleable"] is True
         assert plugin.metadata.extra["default_enable"] is True
+
+        from nonebot.consts import CMD_KEY, PREFIX_KEY
+        from src.nonebot_plugins.liteyuki_smart_reply.matchers import is_registered_command
+
+        weather = nonebot.get_plugin("liteyuki_weather")
+        assert weather is not None
+        assert is_registered_command("/天气", {}, [weather])
+        assert is_registered_command("/weather 深圳", {}, [weather])
+        assert is_registered_command(
+            "anything", {PREFIX_KEY: {CMD_KEY: ("registered",)}}, []
+        )
+        assert not is_registered_command("/不存在的命令", {}, [weather])
+        assert not is_registered_command("今天天气真好", {}, [weather])
         """
     )
 

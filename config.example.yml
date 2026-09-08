@@ -100,7 +100,7 @@ group_manager_allow_admin_kick: true
 
 # -------------------- 公共卡片背景 --------------------
 
-# Status 和帮助菜单主动使用；npm/rpm 管理卡不受影响，默认关闭。
+# Status、帮助菜单和天气卡主动使用；npm/rpm 管理卡不受影响，默认关闭。
 # 兼容旧 status_background_*；同名新 card_background_* 显式配置优先。
 card_background_enabled: false
 # 背景图片地址，需直接返回图片数据，支持 HTTP 重定向。

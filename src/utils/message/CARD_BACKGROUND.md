@@ -1,7 +1,8 @@
 # 公共卡片背景
 
 卡片主动调用 `await get_card_background()`，获得 `{image, mask}`，放入自己的
-渲染上下文。模块不注册全局 hook，管理卡片默认不使用背景。
+渲染上下文。当前 Status、帮助菜单和天气卡显式使用；模块不注册全局 hook，
+管理卡片默认不使用背景。
 
 推荐配置为 `card_background_enabled/url/timeout/mask`。按字段判断是否显式
 存在于 NoneBot Driver 配置：新字段优先，否则兼容旧 `status_background_*`。

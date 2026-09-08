@@ -82,6 +82,80 @@ for text in ("今天天气真好", "天气不错", "这天气太热了", "天气
     )
 
 
+def test_weather_card_opts_into_public_background_and_waits_until_ready() -> None:
+    _run_python(
+        BOOTSTRAP
+        + """
+import asyncio
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
+
+from src.nonebot_plugins.liteyuki_weather import qweather
+from src.nonebot_plugins.liteyuki_weather.qw_models import Location
+
+class FakeClient:
+    def __init__(self, *args, **kwargs):
+        pass
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *args):
+        pass
+
+    async def city_lookup(self, *args, **kwargs):
+        return SimpleNamespace(
+            code="200",
+            location=[Location(name="深圳", lat="22.55", lon="114.05")],
+            refer={},
+        )
+
+    async def weather_current(self, *args, **kwargs):
+        return {}
+
+    async def weather_hourly(self, *args, **kwargs):
+        return {}
+
+    async def weather_daily(self, *args, **kwargs):
+        return {}
+
+    async def air_quality_current(self, *args, **kwargs):
+        return {}
+
+async def main():
+    qweather.get_config = lambda key, default="": {
+        "weather_api_host": "demo.qweatherapi.com",
+        "weather_key": "secret",
+    }.get(key, default)
+    qweather.get_user_lang = lambda _: SimpleNamespace(
+        lang_code="zh-CN", get=lambda key, **kwargs: kwargs.get("default", key)
+    )
+    qweather.user_db = SimpleNamespace(
+        where_one=lambda *args, **kwargs: SimpleNamespace(profile={})
+    )
+    qweather.QWeatherClient = FakeClient
+    qweather.normalize_weather_data = lambda *args, **kwargs: {"location": {"name": "深圳"}}
+    qweather.get_local_data = lambda _: {}
+    qweather.get_path = lambda *args, **kwargs: "weather_now.html"
+    qweather.get_card_background = AsyncMock(
+        return_value={"image": "data:image/png;base64,cG5n", "mask": 0.35}
+    )
+    qweather.template2image_element = AsyncMock(return_value=b"png")
+
+    result = await qweather.build_weather_card(SimpleNamespace(user_id=1), ["深圳"])
+    assert result == b"png"
+    qweather.get_card_background.assert_awaited_once_with()
+    args = qweather.template2image_element.call_args
+    assert args.args[1]["data"]["background"]["image"].startswith("data:image/png")
+    assert args.args[2] == "body"
+    assert args.kwargs["wait_for"] == "window.weatherCardReady === true"
+    assert args.kwargs["wait_timeout"] == 5000
+
+asyncio.run(main())
+"""
+    )
+
+
 def test_qweather_v1_geo_weather_and_aqi_requests() -> None:
     _run_python(
         BOOTSTRAP
@@ -218,6 +292,13 @@ for model in (view, legacy):
     assert '"current"' in html
     assert model["location"]["name"] == "深圳"
     assert '"location"' in html
+
+weather_html = (template_dir / "weather_now.html").read_text(encoding="utf-8")
+weather_js = (template_dir / "js/weather_now.js").read_text(encoding="utf-8")
+assert 'class="card-background-page"' in weather_html
+assert 'id="card-background-image"' in weather_html
+assert "card_background.js" in weather_html
+assert "window.weatherCardReady = true" in weather_js
 """
     )
 
