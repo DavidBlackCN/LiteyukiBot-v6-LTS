@@ -1,4 +1,46 @@
-# Liteyuki LTS 图片帮助菜单；修改开关后重启。
+# LiteyukiBot v6 LTS 配置示例
+# 复制为 config.yml 后按需修改；密钥请仅保存在本地配置或环境变量中。
+# 以下按用途分区，配置键仍保持顶层结构；修改后建议重启 Bot。
+
+# ==================== 一、Bot 基础设置 ====================
+
+# Bot 昵称，可设置多个。
+nickname: [Liteyuki]
+# 超级用户账号列表；默认为空，请按实际需要填写。
+superusers: []
+# 命令前缀；默认使用斜杠。
+command_start: ["/"]
+# Alconna 命令使用上述命令前缀。
+alconna_use_command_start: true
+# 默认语言与默认交互语言。
+default_language: zh-CN
+default_interact_language: zh-CN
+
+# -------------------- 网络与适配器 --------------------
+
+# 服务监听地址与端口。
+host: 127.0.0.1
+port: 20247
+# Satori 适配器默认关闭，其余参数使用模型默认值。
+satori:
+  enable: false
+
+# -------------------- 运行与数据 --------------------
+
+# Liteyuki 数据目录。
+data_path: data/liteyuki
+# 日志级别。
+log_level: INFO
+# 安全模式开关。
+safe_mode: false
+# 自动更新开关。
+auto_update: false
+
+# ==================== 二、核心插件配置 ====================
+
+# -------------------- 帮助菜单 --------------------
+
+# 启用图片帮助菜单；修改开关后重启。
 help_menu_enabled: true
 # 每页显示插件数（1–12）。
 help_menu_page_size: 10
@@ -6,9 +48,9 @@ help_menu_page_size: 10
 help_menu_show_third_party: true
 # 使用现有 pypinyin 支持名称全拼和首字母搜索。
 help_menu_enable_pinyin_search: true
-# 可选：隐藏 Access Control 明确拒绝的插件，不消耗限流额度。
+# 隐藏权限控制明确拒绝的插件，不消耗限流额度。
 help_menu_filter_access: false
-# 隐藏模块名；library 类型和 extra.hidden 自动隐藏。
+# 隐藏的插件模块名；library 类型和 extra.hidden 自动隐藏。
 help_menu_hidden_plugins:
   - nonebot_plugin_htmlrender
   - nonebot_plugin_apscheduler
@@ -16,83 +58,87 @@ help_menu_hidden_plugins:
   - to_liteyuki
   - liteyuki_eventpush
 
-# Liteyuki v6 LTS configuration example.
-# Copy this file to config.yml and replace only the values needed by your instance.
+# -------------------- 权限控制与限流 --------------------
 
-host: 127.0.0.1
-port: 20247
-superusers: []
-command_start: ["/"]
-alconna_use_command_start: true
-nickname: [Liteyuki]
-default_language: zh-CN
-default_interact_language: zh-CN
-data_path: data/liteyuki
-log_level: INFO
-safe_mode: false
-auto_update: false
-satori:
-  enable: false
-
-# Legacy Liteyuki remote services are opt-in in this LTS fork.
-liteyuki:
-  remote_register: false
-yanlun_remote_enabled: false
-
-# Optional background for the public /status card only. The URL must return
-# image bytes directly (HTTP redirects are supported).
-status_background_enabled: false
-status_background_url: ""
-status_background_timeout: 6
-status_background_mask: 0.35
-
-# Built-in idiom game.
-handle_strict_mode: false
-handle_color_enhance: false
-handle_superuser_get_answer: true
-handle_require_tome: true
-
-# Built-in QWeather plugin. Keep secrets in config.yml, .env, or system env.
-weather_api_host: ""
-weather_key: ""
-
-# Liteyuki 群管理（OneBot V11）。总开关关闭后不注册管理命令和群通知。
-group_manager_enabled: true
-# 新成员入群时发送欢迎消息。
-group_manager_join_notice_enabled: true
-# 成员退群时发送通知。
-group_manager_leave_notice_enabled: true
-# 支持 {nickname}、{user_id}、{group_id} 占位符。
-group_manager_join_message: "欢迎 {nickname}（{user_id}）加入本群"
-# 支持 {nickname}、{user_id}、{group_id} 占位符。
-group_manager_leave_message: "{nickname}（{user_id}）离开了本群"
-# 禁言命令未指定时间时使用的秒数。
-group_manager_default_ban_seconds: 600
-# 单次禁言允许的最大秒数（OneBot V11 上限为 30 天）。
-group_manager_max_ban_seconds: 2592000
-# 是否允许群管理员使用踢人命令；关闭后仅群主和超级用户可用。
-group_manager_allow_admin_kick: true
-
-# Liteyuki LTS 轻量权限 / 限流；关闭后不注册拦截器，重启生效。
+# 启用访问控制；关闭后不注册拦截器，重启生效。
 access_control_enabled: true
-# 未配置规则的插件默认允许，保留 Smart Reply 等现有行为。
+# 未配置规则的插件默认允许，保留智能回复等现有行为。
 access_control_default_allow: true
 # 超级用户绕过本插件的访问和限流规则。
 access_control_superuser_bypass: true
-# 拒绝访问 / 限流时发送简短提示（每条事件最多一次）。
+# 拒绝访问时发送简短提示。
 access_control_reply_on_denied: true
+# 被限流时发送简短提示；同一事件最多提示一次。
 access_control_reply_on_rate_limited: true
-# 保护插件绕过本插件规则；access_control 自身始终受保护。
+# 保护插件绕过本插件规则；权限控制插件自身始终受保护。
 access_control_protected_plugins:
   - liteyuki_access_control
   - liteyuki_group_manager
 # JSON 规则存储目录，勿与其他运行实例共用。
 access_control_data_path: data/liteyuki_access_control
 
-# nonebot_plugin_remind
-# 定时提醒插件配置
-# 私聊执行“/提醒列表”时，是否列出私聊及群聊中的全部提醒。
+# -------------------- 群管理（OneBot V11） --------------------
+
+# 总开关；关闭后不注册管理命令和群通知。
+group_manager_enabled: true
+# 新成员入群时发送欢迎消息。
+group_manager_join_notice_enabled: true
+# 成员退群时发送通知。
+group_manager_leave_notice_enabled: true
+# 入群模板，支持 {nickname}、{user_id}、{group_id}。
+group_manager_join_message: "欢迎 {nickname}（{user_id}）加入本群"
+# 退群模板，支持 {nickname}、{user_id}、{group_id}。
+group_manager_leave_message: "{nickname}（{user_id}）离开了本群"
+# 禁言命令未指定时间时使用的秒数。
+group_manager_default_ban_seconds: 600
+# 单次禁言允许的最大秒数（最多 30 天）。
+group_manager_max_ban_seconds: 2592000
+# 允许群管理员踢人；关闭后仅群主和超级用户可用。
+group_manager_allow_admin_kick: true
+
+# ==================== 三、功能插件配置 ====================
+
+# -------------------- 状态卡背景 --------------------
+
+# 仅用于公开的 /status 状态卡，默认关闭。
+status_background_enabled: false
+# 背景图片地址，需直接返回图片数据，支持 HTTP 重定向。
+status_background_url: ""
+# 获取背景图片的超时时间，单位为秒。
+status_background_timeout: 6
+# 背景遮罩强度。
+status_background_mask: 0.35
+
+# -------------------- 和风天气 --------------------
+
+# 和风天气控制台分配的 API Host。
+weather_api_host: ""
+# API Key；请勿将真实密钥提交到仓库。
+weather_key: ""
+
+# -------------------- 定时提醒（nonebot_plugin_remind） --------------------
+
+# 私聊执行“/提醒列表”时，列出私聊及群聊中的全部提醒。
 private_list_all: true
-# 触发“提醒”关键词但解析失败时，是否向用户发送错误提示。
+# 触发“提醒”关键词但解析失败时，向用户发送错误提示。
 remind_keyword_error: true
 # 可选 GLM 解析默认关闭；glm_4_model、glm_4_model_cron、glm_api_key 均留空不配置。
+
+# -------------------- 成语游戏 --------------------
+
+# 严格模式。
+handle_strict_mode: false
+# 色彩增强模式。
+handle_color_enhance: false
+# 允许超级用户获取答案。
+handle_superuser_get_answer: true
+# 仅响应明确面向 Bot 的消息。
+handle_require_tome: true
+
+# ==================== 四、旧版服务兼容配置 ====================
+
+# 旧 Liteyuki 远程注册默认关闭。
+liteyuki:
+  remote_register: false
+# 保留旧言论服务兼容开关，默认关闭。
+yanlun_remote_enabled: false
