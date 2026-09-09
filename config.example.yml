@@ -175,6 +175,57 @@ sixty_api_dad_joke_random_max_interval_minutes: 360
 sixty_api_dad_joke_random_start: "08:00"
 sixty_api_dad_joke_random_end: "22:00"
 
+# -------------------- 二次元图片（全年龄） --------------------
+
+# 私聊是否允许使用全年龄图片命令；群聊仍需单独开启。
+setu_private_enabled: true
+# 私聊 R18 默认关闭；仅超级用户开启后，以下 QQ 或动态白名单可请求，且每次固定一张。
+setu_private_r18_enabled: false
+setu_private_r18_user_ids: []
+# 默认单次图片数与硬上限（上限不得超过 5）。
+setu_default_count: 3
+setu_max_count: 5
+# 用户调用冷却时间与多图发送间隔，单位秒。
+setu_cooldown_seconds: 30
+setu_send_interval_seconds: 1.0
+# 图片默认自动撤回及延迟，单位秒。
+setu_auto_recall: true
+setu_recall_seconds: 60
+# 默认排除 AI 作品、每日图片额度、默认图片尺寸与最大下载字节数。
+setu_exclude_ai: true
+# 每个群内每位用户每天最多成功发送的图片数；0 表示不限制。
+setu_daily_image_limit_per_user: 0
+# 每日额度使用的时区。
+setu_daily_limit_timezone: "Asia/Shanghai"
+setu_image_size: "regular"
+setu_image_max_bytes: 20971520
+# HTTP 超时、有限重试次数与并行下载数。
+setu_request_timeout: 15
+setu_request_retries: 2
+setu_download_concurrency: 3
+# 初始启用群白名单；留空表示所有群默认关闭。
+setu_enabled_groups: []
+# 自动选源顺序与默认来源。
+setu_provider_order:
+  - lolicon
+  - mirlkoi
+setu_default_provider: "auto"
+# Pixiv 图片反代域名（不含协议）。
+setu_pixiv_proxy: "i.pixiv.re"
+# 是否在图片前展示作品简要信息；超级用户默认绕过冷却。
+setu_show_metadata: true
+setu_superuser_bypass_cooldown: true
+# Provider 连续失败后的进程内熔断阈值与恢复等待秒数。
+setu_provider_failure_threshold: 3
+setu_provider_cooldown_seconds: 120
+
+# Lolicon v2（请求始终强制全年龄 r18=0）。
+setu_lolicon_enabled: true
+setu_lolicon_api_url: "https://api.lolicon.app/setu/v2"
+# MirlKoi/cnmiw 的 CDN 无色图 JSON 接口。
+setu_mirlkoi_enabled: true
+setu_mirlkoi_base_url: "https://api.cnmiw.com"
+setu_mirlkoi_endpoint: "/api.php"
 # -------------------- 定时提醒（nonebot_plugin_remind） --------------------
 
 # 私聊执行“/提醒列表”时，列出私聊及群聊中的全部提醒。
