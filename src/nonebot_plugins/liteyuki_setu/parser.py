@@ -7,6 +7,7 @@ from .models import ImageQuery, SetuError, UnsafeQueryError
 
 
 _ADULT_TOKEN = re.compile(r"^(?:-r|-r18|--r18(?:=.+)?|--nsfw|r18|nsfw)$", re.IGNORECASE)
+_COUNT_TOKEN = re.compile(r"^(\d+)(?:张)?$")
 _SIZES = {"original", "regular", "small", "thumb", "mini"}
 _SOURCES = {"auto", "lolicon", "mirlkoi"}
 
@@ -74,8 +75,8 @@ def parse_query(raw: str, *, default_count: int = 3, max_count: int = 5,
             if orientation == "portrait":
                 raise SetuError("不能同时指定横图和竖图。")
             orientation = "landscape"
-        elif token.isdigit() and not count_seen:
-            count = int(token)
+        elif (count_match := _COUNT_TOKEN.fullmatch(token)) and not count_seen:
+            count = int(count_match.group(1))
             count_seen = True
         elif token.startswith("-"):
             raise SetuError(f"不支持的参数：{token}")
