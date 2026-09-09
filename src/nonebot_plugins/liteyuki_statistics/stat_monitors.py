@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import time
 
 from nonebot import require
@@ -66,7 +68,6 @@ async def onebot_v12_event_monitor(bot: v12.Bot, event: v12.MessageEvent):
     msg_db.save(mem)
 
 
-@event_postprocessor
 async def satori_event_monitor(bot: satori.Bot, event: satori.MessageEvent):
     if event.guild is not None:
         event: satori.MessageEvent
@@ -86,3 +87,7 @@ async def satori_event_monitor(bot: satori.Bot, event: satori.MessageEvent):
         message_type=event_utils.get_message_type(event),
     )
     msg_db.save(mem)
+
+
+if satori is not None:
+    satori_event_monitor = event_postprocessor(satori_event_monitor)

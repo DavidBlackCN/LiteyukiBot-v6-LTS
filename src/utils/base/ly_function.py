@@ -14,7 +14,6 @@ from typing import Any, Awaitable, Callable, Coroutine
 
 import nonebot
 from nonebot import Bot
-from nonebot.adapters.satori import bot
 from nonebot.internal.matcher import Matcher
 
 ly_function_extensions = (

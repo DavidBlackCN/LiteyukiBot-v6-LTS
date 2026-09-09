@@ -7,7 +7,7 @@ from typing import AnyStr
 import nonebot
 import pip
 from nonebot import get_driver, require
-from nonebot.adapters import onebot, satori
+from nonebot.adapters import onebot
 from nonebot.adapters.onebot.v11 import Message, unescape
 from nonebot.internal.matcher import Matcher
 from nonebot.permission import SUPERUSER
@@ -15,6 +15,7 @@ from nonebot.permission import SUPERUSER
 # from src.liteyuki.core import Reloader
 from src.utils import event as event_utils, satori_utils
 from src.utils.base.config import get_config
+from src.utils.satori_utils.compat import is_satori_object
 from src.utils.base.data_manager import TempConfig, common_db
 from src.utils.base.language import get_user_lang
 from src.utils.base.ly_typing import T_Bot, T_MessageEvent
@@ -75,7 +76,7 @@ async def _(bot: T_Bot, event: T_MessageEvent, matcher: Matcher):
     # 使用git pull更新
 
     ulang = get_user_lang(
-        str(event.user.id if isinstance(event, satori.event.Event) else event.user_id)
+        str(event.user.id if is_satori_object(event) else event.user_id)
     )
     success, logs = update_liteyuki()
     reply = "尹灵温 更新完成！\n"
@@ -108,7 +109,7 @@ async def _(matcher: Matcher, bot: T_Bot, event: T_MessageEvent):
             "reload_session_type": event_utils.get_message_type(event),
             "reload_session_id": (
                 (event.group_id if event.message_type == "group" else event.user_id)
-                if not isinstance(event, satori.event.Event)
+                if not is_satori_object(event)
                 else event.chan_active.id
             ),
             "delta_time": 0,
@@ -243,7 +244,7 @@ async def on_shutdown():
 @driver.on_bot_connect
 async def _(bot: T_Bot):
     temp_data = common_db.where_one(TempConfig(), default=TempConfig())
-    if isinstance(bot, satori.Bot):
+    if is_satori_object(bot):
         await satori_utils.user_infos.load_friends(bot)
     # 用于重启计时
     if temp_data.data.get("reload", False):
@@ -260,7 +261,7 @@ async def _(bot: T_Bot):
             delta_time, time.time() - temp_data.data.get("reload_time", 0)
         )
 
-        if isinstance(bot, satori.Bot):
+        if is_satori_object(bot):
             await bot.send_message(
                 channel_id=reload_session_id,
                 message=return_msg,

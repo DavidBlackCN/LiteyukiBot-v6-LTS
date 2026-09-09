@@ -4,7 +4,7 @@ from typing import Optional
 
 import aiofiles
 import nonebot.plugin
-from nonebot.adapters import satori
+from src.utils.satori_utils.compat import is_satori_object
 
 from src.utils import event as event_utils
 from src.utils.base.data import LiteModel
@@ -117,7 +117,7 @@ def get_plugin_session_enable(event: T_MessageEvent, plugin_name: str) -> bool:
     Returns:
         bool: 插件当前状态
     """
-    if isinstance(event, satori.event.Event):
+    if is_satori_object(event):
         if event.guild is not None:
             message_type = "group"
         else:
@@ -126,7 +126,7 @@ def get_plugin_session_enable(event: T_MessageEvent, plugin_name: str) -> bool:
         message_type = event.message_type
     if message_type == "group":
         group_id = str(
-            event.guild.id if isinstance(event, satori.event.Event) else event.group_id
+            event.guild.id if is_satori_object(event) else event.group_id
         )
         if group_id not in __group_data:
             group: Group = group_db.where_one(
@@ -138,7 +138,7 @@ def get_plugin_session_enable(event: T_MessageEvent, plugin_name: str) -> bool:
     else:
         # session: User = user_db.first(User(), "user_id = ?", event.user_id, default=User(user_id=str(event.user_id)))
         user_id = str(
-            event.user.id if isinstance(event, satori.event.Event) else event.user_id
+            event.user.id if is_satori_object(event) else event.user_id
         )
         if user_id not in __user_data:
             user: User = user_db.where_one(

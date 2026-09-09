@@ -4,7 +4,6 @@ import aiohttp
 import nonebot
 import psutil
 from cpuinfo import cpuinfo
-from nonebot.adapters import satori
 from git import Repo
 
 from liteyuki import __version__
@@ -16,6 +15,7 @@ from src.utils.base.resource import get_loaded_resource_packs, get_path
 from src.utils.base.runtime import get_message_counts, get_process_uptime
 from src.utils.message.html_tool import template2image_element, md_to_pic
 from src.utils import satori_utils
+from src.utils.satori_utils.compat import is_satori_object
 
 from src.utils.message.card_background import get_card_background
 from .config import status_config
@@ -377,7 +377,7 @@ async def get_bots_data(self_id: str = "0") -> dict:
         friends = 0
         bot_name = bot_id
         version_info = {}
-        if isinstance(bot, satori.Bot):
+        if is_satori_object(bot):
             try:
                 bot_name = (await satori_utils.user_infos.get(bot.self_id)).name
                 groups = str(await satori_utils.count_groups(bot))
@@ -397,7 +397,7 @@ async def get_bots_data(self_id: str = "0") -> dict:
 
         message_sent, message_received = get_message_counts(bot_id)
         app_name = version_info.get("app_name", "未知应用接口")
-        if isinstance(bot, satori.Bot):
+        if is_satori_object(bot):
             app_name = "Satori"
             try:
                 icon = (await bot.login_get()).user.avatar

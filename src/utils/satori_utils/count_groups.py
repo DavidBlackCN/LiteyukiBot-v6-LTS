@@ -1,7 +1,12 @@
-from nonebot.adapters import satori
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from nonebot.adapters.satori import Bot
 
 
-async def count_groups(bot: satori.Bot) -> int:
+async def count_groups(bot: Bot) -> int:
     cnt: int = 0
 
     group_response = await bot.guild_list()

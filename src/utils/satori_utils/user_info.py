@@ -1,13 +1,18 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
+
 import nonebot
 
-from nonebot.adapters import satori
-from nonebot.adapters.satori.models import User
+if TYPE_CHECKING:
+    from nonebot.adapters.satori import Bot
+    from nonebot.adapters.satori.models import User
 
 
 class UserInfo:
-    user_infos: dict = {}
+    user_infos: dict[str, Any] = {}
 
-    async def load_friends(self, bot: satori.Bot):
+    async def load_friends(self, bot: Bot):
         nonebot.logger.info("Update user info from friends")
         friend_response = await bot.friend_list()
         while friend_response.next is not None:
