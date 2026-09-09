@@ -199,7 +199,9 @@ setu_daily_image_limit_per_user: 0
 setu_daily_limit_timezone: "Asia/Shanghai"
 setu_image_size: "regular"
 setu_image_max_bytes: 20971520
-# HTTP 超时、有限重试次数与并行下载数。
+# API 与图片下载超时（秒）；旧 setu_request_timeout 仅供未设置新项的兼容配置回退。
+setu_api_timeout: 10
+setu_image_timeout: 30
 setu_request_timeout: 15
 setu_request_retries: 2
 setu_download_concurrency: 3
@@ -210,8 +212,12 @@ setu_provider_order:
   - lolicon
   - mirlkoi
 setu_default_provider: "auto"
-# Pixiv 图片反代域名（不含协议）。
-setu_pixiv_proxy: "i.pixiv.re"
+# Lolicon 返回的 Pixiv 图片 host（不含协议）。
+setu_pixiv_proxy: "i.pximg.net"
+# Lolicon API 出站 HTTP 代理；留空直连。
+setu_lolicon_api_http_proxy: ""
+# Lolicon/Pixiv 图片下载出站 HTTP 代理；留空直连，MirlKoi 不使用此代理。
+setu_lolicon_image_http_proxy: "http://127.0.0.1:7890"
 # 是否在图片前展示作品简要信息；超级用户默认绕过冷却。
 setu_show_metadata: true
 setu_superuser_bypass_cooldown: true

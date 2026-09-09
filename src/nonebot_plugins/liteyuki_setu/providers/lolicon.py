@@ -12,10 +12,11 @@ class LoliconProvider(ImageProvider):
                                         size=True, exclude_ai=True, orientation=True, metadata=True,
                                         safe_classification=True, r18=True)
 
-    def __init__(self, client: Any, api_url: str, pixiv_proxy: str):
+    def __init__(self, client: Any, api_url: str, pixiv_proxy: str, api_http_proxy: str = ""):
         self.client = client
         self.api_url = api_url
         self.pixiv_proxy = pixiv_proxy
+        self.api_http_proxy = api_http_proxy
 
     async def fetch(self, query: ImageQuery) -> list[ImageResult]:
         # Both safe and approved private R18 requests explicitly select a grade.
@@ -31,7 +32,8 @@ class LoliconProvider(ImageProvider):
             payload["uid"] = query.uid
         if query.orientation:
             payload["aspectRatio"] = "portrait" if query.orientation == "portrait" else "landscape"
-        response = await self.client.request_json("POST", self.api_url, json=payload)
+        response = await self.client.request_json("POST", self.api_url, json=payload,
+                                                  proxy=self.api_http_proxy or None)
         if not isinstance(response, dict):
             raise ProviderError("Lolicon 返回格式无效")
         if response.get("error"):

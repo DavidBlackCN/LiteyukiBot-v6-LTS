@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import asyncio
+import re
 from collections.abc import Mapping
 from typing import Any
 from urllib.parse import urlparse
 
 import aiohttp
+from nonebot import logger
 
 from .models import ProviderError
 
@@ -32,14 +34,16 @@ class HttpClient:
             await self._session.close()
 
     async def request_json(self, method: str, url: str, *, params: Mapping[str, Any] | None = None,
-                           json: Mapping[str, Any] | None = None) -> Any:
+                           json: Mapping[str, Any] | None = None, proxy: str | None = None) -> Any:
         session = self._session
         if session is None:
             async with self as client:
-                return await client.request_json(method, url, params=params, json=json)
+                return await client.request_json(method, url, params=params, json=json, proxy=proxy)
+        last_error: Exception | None = None
         for attempt in range(self.retries + 1):
             try:
-                async with session.request(method, url, params=params, json=json, allow_redirects=True) as response:
+                async with session.request(method, url, params=params, json=json, proxy=proxy,
+                                           allow_redirects=True) as response:
                     if 400 <= response.status < 500:
                         raise ProviderError(f"HTTP {response.status}")
                     if not 200 <= response.status < 300:
@@ -48,27 +52,30 @@ class HttpClient:
                         return await response.json(content_type=None)
                     except (aiohttp.ContentTypeError, ValueError) as exc:
                         raise ProviderError("图片源返回了无效 JSON") from exc
-            except _RetryableError:
-                if attempt >= self.retries:
-                    raise ProviderError("图片源暂时不可用")
+            except _RetryableError as exc:
+                last_error = exc
             except (aiohttp.ClientError, asyncio.TimeoutError) as exc:
-                if attempt >= self.retries:
-                    raise ProviderError("图片源暂时不可用") from exc
+                last_error = exc
             if attempt < self.retries:
                 await asyncio.sleep(0.2 * (attempt + 1))
-        raise ProviderError("图片源暂时不可用")
+        reason = _error_reason(last_error)
+        logger.warning(f"HTTP JSON 请求失败: host={_host(url)}, reason={reason}")
+        raise ProviderError(f"图片源请求失败: {reason}") from last_error
 
-    async def download_image(self, url: str, *, max_bytes: int) -> bytes:
+    async def download_image(self, url: str, *, max_bytes: int,
+                             headers: Mapping[str, str] | None = None,
+                             proxy: str | None = None) -> bytes:
         parsed = urlparse(url)
         if parsed.scheme not in {"http", "https"} or not parsed.netloc:
             raise ProviderError("图片地址无效")
         session = self._session
         if session is None:
             async with self as client:
-                return await client.download_image(url, max_bytes=max_bytes)
+                return await client.download_image(url, max_bytes=max_bytes, headers=headers, proxy=proxy)
+        last_error: Exception | None = None
         for attempt in range(self.retries + 1):
             try:
-                async with session.get(url, allow_redirects=True) as response:
+                async with session.get(url, headers=headers, proxy=proxy, allow_redirects=True) as response:
                     if 400 <= response.status < 500:
                         raise ProviderError(f"图片 HTTP {response.status}")
                     if not 200 <= response.status < 300:
@@ -81,15 +88,15 @@ class HttpClient:
                         raise ProviderError("图片为空或超过大小限制")
                     self._verify_image(body)
                     return body
-            except _RetryableError:
-                if attempt >= self.retries:
-                    raise ProviderError("图片下载失败")
+            except _RetryableError as exc:
+                last_error = exc
             except (aiohttp.ClientError, asyncio.TimeoutError) as exc:
-                if attempt >= self.retries:
-                    raise ProviderError("图片下载失败") from exc
+                last_error = exc
             if attempt < self.retries:
                 await asyncio.sleep(0.2 * (attempt + 1))
-        raise ProviderError("图片下载失败")
+        reason = _error_reason(last_error)
+        logger.warning(f"图片下载失败: host={parsed.hostname or ''}, reason={reason}")
+        raise ProviderError(f"图片下载失败: {reason}") from last_error
 
     @staticmethod
     def _verify_image(body: bytes) -> None:
@@ -102,6 +109,18 @@ class HttpClient:
             return
         except Exception as exc:
             raise ProviderError("图片数据损坏") from exc
+
+
+def _host(url: str) -> str:
+    return urlparse(url).hostname or ""
+
+
+def _error_reason(error: Exception | None) -> str:
+    if error is None:
+        return "unknown"
+    detail = str(error).strip()
+    detail = re.sub(r"(https?://)[^/@\s]+@", r"\1***@", detail)
+    return f"{type(error).__name__}: {detail}" if detail else type(error).__name__
 
 
 class _RetryableError(RuntimeError):

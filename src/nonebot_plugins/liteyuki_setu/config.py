@@ -21,12 +21,17 @@ class SetuConfig(BaseModel):
     setu_daily_limit_timezone: str = "Asia/Shanghai"
     setu_image_size: str = "regular"
     setu_image_max_bytes: int = Field(default=20 * 1024 * 1024, ge=1024, le=50 * 1024 * 1024)
+    setu_api_timeout: float | None = Field(default=None, ge=1, le=60)
+    setu_image_timeout: float | None = Field(default=None, ge=1, le=120)
+    # Legacy shared timeout used only when a new timeout is not configured.
     setu_request_timeout: float = Field(default=15, ge=1, le=60)
     setu_request_retries: int = Field(default=2, ge=0, le=5)
     setu_enabled_groups: list[int] = Field(default_factory=list)
     setu_provider_order: list[str] = Field(default_factory=lambda: ["lolicon", "mirlkoi"])
     setu_default_provider: str = "auto"
-    setu_pixiv_proxy: str = "i.pixiv.re"
+    setu_pixiv_proxy: str = "i.pximg.net"
+    setu_lolicon_api_http_proxy: str = ""
+    setu_lolicon_image_http_proxy: str = ""
     setu_show_metadata: bool = True
     setu_superuser_bypass_cooldown: bool = True
     setu_download_concurrency: int = Field(default=3, ge=1, le=5)

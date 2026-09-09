@@ -4,12 +4,17 @@ import asyncio
 import time
 from dataclasses import dataclass
 from typing import Any
+from urllib.parse import urlparse
+
+from nonebot import logger
 
 from .config import SetuConfig
 from .models import (ImageQuery, ImageResult, NoResultError, ProviderError,
                      ProviderUnavailableError, UnsupportedQueryError, is_result_allowed)
 from .network import HttpClient
 from .providers import LoliconProvider, MirlKoiProvider
+
+_PIXIV_HEADERS = {"Referer": "https://www.pixiv.net/", "User-Agent": "Mozilla/5.0"}
 
 
 @dataclass
@@ -61,9 +66,31 @@ health = ProviderHealth()
 cooldown = Cooldown()
 
 
+def _api_timeout(config: SetuConfig) -> float:
+    return config.setu_api_timeout or config.setu_request_timeout
+
+
+def _image_timeout(config: SetuConfig) -> float:
+    return config.setu_image_timeout or config.setu_request_timeout
+
+
+def _provider_name(provider: Any) -> str:
+    name = getattr(provider, "name", getattr(provider, "provider", ""))
+    return "Lolicon" if name == "lolicon" else "MirlKoi" if name == "mirlkoi" else str(name)
+
+
+def _image_options(result: ImageResult, config: SetuConfig) -> tuple[dict[str, str] | None, str | None]:
+    if result.provider != "lolicon":
+        return None, None
+    host = urlparse(result.image_url).hostname
+    headers = _PIXIV_HEADERS if host == "i.pximg.net" else None
+    return headers, config.setu_lolicon_image_http_proxy or None
+
+
 def build_providers(config: SetuConfig, client: HttpClient) -> dict[str, Any]:
     return {
-        "lolicon": LoliconProvider(client, config.setu_lolicon_api_url, config.setu_pixiv_proxy),
+        "lolicon": LoliconProvider(client, config.setu_lolicon_api_url, config.setu_pixiv_proxy,
+                                   config.setu_lolicon_api_http_proxy),
         "mirlkoi": MirlKoiProvider(client, config.setu_mirlkoi_base_url, config.setu_mirlkoi_endpoint),
     }
 
@@ -98,7 +125,7 @@ def choose_providers(query: ImageQuery, config: SetuConfig, providers: dict[str,
 
 async def fetch_images(query: ImageQuery, config: SetuConfig, *, client: HttpClient | None = None) -> list[ImageResult]:
     if client is None:
-        async with HttpClient(config.setu_request_timeout, config.setu_request_retries) as owned:
+        async with HttpClient(_api_timeout(config), config.setu_request_retries) as owned:
             return await fetch_images(query, config, client=owned)
     providers = build_providers(config, client)
     last_error: Exception | None = None
@@ -113,6 +140,7 @@ async def fetch_images(query: ImageQuery, config: SetuConfig, *, client: HttpCli
             # An empty search is a valid answer and must not be treated as an outage.
             raise
         except ProviderError as exc:
+            logger.warning(f"{_provider_name(provider)} API 请求失败: {exc}")
             health.failure(provider.name, config, exc)
             last_error = exc
             if query.provider != "auto":
@@ -124,38 +152,53 @@ async def fetch_images(query: ImageQuery, config: SetuConfig, *, client: HttpCli
 
 async def download_results(results: list[ImageResult], config: SetuConfig, *, client: HttpClient | None = None) -> list[tuple[ImageResult, bytes]]:
     if client is None:
-        async with HttpClient(config.setu_request_timeout, config.setu_request_retries) as owned:
+        async with HttpClient(_image_timeout(config), config.setu_request_retries) as owned:
             return await download_results(results, config, client=owned)
     semaphore = asyncio.Semaphore(config.setu_download_concurrency)
 
     async def download(result: ImageResult) -> tuple[ImageResult, bytes] | None:
+        headers, proxy = _image_options(result, config)
         try:
             async with semaphore:
-                return result, await client.download_image(result.image_url, max_bytes=config.setu_image_max_bytes)
-        except ProviderError:
+                return result, await client.download_image(result.image_url, max_bytes=config.setu_image_max_bytes,
+                                                           headers=headers, proxy=proxy)
+        except ProviderError as exc:
+            host = urlparse(result.image_url).hostname or ""
+            logger.warning(f"{_provider_name(result)} 图片下载失败: host={host}, reason={exc}")
             return None
 
     downloaded = await asyncio.gather(*(download(result) for result in results))
     return [item for item in downloaded if item is not None]
 
+
 async def fetch_and_download(query: ImageQuery, config: SetuConfig) -> list[tuple[ImageResult, bytes]]:
     """Fallback only to providers that can express exactly the current query."""
-    async with HttpClient(config.setu_request_timeout, config.setu_request_retries) as client:
-        providers = build_providers(config, client)
+    async with HttpClient(_api_timeout(config), config.setu_request_retries) as api_client:
+        providers = build_providers(config, api_client)
         last_error: Exception | None = None
         for provider in choose_providers(query, config, providers):
             try:
                 results = [result for result in await provider.fetch(query) if is_result_allowed(result, r18=query.r18)]
                 if not results:
                     raise NoResultError("没有找到符合条件的图片。")
-                downloaded = await download_results(results[:query.count], config, client=client)
-                if not downloaded:
-                    raise ProviderError("图片下载失败")
-                health.success(provider.name)
-                return downloaded
             except NoResultError:
                 raise
             except ProviderError as exc:
+                logger.warning(f"{_provider_name(provider)} API 请求失败: {exc}")
+                health.failure(provider.name, config, exc)
+                last_error = exc
+                if query.provider != "auto":
+                    raise ProviderUnavailableError(f"{provider.name} 当前不可用，请稍后重试或使用 --source auto。") from exc
+                continue
+            try:
+                async with HttpClient(_image_timeout(config), config.setu_request_retries) as image_client:
+                    downloaded = await download_results(results[:query.count], config, client=image_client)
+                if not downloaded:
+                    raise ProviderError("没有图片下载成功")
+                health.success(provider.name)
+                return downloaded
+            except ProviderError as exc:
+                logger.warning(f"{_provider_name(provider)} 图片下载阶段失败: {exc}")
                 health.failure(provider.name, config, exc)
                 last_error = exc
                 if query.provider != "auto":
@@ -163,6 +206,7 @@ async def fetch_and_download(query: ImageQuery, config: SetuConfig) -> list[tupl
         if last_error:
             raise ProviderUnavailableError("图片源暂时不可用，请稍后再试。") from last_error
         raise UnsupportedQueryError("没有可用图片源支持当前筛选条件。")
+
 
 def metadata_text(result: ImageResult) -> str:
     lines: list[str] = []
