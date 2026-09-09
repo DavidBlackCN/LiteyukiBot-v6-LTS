@@ -8,6 +8,8 @@ from zoneinfo import ZoneInfo
 
 from arclet.alconna import Alconna, Args, MultiVar
 from nonebot import logger
+from nonebot.adapters import Bot, Event
+from nonebot.matcher import Matcher
 from nonebot_plugin_alconna import Arparma, UniMessage, on_alconna
 
 from .models import NoResultError, SetuError, UnsafeQueryError
@@ -44,7 +46,12 @@ setu_command = on_alconna(
 
 
 @setu_command.handle()
-async def handle_setu(result: Arparma, event: Any, bot: Any, matcher: Any):
+async def handle_setu(
+    result: Arparma,
+    event: Event,
+    bot: Bot,
+    matcher: Matcher,
+):
     from . import config
 
     raw_args = _raw_args(result)

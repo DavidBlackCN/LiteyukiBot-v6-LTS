@@ -3,6 +3,8 @@ from __future__ import annotations
 from typing import Any
 
 from arclet.alconna import Alconna, Args, MultiVar
+from nonebot.adapters import Bot, Event
+from nonebot.matcher import Matcher
 from nonebot_plugin_alconna import Arparma, on_alconna
 
 from .quota import (add_private_r18_user, get_private_r18_access,
@@ -58,7 +60,12 @@ setu_admin = on_alconna(
 
 
 @setu_admin.handle()
-async def handle_admin(result: Arparma, event: Any, bot: Any, matcher: Any):
+async def handle_admin(
+    result: Arparma,
+    event: Event,
+    bot: Bot,
+    matcher: Matcher,
+):
     from . import config
 
     args = _tokens(result)
