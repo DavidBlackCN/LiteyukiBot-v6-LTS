@@ -91,7 +91,8 @@ def test_service_content_choices(monkeypatch):
 
     async def main():
         monkeypatch.setattr(service, "SixtyApiClient", Client)
-        monkeypatch.setattr(service, "md_to_pic", lambda *args, **kwargs: asyncio.sleep(0, result=b"rendered"))
+        from src.nonebot_plugins.liteyuki_60s import cards
+        monkeypatch.setattr(cards, "render_card", lambda *args, **kwargs: asyncio.sleep(0, result=b"rendered"))
         config = SixtyApiConfig()
         assert (await service.fetch_content(config, "world")).value == b"remote-image"
         Client.image_fails = True

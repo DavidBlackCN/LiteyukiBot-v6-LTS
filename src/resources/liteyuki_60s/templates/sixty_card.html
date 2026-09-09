@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Liteyuki 60S</title>
+    <link rel="stylesheet" href="./css/card.css">
+    <link rel="stylesheet" href="./css/fonts.css">
+    <link rel="stylesheet" href="./css/card_background.css">
+    <link rel="stylesheet" href="./css/sixty_card.css">
+</head>
+<body class="card-background-page">
+    <div class="card-background" aria-hidden="true"><img id="card-background-image" alt=""></div>
+    <div class="card-mask" aria-hidden="true"></div>
+    <div class="data-storage" id="data">{{ data | tojson }}</div>
+    <main class="card-content">
+        <header class="info-box card-header">
+            <p id="date" class="card-date"></p>
+            <h1 id="title"></h1>
+            <p id="headline" class="headline"></p>
+        </header>
+        <section id="quote-box" class="info-box quote-box" hidden><p id="quote"></p></section>
+        <section id="facts" class="facts-grid" hidden></section>
+        <section id="progress-box" class="info-box progress-box" hidden></section>
+        <section id="items" class="info-box item-list" hidden></section>
+        <footer class="card-footer">数据由 60s API 提供</footer>
+    </main>
+    <template id="fact-template"><article class="fact"><span class="fact-label"></span><strong class="fact-value"></strong></article></template>
+    <template id="progress-template"><article class="progress-item"><div><span class="progress-label"></span><strong class="progress-value"></strong></div><p class="progress-detail"></p><div class="progress-track"><i></i></div></article></template>
+    <template id="item-template"><article class="news-item"><span class="item-index"></span><div><h2></h2><p class="item-detail"></p><p class="item-meta"></p></div></article></template>
+    <script src="./js/card.js"></script>
+    <script src="./js/card_background.js"></script>
+    <script src="./js/sixty_card.js"></script>
+</body>
+</html>

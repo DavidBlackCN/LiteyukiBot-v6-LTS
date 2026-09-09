@@ -5,7 +5,7 @@ from typing import Any
 
 import nonebot
 
-from src.utils.message.html_tool import md_to_pic
+
 
 from .client import SixtyApiClient, SixtyApiError
 from .config import SixtyApiConfig
@@ -98,8 +98,11 @@ async def fetch_content(config: SixtyApiConfig, feature: str, *, name: str | Non
                 return Content("image", await client.download_image(data["image"]))
             except SixtyApiError as exc:
                 nonebot.logger.info("60s 日报原图不可用，回退本地渲染：%s", exc)
-        markdown = markdown_for(feature, data)
     try:
-        return Content("image", await md_to_pic(markdown, width=620, device_scale_factor=2))
+        from .cards import render_card
+
+        return Content("image", await render_card(feature, data))
+    except SixtyApiError:
+        raise
     except Exception as exc:
         raise SixtyApiError("图片生成失败") from exc

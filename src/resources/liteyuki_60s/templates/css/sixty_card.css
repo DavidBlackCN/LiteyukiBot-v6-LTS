@@ -1,0 +1,43 @@
+.card-header { padding: 38px 42px 34px; background: radial-gradient(circle at 88% 8%, rgba(117, 190, 255, .25), transparent 36%), var(--card-bg); }
+.card-date { margin: 0 0 9px; color: var(--tip-text-color); font-size: 22px; font-weight: 500; }
+h1 { margin: 0; color: var(--main-text-color); font-size: 52px; line-height: 1.16; letter-spacing: -.8px; }
+.headline { margin: 14px 0 0; color: var(--sub-text-color); font-size: 30px; font-weight: 600; line-height: 1.45; }
+.quote-box { padding: 30px 38px; }
+.quote-box p { margin: 0; color: var(--sub-text-color); font-size: 29px; font-weight: 500; line-height: 1.7; white-space: pre-wrap; }
+.facts-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; margin-bottom: 20px; }
+.fact { min-width: 0; padding: 26px 30px; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: var(--card-radius); box-shadow: var(--card-shadow); }
+.fact-label { display: block; color: var(--tip-text-color); font-size: 20px; font-weight: 500; }
+.fact-value { display: block; margin-top: 9px; color: var(--main-text-color); font-size: 27px; line-height: 1.45; overflow-wrap: anywhere; }
+.progress-box { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+.progress-item { min-width: 0; padding: 4px 2px; }
+.progress-item > div:first-child { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.progress-label { color: var(--sub-text-color); font-size: 22px; font-weight: 600; }
+.progress-value { color: var(--color-primary); font-size: 28px; }
+.progress-detail { margin: 8px 0 12px; color: var(--tip-text-color); font-size: 18px; }
+.progress-track { height: 10px; overflow: hidden; background: #e5eff8; border-radius: 999px; }
+.progress-track i { display: block; height: 100%; background: linear-gradient(90deg, #55a8ef, var(--color-primary)); border-radius: inherit; }
+.news-item { display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: 14px; padding: 20px 0; border-bottom: 1px solid #e1ebf5; }
+.news-item:first-child { padding-top: 0; }
+.news-item:last-child { padding-bottom: 0; border-bottom: 0; }
+.item-index { display: flex; width: 36px; height: 36px; align-items: center; justify-content: center; color: var(--color-primary); font-size: 19px; font-weight: 700; background: var(--color-primary-soft); border-radius: 50%; }
+.news-item h2 { margin: 0; color: var(--main-text-color); font-size: 27px; line-height: 1.4; overflow-wrap: anywhere; }
+.item-detail, .item-meta { margin: 8px 0 0; color: var(--sub-text-color); font-size: 21px; line-height: 1.55; overflow-wrap: anywhere; }
+.item-meta { color: var(--tip-text-color); font-size: 18px; }
+.item-detail:empty, .item-meta:empty { display: none; }
+.card-footer { padding: 2px 20px 4px; color: var(--tip-text-color); font-size: 17px; text-align: center; }
+.sixty-variant-it .news-item { grid-template-columns: 42px minmax(0, 1fr); padding: 16px 0; }
+.sixty-variant-it .news-item h2 { font-size: 25px; }
+.sixty-variant-hitokoto .card-header, .sixty-variant-luck .card-header { text-align: center; }
+.sixty-variant-hitokoto .quote-box { padding: 52px 58px; background: rgba(255, 255, 255, .78); }
+.sixty-variant-hitokoto .quote-box p { color: var(--main-text-color); font-size: 38px; font-weight: 600; line-height: 1.62; text-align: center; }
+.sixty-variant-hitokoto .headline { color: var(--tip-text-color); font-size: 21px; }
+.sixty-variant-luck .headline { color: var(--color-primary); font-size: 38px; font-weight: 700; }
+.sixty-variant-luck .facts-grid { grid-template-columns: minmax(0, 1fr); }
+.sixty-variant-luck .fact:first-child { padding: 34px; text-align: center; background: linear-gradient(135deg, #e8f4ff, #f9fcff); }
+.sixty-variant-luck .fact:first-child .fact-value { color: var(--color-primary); font-size: 46px; }
+.sixty-variant-moyu .card-header { background: radial-gradient(circle at 85% 0%, rgba(114, 201, 183, .28), transparent 36%), var(--card-bg); }
+.sixty-variant-moyu .headline { color: #257f70; }
+.sixty-variant-moyu .quote-box { border-left: 6px solid #58aa9a; }
+.sixty-variant-moyu .quote-box p { font-size: 27px; }
+.sixty-variant-moyu .progress-track i { background: linear-gradient(90deg, #70c7b5, #258b7a); }
+@media (max-width: 700px) { .progress-box { grid-template-columns: 1fr; } }
