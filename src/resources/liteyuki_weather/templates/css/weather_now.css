@@ -261,19 +261,33 @@
 }
 
 .attribution-box {
-    display: flex;
-    justify-content: center;
-    padding: 0 24px 4px;
+    display: table;
+    max-width: calc(100% - 56px);
+    margin: 2px auto 4px;
+    padding: 10px 20px;
+    color: #21364c;
+    font-size: 17px;
+    font-weight: 600;
+    line-height: 1.45;
+    text-align: center;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.96);
+    border-radius: 999px;
+    box-shadow: 0 8px 20px rgba(25, 57, 90, 0.17);
+    backdrop-filter: blur(12px);
+}
+
+.card-background-page.has-remote-background .attribution-box {
+    color: #172d43;
+    background: rgba(255, 255, 255, 0.92);
+    text-shadow: 0 1px rgba(255, 255, 255, 0.7);
 }
 
 #attribution-info {
-    color: var(--tip-text-color);
-    font-size: 17px;
-    line-height: 1.45;
     overflow-wrap: anywhere;
-    text-align: center;
 }
 
-#attribution-info:empty {
+#attribution-info:empty,
+.attribution-box:has(#attribution-info:empty) {
     display: none;
 }
