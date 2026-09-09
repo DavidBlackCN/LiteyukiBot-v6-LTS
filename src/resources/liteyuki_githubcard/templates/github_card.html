@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitHub Repository</title>
+    <link rel="stylesheet" href="./css/card.css">
+    <link rel="stylesheet" href="./css/fonts.css">
+    <style>
+        body { min-height: 0; }
+        .repo-card { padding: 34px; }
+        .eyebrow { color: var(--color-primary); font-size: 20px; font-weight: 700; letter-spacing: .12em; }
+        .repo-name { margin: 12px 0 14px; font-size: 44px; font-weight: 800; line-height: 1.15; overflow-wrap: anywhere; }
+        .description { color: var(--sub-text-color); font-size: 25px; line-height: 1.55; overflow-wrap: anywhere; }
+        .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 28px; }
+        .metric { padding: 18px 20px; background: var(--color-primary-soft); border-radius: 18px; }
+        .metric-label { color: var(--tip-text-color); font-size: 19px; }
+        .metric-value { margin-top: 4px; color: var(--main-text-color); font-size: 33px; font-weight: 800; }
+        .details { display: grid; grid-template-columns: 1fr 1.4fr; gap: 16px; margin-top: 16px; }
+        .detail { min-width: 0; padding: 17px 20px; background: #f7fbff; border: 1px solid var(--card-border); border-radius: 18px; }
+        .detail-label { color: var(--tip-text-color); font-size: 18px; }
+        .detail-value { margin-top: 5px; color: var(--sub-text-color); font-size: 22px; font-weight: 600; overflow-wrap: anywhere; }
+        .repo-url { margin-top: 24px; color: var(--color-primary); font-size: 19px; line-height: 1.4; overflow-wrap: anywhere; }
+        .footer { margin-top: 18px; color: var(--tip-text-color); font-size: 17px; text-align: right; }
+    </style>
+</head>
+<body>
+    <div class="data-storage" id="data">{{ data | tojson }}</div>
+    <main class="info-box repo-card">
+        <div class="eyebrow">GITHUB · REPOSITORY</div>
+        <h1 class="repo-name" id="full-name"></h1>
+        <div class="description" id="description"></div>
+        <section class="metrics" aria-label="Repository metrics">
+            <article class="metric"><div class="metric-label">Stars</div><div class="metric-value" id="stars"></div></article>
+            <article class="metric"><div class="metric-label">Forks</div><div class="metric-value" id="forks"></div></article>
+            <article class="metric"><div class="metric-label">Open Issues</div><div class="metric-value" id="issues"></div></article>
+        </section>
+        <section class="details" aria-label="Repository details">
+            <article class="detail"><div class="detail-label">主要语言</div><div class="detail-value" id="language"></div></article>
+            <article class="detail"><div class="detail-label">License</div><div class="detail-value" id="license"></div></article>
+            <article class="detail"><div class="detail-label">最近更新</div><div class="detail-value" id="updated-at"></div></article>
+            <article class="detail"><div class="detail-label">仓库链接</div><div class="detail-value" id="url-detail"></div></article>
+        </section>
+        <div class="repo-url" id="url"></div>
+        <footer class="footer">Data from GitHub API</footer>
+    </main>
+    <script src="./js/card.js"></script>
+    <script>
+        const data = JSON.parse(document.getElementById("data").textContent);
+        const fields = {"full-name": "full_name", description: "description", stars: "stars", forks: "forks", issues: "issues", language: "language", license: "license", "updated-at": "updated_at", "url-detail": "url", url: "url"};
+        for (const [id, key] of Object.entries(fields)) document.getElementById(id).textContent = data[key] || "—";
+        document.fonts.ready.then(() => { window.githubCardReady = true; });
+    </script>
+</body>
+</html>

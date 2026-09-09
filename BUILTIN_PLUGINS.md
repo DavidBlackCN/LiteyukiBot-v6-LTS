@@ -179,6 +179,13 @@
 - `@Bot /remake`（别名 `liferestart`、`人生重开`、`人生重来`）：依次选择三个天赋和四项初始属性，也可以在任一步回复“随机”。
 - `@Bot /remake --random` 或 `随机人生`：随机选择天赋与初始属性后直接生成完整人生总结图片。
 
+### `liteyuki_githubcard` — GitHub 仓库卡片
+
+在群聊和私聊中自动识别 GitHub 仓库主页链接，并查询 GitHub API 生成仓库信息卡；Issue、Release、Commit、目录等子页面链接不会触发。可选配置 `githubcard_token` 提高 API 限额，未配置时使用匿名 API。
+
+- 支持 `https://github.com/<owner>/<repo>`（含末尾 `/`、查询参数或锚点）；同一条消息只处理首个有效仓库链接，避免重复触发和刷屏。
+- 卡片展示简介、Stars、Forks、Open Issues、主要语言、License、更新时间及仓库链接；渲染失败时自动改发文本。
+
 ### `liteyuki_weather` — 轻雪天气
 
 使用和风天气的自定义 API Host 查询城市天气，并生成包含实时、逐小时、七日预报、日出日落和当地 AQI 的天气卡。需在 `config.yml` 配置 `weather_api_host` 与 `weather_key`；用户可通过 `profile set location <城市>` 保存默认地点，并沿用资料中的公制/英制设置。

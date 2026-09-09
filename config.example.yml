@@ -117,6 +117,13 @@ weather_api_host: ""
 # API Key；请勿将真实密钥提交到仓库。
 weather_key: ""
 
+# -------------------- GitHub 仓库卡片 --------------------
+
+# GitHub Personal Access Token；留空使用匿名 API，避免提交真实 Token。
+githubcard_token: ""
+# GitHub API 请求超时，单位为秒。
+githubcard_timeout: 8
+
 # -------------------- 60S API 资讯与娱乐 --------------------
 
 # 60s API 实例地址；可替换为自建或公共实例。
