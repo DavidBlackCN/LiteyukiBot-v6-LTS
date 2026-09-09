@@ -9,20 +9,24 @@ from nonebot_plugin_alconna import Arparma, UniMessage, on_alconna
 from .client import SixtyApiError
 from .config import SixtyApiConfig
 from .service import enabled, fetch_content
-from .state import can_use_luck, record_luck_success
+from .state import begin_luck_request, record_luck_result
 
 
 async def _send_feature(matcher, feature: str, config: SixtyApiConfig, *, name: str | None = None, user_id: str | None = None):
     if not enabled(config, feature):
         await matcher.finish("此功能已关闭。")
     date = datetime.now(ZoneInfo(config.sixty_api_timezone)).date().isoformat()
-    if feature == "luck" and user_id and not can_use_luck(user_id, date, config.sixty_api_luck_daily_limit):
-        await matcher.finish("今日运势次数已用完。")
+    if feature == "luck" and user_id:
+        request = begin_luck_request(user_id, date, config.sixty_api_luck_daily_limit)
+        if request.cached_result:
+            await matcher.finish(UniMessage.image(raw=request.cached_result))
+        if not request.should_fetch:
+            await matcher.finish("今日运势暂无可复用结果，请明日再试。")
     try:
         content = await fetch_content(config, feature, name=name)
         await matcher.send(UniMessage.image(raw=content.value) if content.kind == "image" else str(content.value))
-        if feature == "luck" and user_id:
-            record_luck_success(user_id, date)
+        if feature == "luck" and user_id and isinstance(content.value, bytes):
+            record_luck_result(user_id, date, content.value)
     except (SixtyApiError, ValueError):
         await matcher.finish("获取内容失败，请稍后再试。")
 

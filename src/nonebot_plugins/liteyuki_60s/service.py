@@ -84,7 +84,8 @@ def text_for(feature: str, data: Any) -> str:
 
 
 async def fetch_content(config: SixtyApiConfig, feature: str, *, name: str | None = None) -> Content:
-    params = {"name": name} if feature == "fabing" and name else None
+    fabing_name = name or str(config.sixty_api_fabing_default_name or "").strip()
+    params = {"name": fabing_name} if feature == "fabing" and fabing_name else None
     async with SixtyApiClient(config.sixty_api_base_url, config.sixty_api_timeout) as client:
         data = await client.get_data(PATHS[feature], params=params)
         if feature in TEXT_FEATURES:

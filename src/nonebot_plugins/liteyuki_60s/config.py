@@ -18,6 +18,7 @@ class SixtyApiConfig(BaseModel):
     sixty_api_hitokoto_enabled: bool = True
     sixty_api_luck_enabled: bool = True
     sixty_api_fabing_enabled: bool = True
+    sixty_api_fabing_default_name: str = ""
     sixty_api_kfc_enabled: bool = True
     sixty_api_dad_joke_enabled: bool = True
 

@@ -139,24 +139,26 @@ sixty_api_moyu_enabled: true
 sixty_api_hitokoto_enabled: true
 sixty_api_luck_enabled: true
 sixty_api_fabing_enabled: true
+# 发病文学未指定名字时附带的 name 参数；留空表示不传。
+sixty_api_fabing_default_name: ""
 sixty_api_kfc_enabled: true
 sixty_api_dad_joke_enabled: true
 
 # 五项日报/资讯定时群推送（默认关闭）。
 sixty_api_world_push_enabled: false
-sixty_api_world_push_time: "08:30"
+sixty_api_world_push_time: "10:00"
 sixty_api_ai_push_enabled: false
-sixty_api_ai_push_time: "22:30"
+sixty_api_ai_push_time: "19:00"
 sixty_api_history_push_enabled: false
-sixty_api_history_push_time: "09:00"
+sixty_api_history_push_time: "15:00"
 sixty_api_it_push_enabled: false
-sixty_api_it_push_time: "12:00"
+sixty_api_it_push_time: "11:00"
 sixty_api_moyu_push_enabled: false
-sixty_api_moyu_push_time: "09:10"
+sixty_api_moyu_push_time: "09:00"
 
 # 疯狂星期四每周四推送（默认关闭）。
 sixty_api_kfc_push_enabled: false
-sixty_api_kfc_push_time: "17:30"
+sixty_api_kfc_push_time: "12:00"
 # 每位用户每天可查询运势的次数。
 sixty_api_luck_daily_limit: 1
 
