@@ -150,3 +150,51 @@ def test_network_failure_and_render_fallback_do_not_escape(monkeypatch: pytest.M
     event = SimpleNamespace(get_plaintext=lambda: "https://github.com/LiteyukiStudio/LiteyukiBot-v6-LTS")
     asyncio.run(githubcard.handle_github_link(event, matcher))
     assert "GitHub 仓库：LiteyukiStudio/LiteyukiBot-v6-LTS" in str(matcher.messages[0])
+
+
+def test_image_is_sent_through_unimessage_not_regular_matcher(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _plugin()
+    import src.nonebot_plugins.liteyuki_githubcard as githubcard
+    from src.nonebot_plugins.liteyuki_githubcard.client import Repository
+
+    repository = Repository.from_api(PAYLOAD)
+    sent: list[bytes] = []
+
+    class FakeClient:
+        def __init__(self, *args: object):
+            pass
+
+        async def __aenter__(self) -> "FakeClient":
+            return self
+
+        async def __aexit__(self, *_: object) -> None:
+            return None
+
+        async def repository(self, owner: str, repo: str) -> Repository:
+            return repository
+
+    class OutgoingImage:
+        async def send(self) -> None:
+            sent.append(b"png")
+
+    class FakeUniMessage:
+        @staticmethod
+        def image(*, raw: bytes) -> OutgoingImage:
+            assert raw == b"png"
+            return OutgoingImage()
+
+    class FakeMatcher:
+        async def send(self, message: object) -> None:
+            raise AssertionError(f"image must not be passed to Matcher.send: {message!r}")
+
+    async def render_success(repo: Repository) -> bytes:
+        return b"png"
+
+    monkeypatch.setattr(githubcard, "GitHubClient", FakeClient)
+    monkeypatch.setattr(githubcard, "UniMessage", FakeUniMessage)
+    monkeypatch.setattr(githubcard, "render_repository_card", render_success)
+    event = SimpleNamespace(get_plaintext=lambda: "https://github.com/LiteyukiStudio/LiteyukiBot-v6-LTS")
+    asyncio.run(githubcard.handle_github_link(event, FakeMatcher()))
+    assert sent == [b"png"]

@@ -80,4 +80,6 @@ async def handle_github_link(event: Event, matcher: Matcher) -> None:
         logger.warning(f"GitHub 仓库卡片渲染失败，改用文本: {owner}/{repo}: {exc!r}")
         await matcher.send(repository_text(repository))
         return
-    await matcher.send(UniMessage.image(raw=image))
+    # on_message creates a regular Matcher. Let UniMessage perform its own
+    # adapter conversion instead of passing an UniSeg Image to Matcher.send.
+    await UniMessage.image(raw=image).send()
