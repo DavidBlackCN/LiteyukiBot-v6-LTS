@@ -96,6 +96,7 @@ async def handle_setu(
         await matcher.finish("正在冷却中，请稍后再试。")
         return
     sent = False
+    sent_count = 0
     quota_date = datetime.now(ZoneInfo(config.setu_daily_limit_timezone)).date().isoformat()
     try:
         if group_key and not has_quota(group_key, user_id, quota_date,
@@ -114,6 +115,7 @@ async def handle_setu(
                 message = UniMessage.text(metadata_text(image)) + message
             receipt = await matcher.send(message)
             sent = True
+            sent_count += 1
             if group_key:
                 record_success(group_key, user_id, quota_date)
             if settings.auto_recall:
@@ -122,6 +124,9 @@ async def handle_setu(
                 remaining = config.setu_send_interval_seconds - (time.monotonic() - started)
                 if remaining > 0:
                     await asyncio.sleep(remaining)
+        if sent_count < query.count:
+            await matcher.send(f"本次仅成功获取 {sent_count}/{query.count} 张图片。")
+        logger.info(f"色图发送完成: requested={query.count} sent={sent_count}")
     except NoResultError as exc:
         await matcher.finish(str(exc))
     except SetuError as exc:

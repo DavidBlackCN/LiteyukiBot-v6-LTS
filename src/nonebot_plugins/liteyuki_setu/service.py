@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 from urllib.parse import urlparse
 
@@ -171,6 +171,49 @@ async def download_results(results: list[ImageResult], config: SetuConfig, *, cl
     return [item for item in downloaded if item is not None]
 
 
+def _result_key(result: ImageResult) -> tuple[str, str]:
+    if result.pid is not None:
+        return "pid", str(result.pid)
+    return "url", result.image_url
+
+
+async def _fetch_with_refills(provider: Any, query: ImageQuery, config: SetuConfig,
+                              image_client: HttpClient) -> list[tuple[ImageResult, bytes]]:
+    successful: list[tuple[ImageResult, bytes]] = []
+    seen: set[tuple[str, str]] = set()
+    for attempt in range(3):
+        missing = query.count - len(successful)
+        if missing <= 0:
+            break
+        if attempt:
+            logger.info(f"{_provider_name(provider)} 补图: missing={missing} attempt={attempt}/2")
+        refill_query = query if attempt == 0 else replace(query, count=missing)
+        try:
+            returned = await provider.fetch(refill_query)
+        except NoResultError:
+            if successful:
+                logger.info(f"{_provider_name(provider)} 补图无结果，保留已下载图片。")
+                break
+            raise
+        except ProviderError as exc:
+            if successful:
+                logger.warning(f"{_provider_name(provider)} 补图请求失败，保留已下载图片: {exc}")
+                break
+            raise
+        accepted = [
+            result for result in returned
+            if is_result_allowed(result, r18=query.r18) and _result_key(result) not in seen
+        ]
+        for result in accepted:
+            seen.add(_result_key(result))
+        logger.info(f"{_provider_name(provider)} 图片结果: requested={missing} returned={len(returned)} accepted={len(accepted)}")
+        downloaded = await download_results(accepted, config, client=image_client)
+        successful.extend(downloaded[:missing])
+        logger.info(f"{_provider_name(provider)} 图片下载: success={len(downloaded)} failed={len(accepted) - len(downloaded)}")
+    logger.info(f"{_provider_name(provider)} 图片获取完成: requested={query.count} downloaded={len(successful)}")
+    return successful[:query.count]
+
+
 async def fetch_and_download(query: ImageQuery, config: SetuConfig) -> list[tuple[ImageResult, bytes]]:
     """Fallback only to providers that can express exactly the current query."""
     async with HttpClient(_api_timeout(config), config.setu_request_retries) as api_client:
@@ -178,27 +221,16 @@ async def fetch_and_download(query: ImageQuery, config: SetuConfig) -> list[tupl
         last_error: Exception | None = None
         for provider in choose_providers(query, config, providers):
             try:
-                results = [result for result in await provider.fetch(query) if is_result_allowed(result, r18=query.r18)]
-                if not results:
-                    raise NoResultError("没有找到符合条件的图片。")
-            except NoResultError:
-                raise
-            except ProviderError as exc:
-                logger.warning(f"{_provider_name(provider)} API 请求失败: {exc}")
-                health.failure(provider.name, config, exc)
-                last_error = exc
-                if query.provider != "auto":
-                    raise ProviderUnavailableError(f"{provider.name} 当前不可用，请稍后重试或使用 --source auto。") from exc
-                continue
-            try:
                 async with HttpClient(_image_timeout(config), config.setu_request_retries) as image_client:
-                    downloaded = await download_results(results[:query.count], config, client=image_client)
+                    downloaded = await _fetch_with_refills(provider, query, config, image_client)
                 if not downloaded:
                     raise ProviderError("没有图片下载成功")
                 health.success(provider.name)
                 return downloaded
+            except NoResultError:
+                raise
             except ProviderError as exc:
-                logger.warning(f"{_provider_name(provider)} 图片下载阶段失败: {exc}")
+                logger.warning(f"{_provider_name(provider)} 图片获取失败: {exc}")
                 health.failure(provider.name, config, exc)
                 last_error = exc
                 if query.provider != "auto":
@@ -206,7 +238,6 @@ async def fetch_and_download(query: ImageQuery, config: SetuConfig) -> list[tupl
         if last_error:
             raise ProviderUnavailableError("图片源暂时不可用，请稍后再试。") from last_error
         raise UnsupportedQueryError("没有可用图片源支持当前筛选条件。")
-
 
 def metadata_text(result: ImageResult) -> str:
     lines: list[str] = []
