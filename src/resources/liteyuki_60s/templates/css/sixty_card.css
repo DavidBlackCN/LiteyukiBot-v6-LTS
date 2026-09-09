@@ -41,3 +41,37 @@ h1 { margin: 0; color: var(--main-text-color); font-size: 52px; line-height: 1.1
 .sixty-variant-moyu .quote-box p { font-size: 27px; }
 .sixty-variant-moyu .progress-track i { background: linear-gradient(90deg, #70c7b5, #258b7a); }
 @media (max-width: 700px) { .progress-box { grid-template-columns: 1fr; } }
+/* Empty sections must never override the semantic hidden attribute. */
+#quote-box[hidden], #facts[hidden], #progress-box[hidden], #items[hidden] {
+    display: none !important;
+}
+
+.card-date:empty, .headline:empty {
+    display: none;
+}
+
+.card-header:has(.card-date:empty) {
+    padding-top: 34px;
+}
+
+.card-footer {
+    display: table;
+    margin: 2px auto 4px;
+    padding: 10px 20px;
+    color: #21364c;
+    font-size: 17px;
+    font-weight: 600;
+    line-height: 1.35;
+    text-align: center;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.96);
+    border-radius: 999px;
+    box-shadow: 0 8px 20px rgba(25, 57, 90, 0.17);
+    backdrop-filter: blur(12px);
+}
+
+.card-background-page.has-remote-background .card-footer {
+    color: #172d43;
+    background: rgba(255, 255, 255, 0.92);
+    text-shadow: 0 1px rgba(255, 255, 255, 0.7);
+}
