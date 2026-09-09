@@ -117,6 +117,62 @@ weather_api_host: ""
 # API Key；请勿将真实密钥提交到仓库。
 weather_key: ""
 
+# -------------------- 60S API 资讯与娱乐 --------------------
+
+# 60s API 实例地址；可替换为自建或公共实例。
+sixty_api_base_url: "https://60s.viki.moe"
+# API 请求超时，单位秒。
+sixty_api_timeout: 10
+# 定时任务、随机推送及运势次数统计使用的时区。
+sixty_api_timezone: "Asia/Shanghai"
+# 自动推送目标 QQ 群；为空时不自动推送。
+sixty_api_push_groups: []
+# 主动推送使用的 Bot self_id；留空时仅在唯一 Bot 在线时发送。
+sixty_api_push_bot_id: ""
+
+# 十项手动功能开关。
+sixty_api_world_enabled: true
+sixty_api_ai_enabled: true
+sixty_api_history_enabled: true
+sixty_api_it_enabled: true
+sixty_api_moyu_enabled: true
+sixty_api_hitokoto_enabled: true
+sixty_api_luck_enabled: true
+sixty_api_fabing_enabled: true
+sixty_api_kfc_enabled: true
+sixty_api_dad_joke_enabled: true
+
+# 五项日报/资讯定时群推送（默认关闭）。
+sixty_api_world_push_enabled: false
+sixty_api_world_push_time: "08:30"
+sixty_api_ai_push_enabled: false
+sixty_api_ai_push_time: "22:30"
+sixty_api_history_push_enabled: false
+sixty_api_history_push_time: "09:00"
+sixty_api_it_push_enabled: false
+sixty_api_it_push_time: "12:00"
+sixty_api_moyu_push_enabled: false
+sixty_api_moyu_push_time: "09:10"
+
+# 疯狂星期四每周四推送（默认关闭）。
+sixty_api_kfc_push_enabled: false
+sixty_api_kfc_push_time: "17:30"
+# 每位用户每天可查询运势的次数。
+sixty_api_luck_daily_limit: 1
+
+# 发病文学随机群推送；仅在时间窗口内按随机间隔安排下一次发送。
+sixty_api_fabing_random_push_enabled: false
+sixty_api_fabing_random_min_interval_minutes: 180
+sixty_api_fabing_random_max_interval_minutes: 360
+sixty_api_fabing_random_start: "08:00"
+sixty_api_fabing_random_end: "22:00"
+# 冷笑话随机群推送；仅在时间窗口内按随机间隔安排下一次发送。
+sixty_api_dad_joke_random_push_enabled: false
+sixty_api_dad_joke_random_min_interval_minutes: 180
+sixty_api_dad_joke_random_max_interval_minutes: 360
+sixty_api_dad_joke_random_start: "08:00"
+sixty_api_dad_joke_random_end: "22:00"
+
 # -------------------- 定时提醒（nonebot_plugin_remind） --------------------
 
 # 私聊执行“/提醒列表”时，列出私聊及群聊中的全部提醒。
