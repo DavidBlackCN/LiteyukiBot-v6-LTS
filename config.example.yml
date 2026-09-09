@@ -183,7 +183,7 @@ setu_private_enabled: true
 setu_private_r18_enabled: false
 setu_private_r18_user_ids: []
 # 默认单次图片数与硬上限（上限不得超过 5）。
-setu_default_count: 3
+setu_default_count: 1
 setu_max_count: 5
 # 用户调用冷却时间与多图发送间隔，单位秒。
 setu_cooldown_seconds: 30
@@ -226,6 +226,7 @@ setu_lolicon_api_url: "https://api.lolicon.app/setu/v2"
 setu_mirlkoi_enabled: true
 setu_mirlkoi_base_url: "https://api.cnmiw.com"
 setu_mirlkoi_endpoint: "/api.php"
+
 # -------------------- 定时提醒（nonebot_plugin_remind） --------------------
 
 # 私聊执行“/提醒列表”时，列出私聊及群聊中的全部提醒。
