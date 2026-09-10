@@ -132,15 +132,23 @@ class _Message:
 
 
 class _Matcher:
-    def __init__(self) -> None:
+    def __init__(self, receipts=None) -> None:
         self.messages = []
+        self._receipts = iter(receipts or [])
 
     async def send(self, message):
         self.messages.append(message)
-        return None
+        if isinstance(message, str):
+            return _Receipt(["notice"])
+        return next(self._receipts, _Receipt([len(self.messages)]))
 
     async def finish(self, message):
         raise AssertionError(f"unexpected finish: {message}")
+
+
+class _Receipt:
+    def __init__(self, msg_ids) -> None:
+        self.msg_ids = msg_ids
 
 
 def test_partial_result_notifies_and_records_only_successful_sends(monkeypatch) -> None:
@@ -160,6 +168,7 @@ def test_partial_result_notifies_and_records_only_successful_sends(monkeypatch) 
         return None
 
     monkeypatch.setattr(commands, "_access_allowed", allow_access)
+    monkeypatch.setattr(commands, "group_allowed", lambda *_args: True)
     monkeypatch.setattr(commands, "get_group_settings", lambda *_args: settings)
     monkeypatch.setattr(commands, "fetch_and_download", lambda *_args: _immediate(images))
     monkeypatch.setattr(commands, "has_quota", lambda *_args, **_kwargs: True)
@@ -178,3 +187,121 @@ def test_partial_result_notifies_and_records_only_successful_sends(monkeypatch) 
 
 async def _immediate(value):
     return value
+
+
+def test_send_counts_only_confirmed_receipts_and_recalls_them(monkeypatch) -> None:
+    _init()
+    from src.nonebot_plugins.liteyuki_setu import commands
+    from src.nonebot_plugins.liteyuki_setu.service import Cooldown
+    from src.nonebot_plugins.liteyuki_setu.storage import GroupSettings
+
+    settings = GroupSettings(True, True, 60, 3, "auto", False, 0, 10)
+    images = [(_image("a", 1), b"a"), (_image("b", 2), b"b"), (_image("c", 3), b"c")]
+    usage = []
+    recalls = []
+
+    async def allow_access(*_args, **_kwargs):
+        return True
+
+    async def no_sleep(_seconds):
+        return None
+
+    monkeypatch.setattr(commands, "_access_allowed", allow_access)
+    monkeypatch.setattr(commands, "group_allowed", lambda *_args: True)
+    monkeypatch.setattr(commands, "get_group_settings", lambda *_args: settings)
+    monkeypatch.setattr(commands, "fetch_and_download", lambda *_args: _immediate(images))
+    monkeypatch.setattr(commands, "has_quota", lambda *_args, **_kwargs: True)
+    monkeypatch.setattr(commands, "record_success", lambda *_args: usage.append(1))
+    monkeypatch.setattr(commands, "schedule_recall", lambda receipt, *_args: recalls.append(receipt))
+    monkeypatch.setattr(commands, "cooldown", Cooldown())
+    monkeypatch.setattr(commands, "UniMessage", _Message)
+    monkeypatch.setattr(commands.asyncio, "sleep", no_sleep)
+    matcher = _Matcher([_Receipt([101]), _Receipt([]), _Receipt([103])])
+    event = SimpleNamespace(group_id=10001, user_id=20002)
+    bot = SimpleNamespace(config=SimpleNamespace(superusers=set()))
+
+    asyncio.run(commands.handle_setu(SimpleNamespace(main_args={"raw": ["3"]}), event, bot, matcher))
+
+    assert len(matcher.messages) == 4  # all three images are attempted, then the partial-result notice
+    assert matcher.messages[-1] == "本次仅成功获取 2/3 张图片。"
+    assert len(usage) == 2
+    assert [receipt.msg_ids for receipt in recalls] == [[101], [103]]
+
+
+def test_confirmed_send_waits_after_send_completion(monkeypatch) -> None:
+    _init()
+    from src.nonebot_plugins.liteyuki_setu import commands
+    from src.nonebot_plugins.liteyuki_setu.service import Cooldown
+    from src.nonebot_plugins.liteyuki_setu.storage import GroupSettings
+
+    settings = GroupSettings(True, False, 60, 3, "auto", False, 0, 10)
+    images = [(_image("a"), b"a"), (_image("b"), b"b")]
+    clock = [0.0]
+    send_starts = []
+    sleeps = []
+
+    class SlowMatcher(_Matcher):
+        async def send(self, message):
+            if not isinstance(message, str):
+                send_starts.append(clock[0])
+                clock[0] += 5.0  # the upload itself exceeds the configured interval
+            return await super().send(message)
+
+    async def allow_access(*_args, **_kwargs):
+        return True
+
+    async def fake_sleep(seconds):
+        sleeps.append(seconds)
+        clock[0] += seconds
+
+    monkeypatch.setattr(commands, "_access_allowed", allow_access)
+    monkeypatch.setattr(commands, "group_allowed", lambda *_args: True)
+    monkeypatch.setattr(commands, "get_group_settings", lambda *_args: settings)
+    monkeypatch.setattr(commands, "fetch_and_download", lambda *_args: _immediate(images))
+    monkeypatch.setattr(commands, "has_quota", lambda *_args, **_kwargs: True)
+    monkeypatch.setattr(commands, "record_success", lambda *_args: None)
+    monkeypatch.setattr(commands, "cooldown", Cooldown())
+    monkeypatch.setattr(commands, "UniMessage", _Message)
+    monkeypatch.setattr(commands.asyncio, "sleep", fake_sleep)
+    matcher = SlowMatcher([_Receipt([101]), _Receipt([102])])
+    event = SimpleNamespace(group_id=10001, user_id=20002)
+    bot = SimpleNamespace(config=SimpleNamespace(superusers=set()))
+
+    asyncio.run(commands.handle_setu(SimpleNamespace(main_args={"raw": ["2"]}), event, bot, matcher))
+
+    assert sleeps == [1.0]
+    assert send_starts == [0.0, 6.0]
+
+def test_three_valid_receipts_are_all_confirmed(monkeypatch) -> None:
+    _init()
+    from src.nonebot_plugins.liteyuki_setu import commands
+    from src.nonebot_plugins.liteyuki_setu.service import Cooldown
+    from src.nonebot_plugins.liteyuki_setu.storage import GroupSettings
+
+    settings = GroupSettings(True, False, 60, 3, "auto", False, 0, 10)
+    images = [(_image("a"), b"a"), (_image("b"), b"b"), (_image("c"), b"c")]
+    usage = []
+
+    async def allow_access(*_args, **_kwargs):
+        return True
+
+    async def no_sleep(_seconds):
+        return None
+
+    monkeypatch.setattr(commands, "_access_allowed", allow_access)
+    monkeypatch.setattr(commands, "group_allowed", lambda *_args: True)
+    monkeypatch.setattr(commands, "get_group_settings", lambda *_args: settings)
+    monkeypatch.setattr(commands, "fetch_and_download", lambda *_args: _immediate(images))
+    monkeypatch.setattr(commands, "has_quota", lambda *_args, **_kwargs: True)
+    monkeypatch.setattr(commands, "record_success", lambda *_args: usage.append(1))
+    monkeypatch.setattr(commands, "cooldown", Cooldown())
+    monkeypatch.setattr(commands, "UniMessage", _Message)
+    monkeypatch.setattr(commands.asyncio, "sleep", no_sleep)
+    matcher = _Matcher([_Receipt([101]), _Receipt([102]), _Receipt([103])])
+    event = SimpleNamespace(group_id=10001, user_id=20002)
+    bot = SimpleNamespace(config=SimpleNamespace(superusers=set()))
+
+    asyncio.run(commands.handle_setu(SimpleNamespace(main_args={"raw": ["3"]}), event, bot, matcher))
+
+    assert len(matcher.messages) == 3
+    assert len(usage) == 3

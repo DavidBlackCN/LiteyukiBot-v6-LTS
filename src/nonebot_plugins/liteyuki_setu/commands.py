@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import time
 from datetime import datetime
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -22,6 +21,20 @@ from .storage import default_settings, get_group_settings, group_allowed
 
 def _raw_args(result: Arparma) -> str:
     return " ".join(str(value) for value in result.main_args.get("raw", [])).strip()
+
+
+def _receipt_message_ids(receipt: Any) -> list[Any]:
+    """Return usable message IDs from a UniMessage receipt."""
+    message_ids = getattr(receipt, "msg_ids", None)
+    if not message_ids:
+        return []
+    if isinstance(message_ids, (str, bytes)):
+        message_ids = [message_ids]
+    try:
+        return [message_id for message_id in message_ids
+                if message_id is not None and str(message_id).strip()]
+    except TypeError:
+        return []
 
 
 def _is_superuser(bot: Any, event: Any) -> bool:
@@ -110,12 +123,24 @@ async def handle_setu(
         if not downloaded:
             await matcher.finish("图片下载失败，请稍后再试。")
             return
+        attempted_count = 0
         for position, (image, raw) in enumerate(downloaded):
-            started = time.monotonic()
             message = UniMessage.image(raw=raw)
             if config.setu_show_metadata:
                 message = UniMessage.text(metadata_text(image)) + message
-            receipt = await matcher.send(message)
+            attempted_count += 1
+            try:
+                receipt = await matcher.send(message)
+            except Exception as exc:
+                logger.warning(f"色图发送[{position + 1}/{query.count}]失败: pid={image.pid}, reason={exc!r}")
+                continue
+            message_ids = _receipt_message_ids(receipt)
+            if not message_ids:
+                logger.warning(f"色图发送[{position + 1}/{query.count}]未取得有效回执: "
+                               f"pid={image.pid}, msg_ids={getattr(receipt, 'msg_ids', None)!r}")
+                continue
+            logger.info(f"色图发送[{position + 1}/{query.count}]: "
+                        f"pid={image.pid}, message_ids={message_ids}")
             sent = True
             sent_count += 1
             if group_key:
@@ -123,12 +148,11 @@ async def handle_setu(
             if settings.auto_recall:
                 schedule_recall(receipt, settings.recall_seconds)
             if position + 1 < len(downloaded):
-                remaining = config.setu_send_interval_seconds - (time.monotonic() - started)
-                if remaining > 0:
-                    await asyncio.sleep(remaining)
+                await asyncio.sleep(config.setu_send_interval_seconds)
         if sent_count < query.count:
             await matcher.send(f"本次仅成功获取 {sent_count}/{query.count} 张图片。")
-        logger.info(f"色图发送完成: requested={query.count} sent={sent_count}")
+        logger.info(f"色图发送完成: requested={query.count} attempted={attempted_count} "
+                    f"confirmed={sent_count}")
     except NoResultError as exc:
         await matcher.finish(str(exc))
     except SetuError as exc:
