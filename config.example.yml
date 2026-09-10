@@ -104,7 +104,7 @@ group_manager_allow_admin_kick: true
 # 兼容旧 status_background_*；同名新 card_background_* 显式配置优先。
 card_background_enabled: false
 # 背景图片地址，需直接返回图片数据，支持 HTTP 重定向。
-card_background_url: ""
+card_background_url: "https://www.loliapi.com/acg/pe/"
 # 获取背景图片的超时时间，单位为秒。
 card_background_timeout: 6
 # 背景遮罩强度。
@@ -203,7 +203,7 @@ setu_send_interval_seconds: 1.0
 setu_auto_recall: true
 setu_recall_seconds: 60
 # 默认排除 AI 作品、每日图片额度、默认图片尺寸与最大下载字节数。
-setu_exclude_ai: true
+setu_exclude_ai: false
 # 每个群内每位用户每天最多成功发送的图片数；0 表示不限制。
 setu_daily_image_limit_per_user: 0
 # 每日额度使用的时区。
