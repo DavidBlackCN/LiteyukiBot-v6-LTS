@@ -67,3 +67,24 @@ Windows、Linux 与 Docker 均可部署。生产环境建议使用独立虚拟�
 - 本 LTS 仓库：[DavidBlackCN/LiteyukiBot-v6-LTS](https://github.com/DavidBlackCN/LiteyukiBot-v6-LTS)
 - NoneBot2：<https://nonebot.dev/>
 - 内置插件 `liteyuki_remake`：[noneplugin/nonebot-plugin-remake](https://github.com/noneplugin/nonebot-plugin-remake) - MIT License
+
+
+[Liteyuki6.0]: https://img.shields.io/badge/Liteyuki-6.0-blue?style=for-the-badge
+
+[Python3.10+]: https://img.shields.io/badge/Python-3.10+-blue?style=for-the-badge
+
+[Usage]: https://img.shields.io/badge/主页-文档-blue?style=for-the-badge
+
+[Repo]: https://img.shields.io/badge/官方托管-仓库-blue?style=for-the-badge
+
+[Github]: https://img.shields.io/badge/Github-仓库-blue?style=for-the-badge
+
+[python-link]:https://www.python.org/
+
+[usage-link]:https://bot.liteyuki.org/
+
+[liteyuki-link]:https://bot.liteyuki.org/
+
+[github-link]:https://github.com/DavidBlackCN/LiteyukiBot-v6-LTS
+
+[banner]: https://socialify.git.ci/DavidBlackCN/LiteyukiBot-v6-LTS/image?description=1&font=Source+Code+Pro&forks=1&issues=1&logo=https%3A%2F%2Fcdn.liteyuki.org%2Flogos%2Fbot.svg&name=1&owner=1&pattern=Floating+Cogs&pulls=1&stargazers=1&theme=Auto
