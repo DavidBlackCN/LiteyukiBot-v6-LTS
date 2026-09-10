@@ -69,15 +69,40 @@ async def push_target_groups(config: SixtyApiConfig, bot) -> list[int]:
     ))
 
 
-async def push_content(config: SixtyApiConfig, feature: str) -> bool:
+async def push_content(config: SixtyApiConfig, feature: str, *, per_group_random: bool = False, target_group_id: int | None = None) -> bool:
     if not enabled(config, feature):
         return False
     bot = choose_push_bot(config)
     if bot is None:
         return False
     target_groups = await push_target_groups(config, bot)
+    if target_group_id is not None:
+        target_group_id = int(target_group_id)
+        if target_group_id not in target_groups:
+            return False
+        target_groups = [target_group_id]
     if not target_groups:
         return False
+    if per_group_random:
+        sent = False
+        fabing_name = str(config.sixty_api_fabing_default_name or "").strip() or None
+        for group_id in target_groups:
+            try:
+                if feature == "fabing":
+                    content = await fetch_content(config, feature, name=fabing_name)
+                else:
+                    content = await fetch_content(config, feature)
+            except SixtyApiError as exc:
+                nonebot.logger.warning("60s %s 随机推送获取失败（群 %s）：%s", feature, group_id, exc)
+                continue
+            message = UniMessage.image(raw=content.value) if content.kind == "image" else str(content.value)
+            try:
+                await bot.send_group_msg(group_id=int(group_id), message=message)
+            except Exception as exc:
+                nonebot.logger.warning("60s 推送到群 %s 失败：%s", group_id, exc)
+            else:
+                sent = True
+        return sent
     try:
         content = await fetch_content(config, feature)
     except SixtyApiError as exc:
@@ -114,24 +139,90 @@ def next_random_time(now: datetime, start: str, end: str, min_minutes: int, max_
     return candidate
 
 
-def _schedule_random(config: SixtyApiConfig, feature: str) -> None:
-    job_id = f"liteyuki_60s.{feature}_random"
-    _remove_job(job_id)
+def _random_group_job_id(feature: str, group_id: int) -> str:
+    return f"liteyuki_60s.{feature}_random.{group_id}"
+
+
+def _remove_random_group_jobs(feature: str) -> None:
+    prefix = f"liteyuki_60s.{feature}_random."
+    for job in scheduler.get_jobs():
+        if job.id.startswith(prefix):
+            scheduler.remove_job(job.id)
+
+
+def _next_random_run_at(config: SixtyApiConfig, feature: str) -> datetime:
+    timezone = ZoneInfo(config.sixty_api_timezone)
+    return next_random_time(
+        datetime.now(timezone),
+        getattr(config, f"sixty_api_{feature}_random_start"),
+        getattr(config, f"sixty_api_{feature}_random_end"),
+        getattr(config, f"sixty_api_{feature}_random_min_interval_minutes"),
+        getattr(config, f"sixty_api_{feature}_random_max_interval_minutes"),
+    )
+
+
+def _staggered_random_run_at(feature: str, group_id: int, run_at: datetime) -> datetime:
+    job_id = _random_group_job_id(feature, group_id)
+    occupied = set()
+    for job in scheduler.get_jobs():
+        if job.id == job_id:
+            continue
+        next_run = getattr(job, "next_run_time", None)
+        if next_run is not None:
+            occupied.add(next_run.replace(microsecond=0))
+    candidate = run_at.replace(microsecond=0) + timedelta(seconds=random.randint(1, 59))
+    while candidate in occupied:
+        candidate += timedelta(seconds=random.randint(1, 59))
+    return candidate
+
+def _schedule_random_group(config: SixtyApiConfig, feature: str, group_id: int) -> None:
     if not getattr(config, f"sixty_api_{feature}_random_push_enabled") or not enabled(config, feature):
         return
     try:
-        run_at = next_random_time(datetime.now(ZoneInfo(config.sixty_api_timezone)), getattr(config, f"sixty_api_{feature}_random_start"), getattr(config, f"sixty_api_{feature}_random_end"), getattr(config, f"sixty_api_{feature}_random_min_interval_minutes"), getattr(config, f"sixty_api_{feature}_random_max_interval_minutes"))
+        run_at = _staggered_random_run_at(feature, group_id, _next_random_run_at(config, feature))
+    except (ValueError, KeyError) as exc:
+        nonebot.logger.warning("60s %s 随机推送配置无效：%s", feature, exc)
+        return
+    job_id = _random_group_job_id(feature, group_id)
+
+    async def run_once() -> None:
+        try:
+            await push_content(config, feature, per_group_random=True, target_group_id=group_id)
+        finally:
+            _schedule_random_group(config, feature, group_id)
+
+    scheduler.add_job(run_once, "date", run_date=run_at, id=job_id,
+                      replace_existing=True, max_instances=1, coalesce=True)
+
+
+def _schedule_random(config: SixtyApiConfig, feature: str, *, initial: bool = True) -> None:
+    job_id = f"liteyuki_60s.{feature}_random"
+    _remove_job(job_id)
+    if initial:
+        _remove_random_group_jobs(feature)
+    if not getattr(config, f"sixty_api_{feature}_random_push_enabled") or not enabled(config, feature):
+        return
+    if initial and config.sixty_api_group_mode == "whitelist":
+        for group_id in dict.fromkeys(int(group_id) for group_id in config.sixty_api_group_ids):
+            _schedule_random_group(config, feature, group_id)
+        return
+    try:
+        timezone = ZoneInfo(config.sixty_api_timezone)
+        run_at = datetime.now(timezone) + timedelta(seconds=1) if initial else _next_random_run_at(config, feature)
     except (ValueError, KeyError) as exc:
         nonebot.logger.warning("60s %s 随机推送配置无效：%s", feature, exc)
         return
 
-    async def run_once() -> None:
-        try:
-            await push_content(config, feature)
-        finally:
-            _schedule_random(config, feature)
+    async def bootstrap() -> None:
+        bot = choose_push_bot(config)
+        if bot is None:
+            _schedule_random(config, feature, initial=False)
+            return
+        for group_id in await push_target_groups(config, bot):
+            _schedule_random_group(config, feature, group_id)
 
-    scheduler.add_job(run_once, "date", run_date=run_at, id=job_id, replace_existing=True, max_instances=1, coalesce=True)
+    scheduler.add_job(bootstrap, "date", run_date=run_at, id=job_id,
+                      replace_existing=True, max_instances=1, coalesce=True)
 
 
 def configure_jobs(config: SixtyApiConfig) -> None:

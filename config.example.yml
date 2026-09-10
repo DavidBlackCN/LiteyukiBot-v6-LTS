@@ -172,13 +172,13 @@ sixty_api_kfc_push_time: "12:00"
 # 每位用户每天可查询运势的次数。
 sixty_api_luck_daily_limit: 1
 
-# 发病文学随机群推送；仅在时间窗口内按随机间隔安排下一次发送。
+# 发病文学随机群推送；每个目标群独立随机安排时间（秒级错峰）并请求文案。
 sixty_api_fabing_random_push_enabled: false
 sixty_api_fabing_random_min_interval_minutes: 180
 sixty_api_fabing_random_max_interval_minutes: 360
 sixty_api_fabing_random_start: "08:00"
 sixty_api_fabing_random_end: "22:00"
-# 冷笑话随机群推送；仅在时间窗口内按随机间隔安排下一次发送。
+# 冷笑话随机群推送；每个目标群独立随机安排时间（秒级错峰）并请求文案。
 sixty_api_dad_joke_random_push_enabled: false
 sixty_api_dad_joke_random_min_interval_minutes: 180
 sixty_api_dad_joke_random_max_interval_minutes: 360

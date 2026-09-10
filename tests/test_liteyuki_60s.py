@@ -135,12 +135,14 @@ def test_group_mode_scopes_commands_and_pushes(monkeypatch) -> None:
     class Bot:
         def __init__(self):
             self.sent = []
+            self.messages = []
 
         async def get_group_list(self):
             return [{"group_id": 10001}, {"group_id": 10002}]
 
         async def send_group_msg(self, *, group_id, message):
             self.sent.append(group_id)
+            self.messages.append(message)
 
     bot = Bot()
 
@@ -154,6 +156,89 @@ def test_group_mode_scopes_commands_and_pushes(monkeypatch) -> None:
     bot.sent.clear()
     assert asyncio.run(push_content(blacklist, "world"))
     assert bot.sent == [10002]
+
+    calls = []
+
+    async def random_content(_config, feature, *, name=None):
+        calls.append((feature, name))
+        return Content("text", f"{feature}-{len(calls)}")
+
+    monkeypatch.setattr("src.nonebot_plugins.liteyuki_60s.scheduler.fetch_content", random_content)
+    random_groups = SixtyApiConfig(sixty_api_group_ids=[10001, 10002], sixty_api_fabing_default_name="小明")
+    bot.sent.clear()
+    bot.messages.clear()
+    assert asyncio.run(push_content(random_groups, "fabing", per_group_random=True))
+    assert bot.sent == [10001, 10002]
+    assert bot.messages == ["fabing-1", "fabing-2"]
+    assert calls == [("fabing", "小明"), ("fabing", "小明")]
+
+    calls.clear()
+    bot.sent.clear()
+    bot.messages.clear()
+    assert asyncio.run(push_content(random_groups, "dad_joke", per_group_random=True))
+    assert bot.sent == [10001, 10002]
+    assert bot.messages == ["dad_joke-1", "dad_joke-2"]
+    assert calls == [("dad_joke", None), ("dad_joke", None)]
+
+
+
+
+def test_random_group_pushes_have_independent_schedules(monkeypatch) -> None:
+    try:
+        nonebot.get_driver()
+    except ValueError:
+        nonebot.init()
+    from src.nonebot_plugins.liteyuki_60s import scheduler as scheduler_module
+    from src.nonebot_plugins.liteyuki_60s.config import SixtyApiConfig
+
+    class Job:
+        def __init__(self, job_id, func, kwargs):
+            self.id = job_id
+            self.func = func
+            self.kwargs = kwargs
+
+    class FakeScheduler:
+        def __init__(self):
+            self.jobs = {}
+
+        def get_job(self, job_id):
+            return self.jobs.get(job_id)
+
+        def get_jobs(self):
+            return list(self.jobs.values())
+
+        def remove_job(self, job_id):
+            self.jobs.pop(job_id, None)
+
+        def add_job(self, func, _trigger, *, id, **kwargs):
+            self.jobs[id] = Job(id, func, kwargs)
+
+    fake_scheduler = FakeScheduler()
+    run_times = iter((
+        datetime(2026, 1, 1, 10, 5, tzinfo=ZoneInfo("Asia/Shanghai")),
+        datetime(2026, 1, 1, 10, 35, tzinfo=ZoneInfo("Asia/Shanghai")),
+    ))
+    config = SixtyApiConfig(
+        sixty_api_group_mode="blacklist",
+        sixty_api_fabing_random_push_enabled=True,
+    )
+
+    monkeypatch.setattr(scheduler_module, "scheduler", fake_scheduler)
+    class Bot:
+        async def get_group_list(self):
+            return [{"group_id": 10001}, {"group_id": 10002}]
+
+    monkeypatch.setattr(scheduler_module, "choose_push_bot", lambda _config: Bot())
+    monkeypatch.setattr(scheduler_module, "next_random_time", lambda *_args: next(run_times))
+    monkeypatch.setattr(scheduler_module.random, "randint", lambda *_args: 10)
+    scheduler_module._schedule_random(config, "fabing")
+
+    bootstrap = fake_scheduler.jobs["liteyuki_60s.fabing_random"]
+    asyncio.run(bootstrap.func())
+
+    first = fake_scheduler.jobs["liteyuki_60s.fabing_random.10001"]
+    second = fake_scheduler.jobs["liteyuki_60s.fabing_random.10002"]
+    assert first.kwargs["run_date"] != second.kwargs["run_date"]
 
 
 def test_scheduler_helpers_and_command_load():
