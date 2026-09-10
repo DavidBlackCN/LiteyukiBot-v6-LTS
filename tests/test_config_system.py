@@ -8,7 +8,7 @@ from pathlib import Path
 
 import yaml
 
-from liteyuki.config import BasicConfig, ensure_config_file
+from liteyuki.config import BasicConfig, ensure_config_file, load_config_in_default
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -46,6 +46,45 @@ def test_first_start_falls_back_to_basic_config_without_template(tmp_path: Path)
     assert generated["default_interact_language"] == "zh-CN"
     assert generated["satori"] == {"enable": False}
     assert "chromium_path" not in generated
+
+
+def test_third_party_template_is_created_separately(tmp_path: Path) -> None:
+    template = tmp_path / "third_party.example.yml"
+    target = tmp_path / "third_party.yml"
+    template.write_bytes((PROJECT_ROOT / "third_party.example.yml").read_bytes())
+
+    assert ensure_config_file(str(target), str(template), fallback_defaults={}) is True
+    assert target.read_bytes() == template.read_bytes()
+
+
+def test_third_party_config_is_merged_but_core_config_wins(
+    tmp_path: Path, monkeypatch
+) -> None:
+    (tmp_path / "config").mkdir()
+    (tmp_path / "config" / "plugin.yml").write_text(
+        "from_config_dir: true\n", encoding="utf-8"
+    )
+    (tmp_path / "config.yml").write_text(
+        "shared_key: core\ncore_only: true\n", encoding="utf-8"
+    )
+    (tmp_path / "third_party.yml").write_text(
+        "shared_key: third-party\nthird_party_only: true\n", encoding="utf-8"
+    )
+
+    import liteyuki.config as config_module
+
+    warnings: list[str] = []
+    monkeypatch.setattr(
+        config_module.logger, "warning", lambda message: warnings.append(str(message))
+    )
+    monkeypatch.chdir(tmp_path)
+    loaded = load_config_in_default()
+
+    assert loaded["from_config_dir"] is True
+    assert loaded["third_party_only"] is True
+    assert loaded["core_only"] is True
+    assert loaded["shared_key"] == "core"
+    assert any("third_party.yml" in message for message in warnings)
 
 
 def test_yaml_reaches_nonebot_and_legacy_get_config_does_not_reread(tmp_path: Path) -> None:

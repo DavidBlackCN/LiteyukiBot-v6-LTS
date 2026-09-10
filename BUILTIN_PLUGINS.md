@@ -9,6 +9,14 @@
 - 部分插件依赖群聊、特定适配器、渲染器或外部网络；对应限制会在条目内注明。
 - 插件启停与权限配置保存在 Liteyuki 的数据目录中。生产环境中应只向可信管理员开放插件管理、事件转发、API 调用等高权限功能。
 
+## LTS 默认第三方插件与配置
+
+`config.yml` 仅保存 Liteyuki 核心和本仓库维护的本地插件配置；`third_party.yml` 保存经由 `requirements.txt` 安装的第三方 NoneBot 插件配置。首次启动会分别从 `config.example.yml` 与 `third_party.example.yml` 创建缺失文件，随后合并为同一份 NoneBot 配置。若键名重复，启动会记录警告，且 `config.yml` 的值优先。
+
+以下插件已是 LTS 默认依赖并会在非安全模式下自动加载，无需再执行 `npm install`：`nonebot-plugin-rollpig-plus`、`nonebot-plugin-manosaba-memes`、`nonebot-plugin-parser`、`nonebot-plugin-wordcloud`、`nonebot-plugin-memes`、`nonebot-plugin-bilibili`、`nonebot-plugin-group-historian`、`nonebot-plugin-cnrail`、`nonebot-plugin-komari-status`。`nonebot-plugin-remind` 也继续作为默认第三方依赖加载。
+
+`npm install` 仍用于安装额外的 NoneBot 商店插件；它会遵守 `constraints-lts.txt`，不能替换 LTS 核心栈。词云、表情包与群历史等依赖 ORM 的插件安装或升级后，按既有流程执行 `nb orm heads`、`nb orm current`、`nb orm upgrade`。Playwright/Chromium 复用项目现有环境；Bilibili 插件模板默认禁止其自行下载浏览器。
+
 ## Liteyuki 主进程插件
 
 ### `liteyuki.plugins.plugin_loader` — 外部轻雪插件加载器

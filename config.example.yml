@@ -240,14 +240,6 @@ setu_mirlkoi_enabled: true
 setu_mirlkoi_base_url: "https://api.cnmiw.com"
 setu_mirlkoi_endpoint: "/api.php"
 
-# -------------------- 定时提醒（nonebot_plugin_remind） --------------------
-
-# 私聊执行“/提醒列表”时，列出私聊及群聊中的全部提醒。
-private_list_all: true
-# 触发“提醒”关键词但解析失败时，向用户发送错误提示。
-remind_keyword_error: true
-# 可选 GLM 解析默认关闭；glm_4_model、glm_4_model_cron、glm_api_key 均留空不配置。
-
 # -------------------- 成语游戏 --------------------
 
 # 严格模式。

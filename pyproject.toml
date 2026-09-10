@@ -1,7 +1,13 @@
-# PEP 621 project metadata
-# See https://www.python.org/dev/peps/pep-0621/
-# This file is liteyuki framework use only, don`t use it with applications or nb-cli.
-# 此文件仅供 liteyuki 框架使用，请勿用于应用程序及nb-cli，请使用pip进行安装。
+# PEP 621 project metadata for Liteyuki framework.
+#
+# [tool.nonebot] is additionally maintained for nb-cli / nonebot-plugin-orm
+# maintenance commands. Normal Liteyuki runtime plugin loading remains handled
+# by Liteyuki itself.
+#
+# 本文件主体仍用于 Liteyuki 框架元数据。
+# [tool.nonebot] 仅用于 nb-cli / nonebot-plugin-orm 等维护命令，
+# Liteyuki 正常运行时仍使用自身的插件加载机制。
+
 [project]
 name = "ryoun-trim"
 dynamic = ["version"]
@@ -42,3 +48,13 @@ excludes = ["tests/", "docs/", "src/"]
 [tool.pdm.version]
 source = "file"
 path = "liteyuki/__init__.py"
+
+[tool.nonebot]
+plugin_dirs = ["src/nonebot_plugins"]
+
+plugins = [
+    "nonebot_plugin_orm",
+    "nonebot_plugin_chatrecorder",
+    "nonebot_plugin_wordcloud",
+    "src.liteyuki_main",
+]

@@ -20,6 +20,7 @@ __pycache__/
 /config/
 _config.yml
 config.yml
+third_party.yml
 compile.bat
 src/resources/templates/latest-debug.html
 

@@ -1,0 +1,76 @@
+# LiteyukiBot v6 LTS 第三方 NoneBot 插件配置示例
+# 复制为 third_party.yml 后按需修改。此文件只放 requirements.txt 安装的第三方插件配置；
+# 本项目维护的插件仍配置在 config.yml。密钥、Cookie、账号和密码请只保存在本地。
+
+# ==================== 定时提醒（nonebot_plugin_remind） ====================
+
+# 私聊执行“/提醒列表”时，列出私聊及群聊中的全部提醒。
+private_list_all: true
+# 触发“提醒”关键词但解析失败时，向用户发送错误提示。
+remind_keyword_error: true
+# 可选 GLM 解析默认关闭；glm_4_model、glm_4_model_cron、glm_api_key 均留空不配置。
+
+# ==================== RollPig Plus ====================
+
+# 默认使用本地存储，AI 与云存储均默认关闭，无需额外配置。
+# 需要 AI 或云端资源时，请按插件文档在本地 third_party.yml 或 rollpig_config.json 中配置密钥。
+
+# ==================== Manosaba Memes ====================
+
+# 当前版本无 NoneBot 配置项，安装后即可使用。
+
+# ==================== 链接解析（nonebot_plugin_parser） ====================
+
+# B 站 Cookie；留空仍可使用基础解析，需登录能力时可通过插件扫码命令获取或手动填写。
+parser_bili_ck: ""
+# 自定义字体文件名；字体应放到插件 localstore config 目录，留空使用插件默认字体。
+parser_custom_font: ""
+
+# ==================== 词云（nonebot_plugin_wordcloud） ====================
+
+# 定时词云使用的时区；尺寸、字体与分词等保持插件默认值，需要时再显式添加。
+wordcloud_timezone: "Asia/Shanghai"
+
+# ==================== 表情包制作（nonebot_plugin_memes） ====================
+
+# 表情命令前缀；留空列表表示使用 NoneBot 的 command_start。
+memes_command_prefixes: []
+# 启动时检查并下载缺失的表情资源。
+memes_check_resources_on_startup: true
+
+# ==================== Bilibili 动态/直播订阅 ====================
+
+# 订阅、Cookie、模板与字体的数据目录；请备份整个目录，勿提交其中的 Cookie。
+bili_data: data/nonebot_plugin_bilibili
+# 动态与直播轮询间隔（秒）。
+bili_subscription_dynamic_interval: 120
+bili_subscription_live_interval: 30
+bili_subscription_enable_dynamic: true
+bili_subscription_enable_live: true
+# Web 管理后台默认关闭；启用后务必设置随机 Token，Cookie 也可在后台扫码管理。
+bili_subscription_web_enabled: false
+bili_subscription_web_token: ""
+# 复用项目已经准备的 Playwright/Chromium，不让插件另行下载浏览器。
+bili_subscription_auto_install_browser: false
+
+# ==================== 群历史（nonebot_plugin_group_historian） ====================
+
+# 排行榜人数与消息数据保留天数。
+historian_rank_count: 10
+historian_data_retention_days: 30
+
+# ==================== CNRail ====================
+
+# 列车查询卡片背景图片接口；可替换为自建或可信图片服务。
+cnrail_acg_image_url: "https://www.loliapi.com/acg/pe/"
+
+# ==================== Komari Status ====================
+
+# YAML 配置键遵循插件 Config Model 的小写名称；KOMARI_URL 是其环境变量等价写法。
+komari_url: "http://127.0.0.1:25774"
+# Komari 登录凭据；不需要登录时保持为空。
+komari_username: ""
+komari_password: ""
+# 允许使用状态截图的群号；空列表表示不限制。请求冷却单位为秒。
+komari_group_allowlist: []
+komari_cooldown_seconds: 30

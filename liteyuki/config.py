@@ -53,9 +53,11 @@ class BasicConfig(BaseModel):
 
 
 def ensure_config_file(
-    config_path: str = "config.yml", template_path: str = "config.example.yml"
+    config_path: str = "config.yml",
+    template_path: str = "config.example.yml",
+    fallback_defaults: dict[str, Any] | None = None,
 ) -> bool:
-    """Create the primary config from its maintained template when absent."""
+    """Create a config from its maintained template when absent."""
     if os.path.exists(config_path):
         return False
 
@@ -66,8 +68,11 @@ def ensure_config_file(
         )
         return True
 
-    defaults = BasicConfig().model_dump()
-    defaults["satori"] = {"enable": defaults["satori"]["enable"]}
+    if fallback_defaults is None:
+        defaults = BasicConfig().model_dump()
+        defaults["satori"] = {"enable": defaults["satori"]["enable"]}
+    else:
+        defaults = copy.deepcopy(fallback_defaults)
     with open(config_path, "w", encoding="utf-8") as file:
         yaml.safe_dump(defaults, file, allow_unicode=True, sort_keys=False)
     logger.warning(
@@ -107,7 +112,8 @@ def load_from_yaml(file_: str) -> dict[str, Any]:
 
     """
     logger.debug("正在从 {} 中加载 YAML 配置".format(file_))
-    config = yaml.safe_load(open(file_, "r", encoding="utf-8"))
+    with open(file_, "r", encoding="utf-8") as file:
+        config = yaml.safe_load(file)
     return flat_config(config if config is not None else {})
 
 
@@ -116,7 +122,8 @@ def load_from_json(file_: str) -> dict[str, Any]:
     Load config from json file
     """
     logger.debug("正在从 {} 中加载 JSON 配置".format(file_))
-    config = json.load(open(file_, "r", encoding="utf-8"))
+    with open(file_, "r", encoding="utf-8") as file:
+        config = json.load(file)
     return flat_config(config if config is not None else {})
 
 
@@ -181,16 +188,34 @@ def load_config_in_default(no_waring: bool = False) -> dict[str, Any]:
     项目目录下的配置文件优先
     """
     ensure_config_file()
-    config = load_configs_from_dirs("config", no_waring=no_waring)
-    config.update(
-        load_from_files(
-            "config.yaml",
-            "config.toml",
-            "config.json",
-            "config.yml",
-            no_warning=no_waring,
-        )
+    ensure_config_file(
+        "third_party.yml", "third_party.example.yml", fallback_defaults={}
     )
+    config = load_configs_from_dirs("config", no_waring=no_waring)
+    third_party_config = load_from_files("third_party.yml", no_warning=no_waring)
+    root_core_config = load_from_files(
+        "config.yaml", "config.toml", "config.json", no_warning=no_waring
+    )
+    config.update(third_party_config)
+
+    conflicts = third_party_config.keys() & root_core_config.keys()
+    if conflicts:
+        logger.warning(
+            "第三方配置 third_party.yml 与核心配置存在同名键：{}；已保留核心配置。".format(
+                ", ".join(sorted(conflicts))
+            )
+        )
+    config.update(root_core_config)
+
+    core_config = load_from_files("config.yml", no_warning=no_waring)
+    conflicts = third_party_config.keys() & core_config.keys()
+    if conflicts:
+        logger.warning(
+            "第三方配置 third_party.yml 与 config.yml 存在同名键：{}；已保留 config.yml 的核心配置。".format(
+                ", ".join(sorted(conflicts))
+            )
+        )
+    config.update(core_config)
     _loaded_config.clear()
     _loaded_config.update(config)
     return config.copy()
