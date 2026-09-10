@@ -11,7 +11,6 @@ class SixtyApiConfig(BaseModel):
     sixty_api_timezone: str = "Asia/Shanghai"
     sixty_api_group_mode: Literal["whitelist", "blacklist"] = "whitelist"
     sixty_api_group_ids: list[int] = Field(default_factory=list)
-    sixty_api_push_groups: list[int] = Field(default_factory=list)
     sixty_api_push_bot_id: str = ""
 
     sixty_api_world_enabled: bool = True

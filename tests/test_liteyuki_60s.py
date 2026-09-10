@@ -122,7 +122,7 @@ def test_group_mode_scopes_commands_and_pushes(monkeypatch) -> None:
         nonebot.init()
     from src.nonebot_plugins.liteyuki_60s.config import SixtyApiConfig
     from src.nonebot_plugins.liteyuki_60s.scheduler import push_content
-    from src.nonebot_plugins.liteyuki_60s.service import group_allowed
+    from src.nonebot_plugins.liteyuki_60s.service import Content, group_allowed
 
     whitelist = SixtyApiConfig(sixty_api_group_ids=[10001])
     assert group_allowed(whitelist, 10001)
@@ -132,13 +132,28 @@ def test_group_mode_scopes_commands_and_pushes(monkeypatch) -> None:
     assert not group_allowed(blacklist, 10001)
     assert group_allowed(blacklist, 10002)
 
-    def unexpected_bot(_config):
-        raise AssertionError("被名单忽略的群不应触发 API 或发送")
+    class Bot:
+        def __init__(self):
+            self.sent = []
 
-    monkeypatch.setattr("src.nonebot_plugins.liteyuki_60s.scheduler.choose_push_bot", unexpected_bot)
-    assert not asyncio.run(push_content(SixtyApiConfig(
-        sixty_api_group_ids=[10001], sixty_api_push_groups=[10002],
-    ), "world"))
+        async def get_group_list(self):
+            return [{"group_id": 10001}, {"group_id": 10002}]
+
+        async def send_group_msg(self, *, group_id, message):
+            self.sent.append(group_id)
+
+    bot = Bot()
+
+    async def content(*_args):
+        return Content("text", "test")
+
+    monkeypatch.setattr("src.nonebot_plugins.liteyuki_60s.scheduler.choose_push_bot", lambda _config: bot)
+    monkeypatch.setattr("src.nonebot_plugins.liteyuki_60s.scheduler.fetch_content", content)
+    assert asyncio.run(push_content(whitelist, "world"))
+    assert bot.sent == [10001]
+    bot.sent.clear()
+    assert asyncio.run(push_content(blacklist, "world"))
+    assert bot.sent == [10002]
 
 
 def test_scheduler_helpers_and_command_load():

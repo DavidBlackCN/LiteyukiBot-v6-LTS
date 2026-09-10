@@ -47,14 +47,36 @@ def choose_push_bot(config: SixtyApiConfig):
     return None
 
 
+def _group_id(value) -> int | None:
+    group_id = value.get("group_id") if isinstance(value, dict) else getattr(value, "group_id", None)
+    try:
+        return int(group_id)
+    except (TypeError, ValueError):
+        return None
+
+
+async def push_target_groups(config: SixtyApiConfig, bot) -> list[int]:
+    if config.sixty_api_group_mode == "whitelist":
+        return list(dict.fromkeys(int(group_id) for group_id in config.sixty_api_group_ids))
+    try:
+        groups = await bot.get_group_list()
+    except Exception as exc:
+        nonebot.logger.warning("60s 黑名单模式无法获取当前群列表，跳过本次推送：%s", exc)
+        return []
+    return list(dict.fromkeys(
+        group_id for item in groups
+        if (group_id := _group_id(item)) is not None and group_allowed(config, group_id)
+    ))
+
+
 async def push_content(config: SixtyApiConfig, feature: str) -> bool:
-    if not enabled(config, feature) or not config.sixty_api_push_groups:
-        return False
-    target_groups = [group_id for group_id in config.sixty_api_push_groups if group_allowed(config, group_id)]
-    if not target_groups:
+    if not enabled(config, feature):
         return False
     bot = choose_push_bot(config)
     if bot is None:
+        return False
+    target_groups = await push_target_groups(config, bot)
+    if not target_groups:
         return False
     try:
         content = await fetch_content(config, feature)

@@ -134,10 +134,9 @@ sixty_api_timeout: 10
 sixty_api_timezone: "Asia/Shanghai"
 # 群聊名单模式：whitelist 仅以下群响应/接收推送；blacklist 忽略以下群。默认白名单。
 sixty_api_group_mode: "whitelist"
-# 群聊名单目标 QQ 群号；白名单模式下仅这些群启用，黑名单模式下这些群被忽略。
+# 群聊名单目标 QQ 群号；白名单模式下仅这些群响应并接收自动推送；黑名单模式下这些群被忽略。
+# 黑名单自动推送会查询当前 Bot 所在群，并排除这里的群号。
 sixty_api_group_ids: []
-# 自动推送目标 QQ 群；为空时不自动推送。
-sixty_api_push_groups: []
 # 主动推送使用的 Bot self_id；留空时仅在唯一 Bot 在线时发送。
 sixty_api_push_bot_id: ""
 
