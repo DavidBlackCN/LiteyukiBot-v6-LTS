@@ -105,7 +105,7 @@ def test_url_change_does_not_leak_cache():
 
 def test_status_context_uses_public_background():
     # Execute the real rendering function with its dependencies mocked, no plugin init.
-    source = (ROOT / "src/nonebot_plugins/trimo_status/api.py").read_text(encoding="utf-8")
+    source = (ROOT / "src/nonebot_plugins/liteyuki_status/api.py").read_text(encoding="utf-8")
     tree = ast.parse(source)
     fn = next(n for n in tree.body if isinstance(n, ast.AsyncFunctionDef) and n.name == "generate_status_card")
     from unittest.mock import AsyncMock

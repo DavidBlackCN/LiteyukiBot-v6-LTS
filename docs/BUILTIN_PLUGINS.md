@@ -1,6 +1,6 @@
-# LiteyukiBot-TriM 内置插件说明
+# LiteyukiBot v6 LTS 内置插件说明
 
-本文档按当前 fork 仓库中的实际代码整理，范围包括 Liteyuki v6 主进程插件、由 NoneBot 自动发现的插件，以及由启动器显式加载的核心 NoneBot 插件。它不是上游 Liteyuki 最新版文档。
+本文档按当前 fork 仓库中的实际代码整理，范围包括 Liteyuki v6 主进程插件、由 NoneBot 自动发现的插件，以及由启动器显式加载的核心 NoneBot 插件。
 
 ## 使用前说明
 
@@ -63,7 +63,7 @@
 
 仓库内随框架提供，但当前默认插件目录配置不会自动加载；如需使用，可把 `liteyuki.plugins.liteecho` 加入 `liteyuki.plugins`。
 
-- `ryounecho <文本>`
+- `liteyuki-echo <文本>`
 - `ryeco <文本>`
 
 仅超级用户可用，回复命令后的文本。
@@ -74,10 +74,10 @@
 
 由 NoneBot 启动器显式加载，负责资源初始化、基础管理命令、重载状态记录、定时更新及适配器相关初始化；不可通过普通插件开关停用。
 
-- `ryounecho [文本]`：超级用户回声测试；不带文本时返回当前 Bot ID。
+- `liteyuki-echo [文本]`：超级用户回声测试；不带文本时返回当前 Bot ID。
 - `liteecho`：返回实例问候语与当前 Bot ID。
-- `update-ryoun`，别名 `更新灵温`：超级用户拉取项目更新并生成结果卡片。
-- `reload-ryoun`，别名 `重启灵温`、`重启尹灵温`、`重载灵温`：超级用户重载 Liteyuki，并在连接恢复后回报耗时。
+- `update-liteyuki`，别名 `更新轻雪`、`更新Liteyuki`：超级用户拉取项目更新并生成结果卡片。
+- `reload-liteyuki`，别名 `重启轻雪`、`重载轻雪`、`重启Liteyuki`：超级用户重载 Liteyuki，并在连接恢复后回报耗时。
 - `/function <函数名> [参数...]`：超级用户调用已注册的 Liteyuki 函数。`key=value` 形式作为关键字参数传入。
 - `/api <API名> [key=value ...]`：超级用户直接调用当前适配器 API。
 - 配置 `auto_update` 默认为 `true` 时，每日 04:00 会检查更新、安装依赖并在成功后重载。生产部署应按维护策略决定是否关闭。
@@ -203,7 +203,7 @@
 - `今天天气真好`、`天气不错`、`这天气太热了` 等不含明确地点的普通聊天不会触发。
 - 天气 API 或 AQI 不可用时会给出友好提示或省略 AQI，不影响 NoneBot 启动。
 
-### `trimo_plugin_handle` — 猜成语
+### 猜成语（内置兼容插件）
 
 提供四字成语 Wordle 游戏，按汉字、声母、韵母和声调给出提示。
 
@@ -221,7 +221,7 @@
 
 相关配置及默认值：`handle_strict_mode=false`、`handle_color_enhance=false`、`handle_superuser_get_answer=true`、`handle_require_tome=true`。
 
-### `trimo_plugin_dockdragon` — 成语接龙
+### 成语接龙（内置兼容插件）
 
 当前可用部分是四字成语自动接续：在群会话中收到合法四字成语时，自动回复可接续的成语及信息。
 
@@ -230,7 +230,7 @@
 
 自动接龙默认在会话内开启，可能响应任意用户发送的合法四字成语；不需要时应通过上述命令关闭或停用插件。
 
-### `trimo_status` — 状态与实用查询
+### 状态与实用查询（内置兼容插件）
 
 提供实例状态卡、中文日期时间和数字读法。状态卡底部的一言按需获取，失败时使用固定本地文案。
 
@@ -261,7 +261,7 @@
 
 ## 适配器与运行限制速查
 
-- `trimo_plugin_handle`、`trimo_plugin_dockdragon` 使用 `nonebot-plugin-alconna` 与 `nonebot-plugin-session` 的统一会话能力，具体支持范围取决于这两个插件和当前适配器。
+- 上述猜成语与成语接龙插件使用 `nonebot-plugin-alconna` 与 `nonebot-plugin-session` 的统一会话能力，具体支持范围取决于这两个插件和当前适配器。
 - `liteyuki_satori_user_info` 仅服务于 Satori；核心同时包含 OneBot V11、OneBot V12 与 Satori 的分支处理。
 - 文件上传、群文件和富媒体渲染在不同适配器实现上可能有差异，Markdown 测试插件尤其依赖适配器能力。
 - `webdash` 需要支持 HTTP 路由注册的驱动。

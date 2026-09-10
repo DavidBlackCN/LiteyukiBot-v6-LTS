@@ -3,7 +3,7 @@ from pydantic import BaseModel, Field
 from typing import Literal
 
 
-class TrimoStatusConfig(BaseModel):
+class StatusConfig(BaseModel):
     yanlun_remote_enabled: bool = False
     """是否允许从旧 Liteyuki 远程服务获取言·论，默认关闭。"""
     yanlun_type: Literal["file", "url"] = "url"
@@ -21,4 +21,4 @@ class TrimoStatusConfig(BaseModel):
     """Opacity of the readability mask above the background."""
     """状态页致谢信息"""
 
-status_config = get_plugin_config(TrimoStatusConfig)
+status_config = get_plugin_config(StatusConfig)

@@ -2,7 +2,7 @@ import sys
 
 import nonebot
 
-__NAME__ = "尹灵温|轻雪-睿乐"
+__NAME__ = "LiteyukiBot v6 LTS"
 __VERSION__ = "6.3.9"  # 60201
 
 import requests
@@ -25,7 +25,7 @@ def init():
     init_log()
     if sys.version_info < (3, 10):
         nonebot.logger.error(
-            "此应用需要 Python3.10 以上的版本运行，你需要抱怨神羽的 Python 兼容性了。"
+            "此应用需要 Python3.10 以上的版本运行，请升级当前 Python 运行环境。"
         )
         exit(1)
 
@@ -42,7 +42,7 @@ def init():
     # common_db.save(temp_data)
 
     nonebot.logger.info(
-        "正在 {} Python{}.{}.{} 上运行 尹灵温-NoneBot".format(
+        "正在 {} Python{}.{}.{} 上运行 Liteyuki v6 LTS-NoneBot".format(
             sys.executable,
             sys.version_info.major,
             sys.version_info.minor,

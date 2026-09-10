@@ -40,7 +40,7 @@ class LiteyukiBot:
 
         """初始化"""
         self.init(**self.config)  # 初始化
-        logger.info("尹灵温 正在初始化…")
+        logger.info("Liteyuki v6 LTS 正在初始化…")
 
         """生命周期管理"""
         self.lifespan = Lifespan()
@@ -71,20 +71,20 @@ class LiteyukiBot:
         try:
             asyncio.run(self._run())
         except KeyboardInterrupt:
-            logger.opt(colors=True).info("<y>尹灵温 关闭中…</y>")
+            logger.opt(colors=True).info("<y>Liteyuki v6 LTS 关闭中…</y>")
             self.stop()
-        logger.opt(colors=True).info("<y>尹灵温 已关停</y>")
+        logger.opt(colors=True).info("<y>Liteyuki v6 LTS 已关停</y>")
 
     async def keep_alive(self):
         """
         保持轻雪运行
         """
-        logger.info("尹灵温 持续运行中…")
+        logger.info("Liteyuki v6 LTS 持续运行中…")
         try:
             while not self.stop_event.is_set():
                 await asyncio.sleep(0.1)
         except Exception:
-            logger.info("尹灵温 现退停…")
+            logger.info("Liteyuki v6 LTS 现已停止…")
             self.stop()
 
     def restart(self, delay: int = 0):
@@ -96,7 +96,7 @@ class LiteyukiBot:
         if self.call_restart_count < 1:
             executable = sys.executable
             args = sys.argv
-            logger.info("正在重启 尹灵温机器人框架")
+            logger.info("正在重启 Liteyuki v6 LTS")
             time.sleep(delay)
             if platform.system() == "Windows":
                 cmd = "start"
@@ -229,7 +229,7 @@ def get_bot() -> LiteyukiBot:
 
     if IS_MAIN_PROCESS:
         if _BOT_INSTANCE is None:
-            raise RuntimeError("尹灵温 实例未初始化")
+            raise RuntimeError("Liteyuki v6 LTS 实例未初始化")
         return _BOT_INSTANCE
     else:
         raise RuntimeError("无法在子进程中获取机器人实例")

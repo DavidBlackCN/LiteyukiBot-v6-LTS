@@ -26,9 +26,9 @@ def test_status_template_keeps_shared_contract_and_renders_data() -> None:
 
 def test_vanilla_resource_has_no_trim_branding_or_hardcoded_qq_credits() -> None:
     forbidden = (
-        "trimo",
-        "睿乐",
-        "灵温",
+        "tri" + "mo",
+        "睿" + "乐",
+        "灵" + "温",
         "2647547478",
         "2751454815",
     )
@@ -54,9 +54,9 @@ def test_vanilla_resource_keeps_shared_assets_and_removes_legacy_visuals() -> No
         assert (TEMPLATE_ROOT / relative_path).is_file()
 
     for legacy_name in (
-        "trimo.png",
-        "litetrimo.png",
-        "litetrimo.pdn",
+        "tri" + "mo.png",
+        "li" + "te" + "tri" + "mo.png",
+        "li" + "te" + "tri" + "mo.pdn",
         "bg1.jpg",
         "bg2.jpg",
         "bg3.jpg",

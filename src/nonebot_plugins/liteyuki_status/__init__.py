@@ -1,5 +1,5 @@
 from nonebot.plugin import PluginMetadata
-from .config import TrimoStatusConfig
+from .config import StatusConfig
 from .status import *
 
 __author__ = "神羽SnowyKami & 金羿Eilles & DavidBlackCN"
@@ -16,7 +16,7 @@ __plugin_meta__ = PluginMetadata(
     ),
     type="application",
     homepage="https://gitee.com/TriM-Organization/LiteyukiBot-TriM",
-    config=TrimoStatusConfig,
+    config=StatusConfig,
     extra={
         "liteyuki": True,
         "toggleable": False,

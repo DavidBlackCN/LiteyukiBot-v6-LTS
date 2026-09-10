@@ -35,7 +35,7 @@ def get_commit_hash() -> str:
 async def register_bot():
     url = "https://api.liteyuki.icu/register"
     data = {
-            "name"     : "尹灵温|轻雪-睿乐",
+            "name"     : "LiteyukiBot v6 LTS",
             "version"  : "即时更新",
             "hash"     : get_commit_hash(),
             "version_i": 99,

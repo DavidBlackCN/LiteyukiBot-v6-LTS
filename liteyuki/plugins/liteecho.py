@@ -14,6 +14,6 @@ from liteyuki.message.event import MessageEvent
 from liteyuki.message.rule import is_su_rule
 
 
-@on_startswith(["ryounecho", "ryeco"], rule=is_su_rule).handle()
+@on_startswith(["liteyuki-echo", "lyecho"], rule=is_su_rule).handle()
 async def liteecho(event: MessageEvent):
     event.reply(event.raw_message.strip()[8:].strip())

@@ -29,9 +29,9 @@ assert nonebot.load_plugin("src.nonebot_plugins.liteyuki_status") is not None
 
 from src.nonebot_plugins.liteyuki_status import api
 from src.utils.message import card_background as bg
-from src.nonebot_plugins.liteyuki_status.config import TrimoStatusConfig
+from src.nonebot_plugins.liteyuki_status.config import StatusConfig
 
-assert TrimoStatusConfig().status_background_mask == 0.35
+assert StatusConfig().status_background_mask == 0.35
 
 
 class FakeResponse:

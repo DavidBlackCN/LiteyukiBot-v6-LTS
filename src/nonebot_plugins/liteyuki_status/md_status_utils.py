@@ -12,9 +12,9 @@ markdown_status_disk_card_text = """ - {hardware_disk_name}
 markdown_status_card_text = """
 <h1 style="text-align: center;"> {local_description} </h1>
 
-<h2> <img src="https://p.qlogo.cn/gh/861684859/861684859/" width="50" alt="bot-icon"> &nbsp; {liteyuki_name} - 睿乐 </h2>
+<h2> <img src="https://p.qlogo.cn/gh/861684859/861684859/" width="50" alt="bot-icon"> &nbsp; {liteyuki_name} - Liteyuki v6 LTS </h2>
 
- - 灵温 {liteyuki_version} | Nonebot {liteyuki_nonebot}
+ - Liteyuki v6 LTS {liteyuki_version} | NoneBot {liteyuki_nonebot}
  - {liteyuki_system} {liteyuki_python}
  - {local_plugins}{liteyuki_plugins} | {local_resources}{liteyuki_resources} | {local_bots}{liteyuki_bots}
  - {local_runtime}{liteyuki_runtime}
@@ -51,7 +51,7 @@ markdown_status_card_text = """
 
 #### <div align="center">{acknowledgement}</div>
 
-#### <div align="center">该页样式由 <img src="https://q.qlogo.cn/g?b=qq&nk=2647547478&s=640" width=40>金羿Eilles 设计</div>
+#### <div align="center">该页样式由 <img src="https://q.qlogo.cn/g?b=qq&nk=2647547478&s=640" width=40>LiteyukiBot v6 LTS</div>
 """
 
 

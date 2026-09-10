@@ -43,7 +43,7 @@ driver = get_driver()
 
 @on_alconna(
     command=Alconna(
-        "ryounecho",
+        "liteyuki-echo",
         Args["text", str, ""],
     ),
     permission=SUPERUSER,
@@ -53,7 +53,7 @@ async def _(bot: T_Bot, matcher: Matcher, result: Arparma):
     if text := result.main_args.get("text"):
         await matcher.finish(Message(unescape(text)))
     else:
-        await matcher.finish(f"君安！灵温向你问好~\n此机 {bot.self_id}")
+        await matcher.finish(f"你好！Liteyuki v6 LTS 向你问好~\n此机 {bot.self_id}")
 
 
 @on_alconna(
@@ -65,11 +65,11 @@ async def _(bot: T_Bot, matcher: Matcher, result: Arparma):
 ).handle()
 # Satori OK
 async def _(bot: T_Bot, matcher: Matcher, result: Arparma):
-    await matcher.finish(f"Hello! TriMO-Liteyuki!\nRyBot {bot.self_id}")
+    await matcher.finish(f"Hello! LiteyukiBot v6 LTS!\nBot {bot.self_id}")
 
 
 @on_alconna(
-    aliases={"更新灵温"}, command=Alconna("update-ryoun"), permission=SUPERUSER
+    aliases={"更新轻雪", "更新Liteyuki"}, command=Alconna("update-liteyuki"), permission=SUPERUSER
 ).handle()
 # Satori OK
 async def _(bot: T_Bot, event: T_MessageEvent, matcher: Matcher):
@@ -79,7 +79,7 @@ async def _(bot: T_Bot, event: T_MessageEvent, matcher: Matcher):
         str(event.user.id if is_satori_object(event) else event.user_id)
     )
     success, logs = update_liteyuki()
-    reply = "尹灵温 更新完成！\n"
+    reply = "Liteyuki v6 LTS 更新完成！\n"
     reply += f"```\n{logs}\n```\n"
     btn_restart = md.btn_cmd(ulang.get("liteyuki.restart_now"), "reload-liteyuki")
     # pip.main(["install", "-r", "requirements.txt"])
@@ -90,15 +90,15 @@ async def _(bot: T_Bot, event: T_MessageEvent, matcher: Matcher):
 
 
 @on_alconna(
-    aliases={"重启灵温", "重启尹灵温", "重载灵温"},
+    aliases={"重启轻雪", "重载轻雪", "重启Liteyuki"},
     command=Alconna(
-        "reload-ryoun",
+        "reload-liteyuki",
     ),
     permission=SUPERUSER,
 ).handle()
 # Satori OK
 async def _(matcher: Matcher, bot: T_Bot, event: T_MessageEvent):
-    await matcher.send("尹灵温 正在重载")
+    await matcher.send("Liteyuki v6 LTS 正在重载")
     temp_data = common_db.where_one(TempConfig(), default=TempConfig())
 
     temp_data.data.update(
@@ -257,7 +257,7 @@ async def _(bot: T_Bot):
         delta_time = temp_data.data.get("delta_time", 0)
         common_db.save(temp_data)  # 更新数据
 
-        return_msg = "轻雪核心 重载耗时 {:.2f} 秒\n灵温 预计体感重载耗时 {:.2f} 秒\n*此数据仅作参考，具体计时请以实际为准".format(
+        return_msg = "Liteyuki v6 LTS 核心重载耗时 {:.2f} 秒\n客户端恢复耗时 {:.2f} 秒\n*此数据仅作参考，具体计时请以实际为准".format(
             delta_time, time.time() - temp_data.data.get("reload_time", 0)
         )
 
@@ -298,8 +298,8 @@ async def every_day_update():
         result, logs = update_liteyuki()
         pip.main(["install", "-r", "requirements.txt"])
         if result:
-            await broadcast_to_superusers(f"灵温已更新：```\n{logs}\n```")
-            nonebot.logger.info(f"灵温已更新：{logs}")
+            await broadcast_to_superusers(f"Liteyuki v6 LTS 已更新：```\n{logs}\n```")
+            nonebot.logger.info(f"Liteyuki v6 LTS 已更新：{logs}")
             reload()
         else:
             nonebot.logger.info(logs)
