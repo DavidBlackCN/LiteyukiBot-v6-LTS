@@ -17,7 +17,7 @@ from .parser import is_r18_request, parse_query
 from .quota import get_private_r18_access, has_quota, record_success
 from .recall import schedule_recall
 from .service import cooldown, fetch_and_download, metadata_text
-from .storage import default_settings, get_group_settings
+from .storage import default_settings, get_group_settings, group_allowed
 
 
 def _raw_args(result: Arparma) -> str:
@@ -62,6 +62,8 @@ async def handle_setu(
     if not await _access_allowed(event, is_superuser):
         return
     if group_id is not None:
+        if not group_allowed(config, group_id):
+            return
         if r18_requested:
             await matcher.finish("R18 内容仅限已授权私聊使用。")
             return

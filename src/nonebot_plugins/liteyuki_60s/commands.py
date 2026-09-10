@@ -4,11 +4,13 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from arclet.alconna import Alconna, Args
+from nonebot.adapters import Event
+from nonebot.matcher import Matcher
 from nonebot_plugin_alconna import Arparma, UniMessage, on_alconna
 
 from .client import SixtyApiError
 from .config import SixtyApiConfig
-from .service import enabled, fetch_content
+from .service import enabled, fetch_content, group_allowed
 from .state import begin_luck_request, record_luck_result
 
 
@@ -36,8 +38,10 @@ def _register(feature: str, command: str, aliases: set[str], *, accepts_name: bo
     matcher = on_alconna(alc, aliases=aliases)
 
     @matcher.handle()
-    async def handler(result: Arparma, event):
+    async def handler(result: Arparma, event: Event, matcher: Matcher):
         from . import config
+        if not group_allowed(config, getattr(event, "group_id", None)):
+            return
         name = result.main_args.get("name") if accepts_name else None
         user_id = str(getattr(event, "user_id", ""))
         await _send_feature(matcher, feature, config, name=name, user_id=user_id)

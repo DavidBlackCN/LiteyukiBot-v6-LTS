@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from urllib.parse import urlparse
 from zoneinfo import ZoneInfo
+from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -26,6 +27,7 @@ class SetuConfig(BaseModel):
     # Legacy shared timeout used only when a new timeout is not configured.
     setu_request_timeout: float = Field(default=15, ge=1, le=60)
     setu_request_retries: int = Field(default=2, ge=0, le=5)
+    setu_group_mode: Literal["whitelist", "blacklist"] = "whitelist"
     setu_enabled_groups: list[int] = Field(default_factory=list)
     setu_provider_order: list[str] = Field(default_factory=lambda: ["lolicon", "mirlkoi"])
     setu_default_provider: str = "auto"

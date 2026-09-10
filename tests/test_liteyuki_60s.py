@@ -115,6 +115,32 @@ def test_luck_state_persists_across_queries():
     assert can_use_luck(user_id, "2099-01-02", 1)
 
 
+def test_group_mode_scopes_commands_and_pushes(monkeypatch) -> None:
+    try:
+        nonebot.get_driver()
+    except ValueError:
+        nonebot.init()
+    from src.nonebot_plugins.liteyuki_60s.config import SixtyApiConfig
+    from src.nonebot_plugins.liteyuki_60s.scheduler import push_content
+    from src.nonebot_plugins.liteyuki_60s.service import group_allowed
+
+    whitelist = SixtyApiConfig(sixty_api_group_ids=[10001])
+    assert group_allowed(whitelist, 10001)
+    assert not group_allowed(whitelist, 10002)
+    assert group_allowed(whitelist, None)
+    blacklist = SixtyApiConfig(sixty_api_group_mode="blacklist", sixty_api_group_ids=[10001])
+    assert not group_allowed(blacklist, 10001)
+    assert group_allowed(blacklist, 10002)
+
+    def unexpected_bot(_config):
+        raise AssertionError("被名单忽略的群不应触发 API 或发送")
+
+    monkeypatch.setattr("src.nonebot_plugins.liteyuki_60s.scheduler.choose_push_bot", unexpected_bot)
+    assert not asyncio.run(push_content(SixtyApiConfig(
+        sixty_api_group_ids=[10001], sixty_api_push_groups=[10002],
+    ), "world"))
+
+
 def test_scheduler_helpers_and_command_load():
     nonebot.init()
     from nonebot.adapters.onebot.v11 import Adapter

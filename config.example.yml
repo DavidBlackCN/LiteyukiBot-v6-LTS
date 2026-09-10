@@ -132,6 +132,10 @@ sixty_api_base_url: "https://60s.viki.moe"
 sixty_api_timeout: 10
 # 定时任务、随机推送及运势次数统计使用的时区。
 sixty_api_timezone: "Asia/Shanghai"
+# 群聊名单模式：whitelist 仅以下群响应/接收推送；blacklist 忽略以下群。默认白名单。
+sixty_api_group_mode: "whitelist"
+# 群聊名单目标 QQ 群号；白名单模式下仅这些群启用，黑名单模式下这些群被忽略。
+sixty_api_group_ids: []
 # 自动推送目标 QQ 群；为空时不自动推送。
 sixty_api_push_groups: []
 # 主动推送使用的 Bot self_id；留空时仅在唯一 Bot 在线时发送。
@@ -212,7 +216,10 @@ setu_image_timeout: 30
 setu_request_timeout: 15
 setu_request_retries: 2
 setu_download_concurrency: 3
-# 初始启用群白名单；留空表示所有群默认关闭。
+# 群聊名单模式：whitelist 仅以下群可使用；blacklist 忽略以下群。默认白名单。
+setu_group_mode: "whitelist"
+# 群聊名单目标 QQ 群号；白名单模式下仅这些群启用，黑名单模式下这些群被忽略。
+# 保留原配置名以兼容现有部署。
 setu_enabled_groups: []
 # 自动选源顺序与默认来源。
 setu_provider_order:

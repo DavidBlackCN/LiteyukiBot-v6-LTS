@@ -159,7 +159,7 @@
 
 ### `liteyuki_60s` — 60S 资讯与娱乐
 
-通过可配置的 60s API 获取每日资讯与随机娱乐内容。`sixty_api_base_url` 可替换为自建或其他公共实例；十个手动功能默认开启，自动推送默认关闭且必须显式配置 `sixty_api_push_groups`。
+通过可配置的 60s API 获取每日资讯与随机娱乐内容。`sixty_api_base_url` 可替换为自建或其他公共实例；群聊由 `sixty_api_group_mode` 和 `sixty_api_group_ids` 控制，默认白名单；十个手动功能默认开启，自动推送默认关闭且必须显式配置 `sixty_api_push_groups`。
 
 - `60s`（`每日新闻`、`60秒读懂世界`、`60秒看世界`）：优先发送 API 整张日报图，下载失败时生成本地新闻卡。
 - `ai资讯`、`历史上的今天`、`it资讯`、`摸鱼日报`、`一言`、`运势`：发送本地图片卡；AI 当日无资讯时提示而不发空卡。
@@ -169,7 +169,7 @@
 
 ### `liteyuki_setu` — Liteyuki 二次元图片
 
-从 Lolicon v2 和 MirlKoi 获取全年龄二次元图片；所有群默认关闭，私聊由 `setu_private_enabled` 控制。群聊始终只提供全年龄内容。私聊 R18 默认关闭，只有超级用户开启并授权指定 QQ 后，授权用户才能使用。
+从 Lolicon v2 和 MirlKoi 获取全年龄二次元图片；群聊由 `setu_group_mode` 与 `setu_enabled_groups` 控制，默认白名单，私聊由 `setu_private_enabled` 控制。群聊始终只提供全年龄内容。私聊 R18 默认关闭，只有超级用户开启并授权指定 QQ 后，授权用户才能使用。
 
 - `色图 [数量] [关键词]`：随机获取或按关键词获取，数量可写为 `3` 或 `3张`，单次 1–5 张。
 - `色图 -t <标签> [-t <标签>] [数量]`：标签查询；`--uid <Pixiv UID>`、`--portrait`、`--landscape` 仅在当前图片源支持时可用。

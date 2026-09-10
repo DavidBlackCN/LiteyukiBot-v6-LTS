@@ -13,7 +13,7 @@ from nonebot_plugin_apscheduler import scheduler
 
 from .client import SixtyApiError
 from .config import SixtyApiConfig
-from .service import enabled, fetch_content
+from .service import enabled, fetch_content, group_allowed
 
 DAILY_FEATURES = ("world", "ai", "history", "it", "moyu")
 
@@ -50,6 +50,9 @@ def choose_push_bot(config: SixtyApiConfig):
 async def push_content(config: SixtyApiConfig, feature: str) -> bool:
     if not enabled(config, feature) or not config.sixty_api_push_groups:
         return False
+    target_groups = [group_id for group_id in config.sixty_api_push_groups if group_allowed(config, group_id)]
+    if not target_groups:
+        return False
     bot = choose_push_bot(config)
     if bot is None:
         return False
@@ -62,7 +65,7 @@ async def push_content(config: SixtyApiConfig, feature: str) -> bool:
         nonebot.logger.info("60s AI 资讯为空，跳过本次自动推送")
         return False
     message = UniMessage.image(raw=content.value) if content.kind == "image" else str(content.value)
-    for group_id in config.sixty_api_push_groups:
+    for group_id in target_groups:
         try:
             await bot.send_group_msg(group_id=int(group_id), message=message)
         except Exception as exc:

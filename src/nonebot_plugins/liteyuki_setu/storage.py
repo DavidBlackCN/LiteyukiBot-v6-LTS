@@ -20,8 +20,16 @@ class GroupSettings:
     daily_image_limit_per_user: int
 
 
+def group_allowed(config: SetuConfig, group_id: str | int | None) -> bool:
+    """Return whether a group is included by the deployment-level list mode."""
+    if group_id is None:
+        return True
+    listed = str(group_id) in {str(item) for item in config.setu_enabled_groups}
+    return listed if config.setu_group_mode == "whitelist" else not listed
+
+
 def default_settings(config: SetuConfig, group_id: str | None = None) -> GroupSettings:
-    enabled = bool(group_id and str(group_id) in {str(item) for item in config.setu_enabled_groups})
+    enabled = bool(group_id and group_allowed(config, group_id))
     return GroupSettings(enabled=enabled, auto_recall=config.setu_auto_recall,
                          recall_seconds=config.setu_recall_seconds, default_count=config.setu_default_count,
                          provider=config.setu_default_provider, exclude_ai=config.setu_exclude_ai,

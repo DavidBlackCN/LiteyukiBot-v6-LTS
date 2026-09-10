@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -7,6 +9,8 @@ class SixtyApiConfig(BaseModel):
     sixty_api_base_url: str = "https://60s.viki.moe"
     sixty_api_timeout: float = Field(default=10, gt=0, le=60)
     sixty_api_timezone: str = "Asia/Shanghai"
+    sixty_api_group_mode: Literal["whitelist", "blacklist"] = "whitelist"
+    sixty_api_group_ids: list[int] = Field(default_factory=list)
     sixty_api_push_groups: list[int] = Field(default_factory=list)
     sixty_api_push_bot_id: str = ""
 

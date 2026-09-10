@@ -84,12 +84,21 @@ def test_provider_selection_never_falls_back_to_incompatible_source() -> None:
 def test_group_storage_daily_limit_and_reset_preserves_other_plugin_configuration() -> None:
     _init()
     from src.nonebot_plugins.liteyuki_setu.config import SetuConfig
-    from src.nonebot_plugins.liteyuki_setu.storage import get_group_settings, reset_group_settings, update_group_settings
+    from src.nonebot_plugins.liteyuki_setu.storage import (default_settings, get_group_settings,
+                                                            group_allowed, reset_group_settings,
+                                                            update_group_settings)
     from src.utils.base.data_manager import Group, group_db
 
     group_id = "pytest-setu-group"
     group_db.delete(Group(), "group_id = ?", group_id)
     config = SetuConfig(setu_daily_image_limit_per_user=0)
+    assert not default_settings(config, group_id).enabled
+    whitelist = SetuConfig(setu_enabled_groups=[10001])
+    assert group_allowed(whitelist, 10001)
+    assert not group_allowed(whitelist, 10002)
+    blacklist = SetuConfig(setu_group_mode="blacklist", setu_enabled_groups=[10001])
+    assert not group_allowed(blacklist, 10001)
+    assert default_settings(blacklist, "10002").enabled
     assert get_group_settings(group_id, config).daily_image_limit_per_user == 0
     assert update_group_settings(group_id, config, daily_image_limit_per_user=10).daily_image_limit_per_user == 10
     group = group_db.where_one(Group(), "group_id = ?", group_id)

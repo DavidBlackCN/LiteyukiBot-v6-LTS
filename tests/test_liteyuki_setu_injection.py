@@ -74,6 +74,7 @@ def test_setu_handlers_receive_nonebot_injected_types_and_reach_runtime_layers(m
         return []
 
     monkeypatch.setattr(commands, "_access_allowed", allow_access)
+    monkeypatch.setattr(commands, "group_allowed", lambda *_args: True)
     monkeypatch.setattr(commands, "get_group_settings", lambda *_args: settings)
     monkeypatch.setattr(commands, "fetch_and_download", fetch_images)
     monkeypatch.setattr(commands, "cooldown", Cooldown())

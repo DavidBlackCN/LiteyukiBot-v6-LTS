@@ -31,6 +31,17 @@ def enabled(config: SixtyApiConfig, feature: str) -> bool:
     return bool(getattr(config, f"sixty_api_{feature}_enabled"))
 
 
+def group_allowed(config: SixtyApiConfig, group_id: str | int | None) -> bool:
+    """Whether this group is in the configured command/push scope.
+
+    Private conversations intentionally do not participate in a QQ group list.
+    """
+    if group_id is None:
+        return True
+    listed = str(group_id) in {str(item) for item in config.sixty_api_group_ids}
+    return listed if config.sixty_api_group_mode == "whitelist" else not listed
+
+
 def _escape(value: Any) -> str:
     return str(value or "").replace("\\", "\\\\").replace("*", "\\*").replace("#", "\\#").replace("[", "\\[").replace("]", "\\]")
 
