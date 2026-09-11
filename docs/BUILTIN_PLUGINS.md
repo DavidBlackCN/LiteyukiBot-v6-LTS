@@ -163,6 +163,7 @@
 
 - `/B站订阅 <UID> [--dynamic|--video|--live|--all]`：在当前群订阅 UP；群主、群管理员或超级用户可用。首次成功轮询只建立基线，不补发历史内容。
 - `/B站取消 <UID>`、`/B站订阅列表`：取消或查看当前会话的订阅。
+- `/B站登录`：仅 SUPERUSER 私聊可用。Bot 发送一次性登录二维码并等待最多三分钟；扫码确认后仅把 Cookie 持久化到本地凭据库，不会回显。群聊会拒绝该命令，二维码图片发送失败时才在同一私聊中提供一次性登录链接。若 `config.yml` 显式设置了 `bilibili_cookie`，需先清空该项，避免其优先级覆盖扫码凭据。
 - `/B站登录状态`、`/B站登出`、`/B站迁移`：仅超级用户可用；状态命令不会显示 Cookie 值，迁移保留旧数据且不会推送历史内容。
 - 主要配置：`bilibili_enabled`、`bilibili_cookie`、`bilibili_push_enabled`、`bilibili_link_parse_enabled`、`bilibili_poll_interval`；完整的安全默认值和中文说明见 `config.example.yml`。
 - 推送以目标会话为单位保存游标：发送失败不会推进游标，网络恢复后可重试。图片仅从受信任 Bilibili CDN 以 HTTPS 下载，并有类型和大小限制。

@@ -5,14 +5,16 @@ from __future__ import annotations
 import asyncio
 
 from arclet.alconna import Alconna, Args, MultiVar
+from nonebot import logger
 from nonebot.adapters import Bot, Event
 from nonebot.matcher import Matcher
 from nonebot.permission import SUPERUSER
-from nonebot_plugin_alconna import on_alconna
+from nonebot_plugin_alconna import UniMessage, on_alconna
 
 from src.utils.base.permission import GROUP_ADMIN, GROUP_OWNER
 
 from .errors import BilibiliError
+from .login import make_qr_png, wait_for_qr_login
 from .migration import migrate_legacy_data
 from .runtime import get_client, get_credentials, get_store
 
@@ -52,6 +54,13 @@ login_status = on_alconna(
     priority=20,
     block=True,
 )
+login = on_alconna(
+    Alconna("B站登录"),
+    aliases={"bili login"},
+    permission=SUPERUSER,
+    priority=20,
+    block=True,
+)
 logout = on_alconna(
     Alconna("B站登出"),
     aliases={"bili logout"},
@@ -79,6 +88,8 @@ subscription_list = on_alconna(
     permission=SUPERUSER | GROUP_OWNER | GROUP_ADMIN, priority=20, block=True,
 )
 
+_qr_login_lock = asyncio.Lock()
+
 
 async def login_status_text(client, credentials) -> str:
     credential = credentials.get()
@@ -90,6 +101,57 @@ async def login_status_text(client, credentials) -> str:
     if credential.is_anonymous:
         return "Bilibili 当前为匿名状态。"
     return f"Bilibili 凭据来源={credential.source}，但当前未登录或已失效。"
+
+
+async def start_qr_login(client, credentials, send_image, send_text) -> None:
+    """Send one QR code then wait for Bilibili confirmation without exposing secrets."""
+    await client.start()
+    session = await client.create_qr_login()
+    image = make_qr_png(session.url)
+    try:
+        await send_image(image)
+    except Exception:
+        # This fallback is confined to a SUPERUSER private chat by the handler.
+        logger.warning("Bilibili 登录二维码图片发送失败，改发一次性登录链接。")
+        await send_text(f"二维码图片发送失败，请在 3 分钟内打开以下 Bilibili 登录链接：\n{session.url}")
+    await wait_for_qr_login(
+        client,
+        credentials,
+        session.key,
+        on_scanned=lambda: send_text("已扫码，请在 Bilibili 客户端确认登录。"),
+    )
+
+
+@login.handle()
+async def handle_login(event: Event, matcher: Matcher) -> None:
+    if getattr(event, "group_id", None) is not None:
+        await matcher.finish("为防止登录凭据泄露，请私聊 Bot 使用 /B站登录。")
+        return
+    if _qr_login_lock.locked():
+        await matcher.finish("已有 Bilibili 扫码登录正在进行，请稍后再试。")
+        return
+    try:
+        async with _qr_login_lock:
+            credentials = get_credentials()
+            if credentials.get().source == "config":
+                await matcher.finish(
+                    "当前优先使用 config.yml 中的 bilibili_cookie；请先清空该配置后再使用 /B站登录。"
+                )
+                return
+            await matcher.send("请在 3 分钟内使用 Bilibili 客户端扫码。")
+            await start_qr_login(
+                get_client(),
+                credentials,
+                lambda image: matcher.send(UniMessage.image(raw=image)),
+                matcher.send,
+            )
+    except BilibiliError as exc:
+        await matcher.finish(exc.user_message)
+        return
+    except RuntimeError:
+        await matcher.finish("Bilibili 服务当前未启用。")
+        return
+    await matcher.finish("Bilibili 登录成功，扫码凭据已安全保存到本地数据目录。")
 
 
 @login_status.handle()

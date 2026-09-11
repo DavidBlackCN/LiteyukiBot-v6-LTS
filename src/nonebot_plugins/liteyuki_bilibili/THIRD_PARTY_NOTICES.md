@@ -12,8 +12,9 @@ in addition to this notice.
 - Repository: <https://github.com/mengbingnaixi/nonebot-plugin-bilibili>
 - Copyright: Copyright (c) 2024 mengbingnaixi
 - License: MIT License
-- Planned reference scope: Bilibili subscription polling and login-flow design
-  only; no code has been copied in this version.
+- Reference scope: Bilibili subscription polling and QR-login interaction
+  design. The local QR implementation uses the project credential boundary and
+  is independently written; no upstream source code has been copied.
 
     MIT License
 

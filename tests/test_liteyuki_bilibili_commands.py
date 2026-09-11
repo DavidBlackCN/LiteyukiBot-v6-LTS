@@ -74,3 +74,55 @@ def test_subscription_options_use_config_defaults_and_explicit_flags() -> None:
     assert subscription_options([], config) == (True, False, True)
     assert subscription_options(["--video"], config) == (False, True, False)
     assert subscription_options(["--all"], config) == (True, True, True)
+
+
+def test_qr_login_rejects_group_messages_before_creating_a_session() -> None:
+    import nonebot
+
+    try:
+        nonebot.get_driver()
+    except ValueError:
+        nonebot.init()
+    from src.nonebot_plugins.liteyuki_bilibili.commands import handle_login
+
+    class GroupEvent:
+        group_id = 12345
+
+    class Matcher:
+        def __init__(self) -> None:
+            self.message = ""
+
+        async def finish(self, message: str) -> None:
+            self.message = message
+
+    matcher = Matcher()
+    asyncio.run(handle_login(GroupEvent(), matcher))
+    assert matcher.message == "为防止登录凭据泄露，请私聊 Bot 使用 /B站登录。"
+
+
+def test_qr_login_refuses_to_mask_an_explicit_config_cookie(monkeypatch) -> None:
+    import nonebot
+
+    try:
+        nonebot.get_driver()
+    except ValueError:
+        nonebot.init()
+    import src.nonebot_plugins.liteyuki_bilibili.commands as commands
+
+    class PrivateEvent:
+        pass
+
+    class Matcher:
+        def __init__(self) -> None:
+            self.message = ""
+
+        async def send(self, message: str) -> None:
+            raise AssertionError("a QR session must not be created")
+
+        async def finish(self, message: str) -> None:
+            self.message = message
+
+    monkeypatch.setattr(commands, "get_credentials", lambda: CredentialManager("SESSDATA=config", MemoryStore()))
+    matcher = Matcher()
+    asyncio.run(commands.handle_login(PrivateEvent(), matcher))
+    assert matcher.message == "当前优先使用 config.yml 中的 bilibili_cookie；请先清空该配置后再使用 /B站登录。"

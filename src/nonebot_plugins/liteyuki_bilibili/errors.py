@@ -23,6 +23,14 @@ class BilibiliCookieFormatError(BilibiliCredentialError):
     user_message = "Bilibili Cookie 配置格式无效，请联系管理员检查配置。"
 
 
+class BilibiliQRCodeExpiredError(BilibiliCredentialError):
+    user_message = "Bilibili 登录二维码已失效，请重新发送 /B站登录。"
+
+
+class BilibiliQRCodeTimeoutError(BilibiliCredentialError):
+    user_message = "等待 Bilibili 扫码确认超时，请重新发送 /B站登录。"
+
+
 class BilibiliRateLimitError(BilibiliAPIError):
     user_message = "Bilibili 当前请求受限，请稍后重试。"
 
