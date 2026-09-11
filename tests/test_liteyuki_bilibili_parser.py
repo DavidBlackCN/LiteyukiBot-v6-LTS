@@ -42,7 +42,13 @@ def test_non_bilibili_url_does_not_trigger() -> None:
 def test_parser_normalizes_video_and_live_events() -> None:
     class Client:
         async def get_video_info(self, **_kwargs):
-            return BilibiliVideo(bvid="BV1xx411c7mD", author_uid="42", author_name="UP", title="视频")
+            return BilibiliVideo(
+                bvid="BV1xx411c7mD",
+                author_uid="42",
+                author_name="UP",
+                title="视频",
+                cover_url="https://i0.hdslb.com/video-cover.jpg",
+            )
 
         async def get_live_room_status(self, room_id: str):
             return BilibiliLiveStatus(uid="42", room_id=room_id, live=True, title="直播")
@@ -51,4 +57,5 @@ def test_parser_normalizes_video_and_live_events() -> None:
     video = asyncio.run(parser.parse(BilibiliLink("video", "BV1xx411c7mD", "")))
     live = asyncio.run(parser.parse(BilibiliLink("live", "456", "")))
     assert (video.kind, video.event_id, video.author_name) == ("video", "BV1xx411c7mD", "UP")
+    assert video.cover_urls == ["https://i0.hdslb.com/video-cover.jpg"]
     assert (live.kind, live.event_id) == ("live_start", "456:live")

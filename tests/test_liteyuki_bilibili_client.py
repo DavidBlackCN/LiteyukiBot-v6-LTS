@@ -96,6 +96,27 @@ def test_dynamic_list_is_normalized_without_exposing_api_json() -> None:
     run(scenario())
 
 
+def test_video_info_maps_bilibili_pic_to_cover_url() -> None:
+    async def scenario() -> None:
+        payload = {
+            "code": 0,
+            "data": {
+                "bvid": "BV1xx411c7mD",
+                "title": "测试视频",
+                "pic": "https://i0.hdslb.com/video-cover.jpg",
+                "owner": {"mid": 42, "name": "UP"},
+            },
+        }
+        async with httpx.AsyncClient(
+            transport=httpx.MockTransport(lambda _: httpx.Response(200, json=payload))
+        ) as http_client:
+            client = BilibiliClient(BilibiliConfig(), CredentialManager(store=MemoryStore()), http_client)
+            video = await client.get_video_info(bvid="BV1xx411c7mD")
+        assert video.cover_url == "https://i0.hdslb.com/video-cover.jpg"
+
+    run(scenario())
+
+
 def test_image_download_is_limited_to_bilibili_cdn_and_image_content() -> None:
     async def scenario() -> None:
         async with httpx.AsyncClient(

@@ -21,6 +21,7 @@ def test_templates_use_shared_liteyuki_assets_and_local_data_contract() -> None:
         assert "./css/fonts.css" in template
         assert "./js/card.js" in template
         assert "{{ data | tojson }}" in template
+        assert 'class="covers"' in template
         assert "http://" not in template and "https://" not in template
     assert not list(Path("src/resources/liteyuki_bilibili").rglob("*.woff*"))
 
