@@ -16,7 +16,7 @@ from .config import BilibiliConfig
 __plugin_meta__ = PluginMetadata(
     name="Bilibili 服务",
     description="统一提供 Bilibili 订阅推送、链接解析与登录凭据管理。",
-    usage="/B站订阅 <UID>\n/B站取消 <UID>\n/B站订阅列表",
+    usage="/B站订阅 <UID>\n/B站取消 <UID>\n/B站订阅列表\n/B站登录状态（SUPERUSER）\n/B站登出（SUPERUSER）",
     type="application",
     homepage="https://github.com/DavidBlackCN/LiteyukiBot-v6-LTS",
     config=BilibiliConfig,
@@ -40,3 +40,4 @@ else:
     from .runtime import configure_jobs  # noqa: E402
 
     configure_jobs(config)
+    from . import commands  # noqa: E402,F401

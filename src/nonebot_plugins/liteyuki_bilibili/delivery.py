@@ -45,7 +45,9 @@ async def deliver_text(subscription: BilibiliSubscription, event: BilibiliEvent)
     return await _send_message(bot, subscription, event_text(event))
 
 
-async def deliver_event(subscription: BilibiliSubscription, event: BilibiliEvent, client) -> bool:
+async def deliver_event(
+    subscription: BilibiliSubscription, event: BilibiliEvent, client, scale_factor: float = 1.5
+) -> bool:
     """Prefer a locally rendered card and fall back to text for any render/send failure."""
     bot = choose_push_bot()
     if bot is None:
@@ -53,7 +55,7 @@ async def deliver_event(subscription: BilibiliSubscription, event: BilibiliEvent
     try:
         from .renderer import render_event_card
 
-        image = await render_event_card(event, client)
+        image = await render_event_card(event, client, scale_factor)
         message = await UniMessage.image(raw=image).export(bot)
         return await _send_message(bot, subscription, message)
     except Exception as exc:
