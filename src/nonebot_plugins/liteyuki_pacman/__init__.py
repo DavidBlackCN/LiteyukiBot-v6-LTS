@@ -8,7 +8,7 @@ __plugin_meta__ = PluginMetadata(
     description="本地插件管理和插件商店支持，资源包管理，支持启用/停用，安装/卸载插件",
     usage=(
             "npm list\n"
-            "npm enable/disable <plugin_name>\n"
+            "npm enable/disable <plugin_name>（当前群 Bot ADMIN）\n"
             "npm search <keywords...>\n"
             "npm install/uninstall <plugin_name>\n"
     ),

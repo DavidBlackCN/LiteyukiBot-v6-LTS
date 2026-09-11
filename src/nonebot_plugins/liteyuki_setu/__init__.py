@@ -10,7 +10,8 @@ __plugin_meta__ = PluginMetadata(
     description="多来源二次元图片获取；群聊仅全年龄，私聊 R18 需显式授权。",
     usage=("/色图 [数量] [关键词]（数量可写 3 或 3张）\n/色图 -t 标签 [-t 标签] [数量]\n"
            "/色图 --source lolicon|mirlkoi|auto\n/色图 --size regular|original\n"
-           "/色图 --no-ai\n/色图 --r18（仅已授权私聊，固定 1 张）\n/色图管理 状态"),
+           "/色图 --no-ai\n/色图 --r18（仅已授权私聊，固定 1 张）\n"
+           "/色图管理 状态（当前群 Bot ADMIN；私聊 R18 仅 SUPERUSER）"),
     type="application", homepage="https://github.com/DavidBlackCN/LiteyukiBot-v6-LTS",
     config=SetuConfig,
     extra={"liteyuki": True, "lts_builtin": True, "toggleable": True,

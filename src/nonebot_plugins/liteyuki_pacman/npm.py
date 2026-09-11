@@ -25,7 +25,7 @@ from nonebot.utils import run_sync
 from src.utils.base.data_manager import InstalledPlugin
 from src.utils.base.language import get_user_lang
 from src.utils.base.ly_typing import T_Bot
-from src.utils.base.permission import GROUP_ADMIN, GROUP_OWNER
+from src.nonebot_plugins.liteyuki_group_manager.permission import is_admin
 from src.utils.message.tools import clamp
 from src.utils.message.message import MarkdownMessage as md
 from src.utils.message.markdown import MarkdownComponent as mdc, compile_md, escape_md
@@ -225,34 +225,29 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot, npm: Matcher):
 
         # 判定会话类型
         # 输入群号
-        if (
-            group_id := (
-                sc.get("enable", SubcommandResult())
-                .options.get("group", OptionResult())
-                .args.get("group_id")
-                or sc.get("disable", SubcommandResult())
-                .options.get("group", OptionResult())
-                .args.get("group_id")
-            )
-        ) and await SUPERUSER(bot, event):
+        group_id = (
+            sc.get("enable", SubcommandResult())
+            .options.get("group", OptionResult())
+            .args.get("group_id")
+            or sc.get("disable", SubcommandResult())
+            .options.get("group", OptionResult())
+            .args.get("group_id")
+        )
+        if group_id:
+            if not perm_s:
+                raise FinishedException(ulang.get("liteyuki.permission_denied"))
             session_id = group_id
             new_event = event.copy()
             new_event.group_id = group_id
             new_event.message_type = "group"
-
         elif event.message_type == "private":
             session_id = event.user_id
             new_event = event
+        elif await is_admin(bot, event):
+            session_id = event.group_id
+            new_event = event
         else:
-            if (
-                await GROUP_ADMIN(bot, event)
-                or await GROUP_OWNER(bot, event)
-                or await SUPERUSER(bot, event)
-            ):
-                session_id = event.group_id
-                new_event = event
-            else:
-                raise FinishedException(ulang.get("liteyuki.permission_denied"))
+            raise FinishedException(ulang.get("liteyuki.permission_denied"))
 
         session_enable = get_plugin_session_enable(
             new_event, plugin_name
@@ -468,11 +463,7 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot, npm: Matcher):
                 f"{ulang.get('npm.page', PAGE=page, TOTAL=total)} \n***\n"
             )
 
-            permission_oas = (
-                await GROUP_ADMIN(bot, event)
-                or await GROUP_OWNER(bot, event)
-                or await SUPERUSER(bot, event)
-            )
+            permission_oas = await is_admin(bot, event)
             permission_s = await SUPERUSER(bot, event)
 
             for storePlugin in loaded_plugin_list[
@@ -706,7 +697,7 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot, npm: Matcher):
             alias=["d", "停用"],
         ),
     ),
-    permission=SUPERUSER | GROUP_OWNER | GROUP_ADMIN,
+    permission=SUPERUSER,
 ).handle()
 async def _(bot: T_Bot, event: T_MessageEvent, gm: Matcher, result: Arparma):
     ulang = get_user_lang(str(event.user_id))

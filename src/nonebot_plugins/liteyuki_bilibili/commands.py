@@ -11,7 +11,7 @@ from nonebot.matcher import Matcher
 from nonebot.permission import SUPERUSER
 from nonebot_plugin_alconna import UniMessage, on_alconna
 
-from src.utils.base.permission import GROUP_ADMIN, GROUP_OWNER
+from src.nonebot_plugins.liteyuki_group_manager.permission import ADMIN
 
 from .errors import BilibiliError
 from .login import make_qr_png, wait_for_qr_login
@@ -78,15 +78,15 @@ migrate = on_alconna(
 )
 subscribe = on_alconna(
     Alconna("B站订阅", Args["raw", MultiVar(str)]), aliases={"bili subscribe"},
-    permission=SUPERUSER | GROUP_OWNER | GROUP_ADMIN, priority=20, block=True,
+    permission=ADMIN, priority=20, block=True,
 )
 unsubscribe = on_alconna(
     Alconna("B站取消", Args["uid", str]), aliases={"bili unsubscribe"},
-    permission=SUPERUSER | GROUP_OWNER | GROUP_ADMIN, priority=20, block=True,
+    permission=ADMIN, priority=20, block=True,
 )
 subscription_list = on_alconna(
     Alconna("B站订阅列表"), aliases={"bili subscriptions"},
-    permission=SUPERUSER | GROUP_OWNER | GROUP_ADMIN, priority=20, block=True,
+    permission=ADMIN, priority=20, block=True,
 )
 
 _qr_login_lock = asyncio.Lock()

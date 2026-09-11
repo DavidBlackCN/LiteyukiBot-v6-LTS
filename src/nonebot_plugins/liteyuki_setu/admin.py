@@ -7,6 +7,8 @@ from nonebot.adapters import Bot, Event
 from nonebot.matcher import Matcher
 from nonebot_plugin_alconna import Arparma, on_alconna
 
+from src.nonebot_plugins.liteyuki_group_manager.permission import ADMIN, is_superuser
+
 from .quota import (add_private_r18_user, get_private_r18_access,
                     remove_private_r18_user, set_private_r18_enabled)
 from .storage import get_group_settings, reset_group_settings, update_group_settings
@@ -14,14 +16,6 @@ from .storage import get_group_settings, reset_group_settings, update_group_sett
 
 def _tokens(result: Arparma) -> list[str]:
     return [str(value).strip() for value in result.main_args.get("raw", []) if str(value).strip()]
-
-
-def _superuser(bot: Any, event: Any) -> bool:
-    return str(getattr(event, "user_id", "")) in {str(item) for item in getattr(bot.config, "superusers", set())}
-
-
-def _admin(event: Any, superuser: bool) -> bool:
-    return superuser or str(getattr(getattr(event, "sender", None), "role", "member")) in {"admin", "owner"}
 
 
 def _status(settings: Any) -> str:
@@ -55,7 +49,7 @@ async def _handle_private_r18(args: list[str], config, matcher) -> None:
 
 setu_admin = on_alconna(
     Alconna("色图管理", Args["raw", MultiVar(str), []]),
-    aliases={"图片管理", "setu-admin"}, priority=20, block=True,
+    aliases={"图片管理", "setu-admin"}, permission=ADMIN, priority=20, block=True,
 )
 
 
@@ -72,7 +66,7 @@ async def handle_admin(
     if not args:
         await matcher.finish("用法：色图管理 状态|开启|关闭|撤回|数量|来源|AI过滤|冷却|日限|重置；私聊R18 管理仅限超级用户")
         return
-    superuser = _superuser(bot, event)
+    superuser = await is_superuser(bot, event)
     if args[0] in {"私聊R18", "R18"}:
         if not superuser:
             await matcher.finish("权限不足，仅超级用户可管理私聊 R18。")
@@ -85,9 +79,6 @@ async def handle_admin(
             await matcher.finish("私聊开关请通过 setu_private_enabled 配置后重启生效。" if superuser else "权限不足，仅超级用户可执行此操作。")
             return
         await matcher.finish("该管理命令只能在群聊中使用。")
-        return
-    if not _admin(event, superuser):
-        await matcher.finish("权限不足，仅群管理员、群主或超级用户可执行此操作。")
         return
     target, action = str(group_id), args[0]
     if superuser and action in {"状态", "开启", "关闭", "重置"} and len(args) > 1 and args[1].isdigit():

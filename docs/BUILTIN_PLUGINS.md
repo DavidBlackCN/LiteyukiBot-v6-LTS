@@ -90,13 +90,10 @@
 
 插件命令：
 
-- `npm enable <插件名> [-g|--group <群号>]`：在当前群或指定群启用插件。
-- `npm disable <插件名> [-g|--group <群号>]`：在当前群或指定群停用插件。
-- `npm enable-global <插件名>`：全局启用；别名 `eg`、`全局启用`。
-- `npm disable-global <插件名>`：全局停用；别名 `dg`、`全局停用`。
-- `npm update`：更新插件商店索引。
-- `npm search <关键词...>`：搜索插件。
-- `npm install <插件名>` / `npm uninstall <插件名>`：安装或卸载插件。
+- `npm enable <插件名>` / `npm disable <插件名>`：当前群 Bot ADMIN 可管理本群插件启停。
+- `npm enable <插件名> -g|--group <群号>`：指定其他群仅 SUPERUSER 可用。
+- `npm enable-global`、`npm disable-global`、`npm update`、`npm install`、`npm uninstall`：仅 SUPERUSER 可用。
+- `npm search <关键词...>`：普通用户可查询插件。
 - `npm list [页码] [每页数量] [-m|--markdown]`：列出插件，默认第 1 页、每页 10 项。
 - 主命令别名：`插件`。
 
@@ -141,7 +138,7 @@
 - `lep list`：列出现有推送及索引。
 - `lep rm <索引>`：删除推送。
 
-当前命令注册未声明显式权限限制。它可能跨群、跨账号传播消息，生产环境应通过插件启停、命令权限或访问策略限制为管理员使用。
+`lep add`、`lep rm`、`lep list` 均仅限 SUPERUSER；它们可跨群、跨账号传播消息。
 
 ### `liteyuki_markdowntest` — Markdown 渲染测试
 
@@ -157,12 +154,15 @@
 
 ## 功能插件
 
+### `liteyuki_smart_reply` — 智能回复
+
+- `设置回复概率 <0-1>`：当前群 Bot ADMIN 可设置当前群回复概率。
+
 ### `liteyuki_bilibili` — Bilibili 订阅、链接解析与凭据
 
 内置 Bilibili 服务统一处理视频、动态和直播订阅，以及 Bilibili 链接卡片；不再加载旧的 `nonebot-plugin-bilibili` 或通用 parser 插件。链接解析默认开启，同一消息中的相同目标只处理一次；卡片渲染失败时会退回文本，不会阻断其他消息处理器。
 
-- `/B站订阅 <UID> [--dynamic|--video|--live|--all]`：在当前群订阅 UP；群主、群管理员或超级用户可用。首次成功轮询只建立基线，不补发历史内容。
-- `/B站取消 <UID>`、`/B站订阅列表`：取消或查看当前会话的订阅。
+- `/B站订阅 <UID> [--dynamic|--video|--live|--all]`、`/B站取消 <UID>`、`/B站订阅列表`：当前群 Bot ADMIN 可管理当前会话订阅；首次成功轮询只建立基线，不补发历史内容。
 - `/B站登录`：仅 SUPERUSER 私聊可用。Bot 发送一次性登录二维码并等待最多三分钟；扫码确认后仅把 Cookie 持久化到本地凭据库，不会回显。群聊会拒绝该命令，二维码图片发送失败时才在同一私聊中提供一次性登录链接。若 `config.yml` 显式设置了 `bilibili_cookie`，需先清空该项，避免其优先级覆盖扫码凭据。
 - `/B站登录状态`、`/B站登出`、`/B站迁移`：仅超级用户可用；状态命令不会显示 Cookie 值，迁移保留旧数据且不会推送历史内容。
 - 主要配置：`bilibili_enabled`、`bilibili_cookie`、`bilibili_push_enabled`、`bilibili_link_parse_enabled`、`bilibili_poll_interval`；完整的安全默认值和中文说明见 `config.example.yml`。
@@ -186,7 +186,7 @@
 - `色图 -t <标签> [-t <标签>] [数量]`：标签查询；`--uid <Pixiv UID>`、`--portrait`、`--landscape` 仅在当前图片源支持时可用。
 - `色图 --source auto|lolicon|mirlkoi`、`--size regular|original`、`--no-ai`：选择来源、尺寸或加强 AI 过滤。`auto` 只会回退至能够完整表达当前筛选条件的健康来源，不会以随机图替代搜索结果。
 - `色图 --r18 [关键词]`：仅已授权私聊可用，强制使用 Lolicon 且固定返回 1 张；群聊和未授权私聊均在请求前拒绝。
-- `色图管理 状态|开启|关闭|撤回 开|关|撤回时间 <秒>|数量 <1-5>|来源 <名称>|AI过滤 开|关|冷却 <秒>|日限 <张数>|重置`：群主、群管理员或超级用户管理当前群；超级用户可在“状态/开启/关闭/重置”后指定群号。
+- `色图管理 状态|开启|关闭|撤回 开|关|撤回时间 <秒>|数量 <1-5>|来源 <名称>|AI过滤 开|关|冷却 <秒>|日限 <张数>|重置`：当前群 Bot ADMIN 管理本群；指定其他群仅 SUPERUSER 可用。
 - `色图管理 私聊R18 状态|开|关|添加 <QQ>|移除 <QQ>`：仅超级用户可配置持久化的私聊 R18 总开关与动态 QQ 白名单。
 - 群级覆盖持久化在 `Group.config["liteyuki_setu"]`，不修改部署者的 `config.yml`；每张成功发送的图片可以独立后台撤回；`日限` 按群、用户和配置时区持久化记录成功发送数量，`0` 表示不限。
 - MirlKoi/cnmiw 使用其当前 CDN 无色图 JSON 分类，提供随机图、数量和横竖图能力；关键词、Tag、UID 和 AI 过滤仍由 Lolicon 负责。作品版权归原作者及权利人所有。
@@ -258,7 +258,7 @@
 
 - `/access blacklist-user <用户 ID>`、`/access unblacklist-user <用户 ID>`：管理用户黑名单。
 - `/access blacklist-group <群 ID>`、`/access unblacklist-group <群 ID>`：管理群黑名单。
-- 黑名单优先于白名单和插件显式启用；管理命令仅限 SUPERUSER。
+- 黑名单优先于白名单和插件显式启用；`/access enable|disable plugin <插件>` 可由当前群 Bot ADMIN 执行，其余管理命令仅限 SUPERUSER。
 
 ### `webdash` — 网页监控面板（基础骨架）
 

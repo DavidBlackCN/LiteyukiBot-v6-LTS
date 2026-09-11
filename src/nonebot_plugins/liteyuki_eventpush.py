@@ -1,5 +1,6 @@
 import nonebot
 from nonebot import on_message, require
+from nonebot.permission import SUPERUSER
 from nonebot.plugin import PluginMetadata
 
 from src.utils.base.data import Database, LiteModel
@@ -49,7 +50,7 @@ alc = Alconna(
     )
 )
 
-add_push = on_alconna(alc)
+add_push = on_alconna(alc, permission=SUPERUSER)
 
 
 @add_push.handle()
@@ -117,7 +118,7 @@ __author__ = "snowykami"
 __plugin_meta__ = PluginMetadata(
     name="轻雪事件推送",
     description="事件推送插件，支持单向和双向推送，支持跨Bot推送",
-    usage="",
+    usage="lep add|rm|list（仅 SUPERUSER）",
     homepage="https://github.com/snowykami/LiteyukiBot",
     extra={
         "liteyuki": True,

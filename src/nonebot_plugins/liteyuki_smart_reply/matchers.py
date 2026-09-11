@@ -6,14 +6,13 @@ import nonebot
 from nonebot import Bot, get_driver, get_loaded_plugins, on_message, require
 from nonebot.consts import CMD_KEY, PREFIX_KEY
 from nonebot.internal.matcher import Matcher
-from nonebot.permission import SUPERUSER
+from src.nonebot_plugins.liteyuki_group_manager.permission import ADMIN
 from nonebot.rule import to_me
 from nonebot.typing import T_State
 
 from src.utils import event as event_utils
 from src.utils.base.data_manager import Group, group_db
 from src.utils.base.ly_typing import T_MessageEvent
-from src.utils.base.permission import GROUP_ADMIN, GROUP_OWNER
 from src.utils.base.word_bank import get_reply
 
 from .utils import get_keywords
@@ -165,7 +164,7 @@ async def smart_reply_rule(event: T_MessageEvent, state: T_State) -> bool:
         Args["probability", float, default_reply_probability],
     ),
     aliases={"设置回复概率"},
-    permission=SUPERUSER | GROUP_ADMIN | GROUP_OWNER,
+    permission=ADMIN,
 ).handle()
 async def _(result: Arparma, event: T_MessageEvent, matcher: Matcher):
     if event_utils.get_message_type(event) != "group":
