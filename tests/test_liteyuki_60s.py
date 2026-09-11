@@ -183,6 +183,57 @@ def test_group_mode_scopes_commands_and_pushes(monkeypatch) -> None:
 
 
 
+def test_blacklist_image_push_exports_message_for_bot(monkeypatch) -> None:
+    try:
+        nonebot.get_driver()
+    except ValueError:
+        nonebot.init()
+    from src.nonebot_plugins.liteyuki_60s.config import SixtyApiConfig
+    from src.nonebot_plugins.liteyuki_60s.scheduler import push_content
+    from src.nonebot_plugins.liteyuki_60s.service import Content
+
+    class ExportableImage:
+        def __init__(self):
+            self.export_bots = []
+            self.native_message = object()
+
+        async def export(self, bot):
+            self.export_bots.append(bot)
+            return self.native_message
+
+    exported_image = ExportableImage()
+
+    class FakeUniMessage:
+        @staticmethod
+        def image(*, raw):
+            assert raw == b"image"
+            return exported_image
+
+    class Bot:
+        def __init__(self):
+            self.sent = []
+
+        async def get_group_list(self):
+            return [{"group_id": 10001}, {"group_id": 10002}]
+
+        async def send_group_msg(self, *, group_id, message):
+            self.sent.append((group_id, message))
+
+    bot = Bot()
+
+    async def content(*_args):
+        return Content("image", b"image")
+
+    monkeypatch.setattr("src.nonebot_plugins.liteyuki_60s.scheduler.choose_push_bot", lambda _config: bot)
+    monkeypatch.setattr("src.nonebot_plugins.liteyuki_60s.scheduler.fetch_content", content)
+    monkeypatch.setattr("src.nonebot_plugins.liteyuki_60s.scheduler.UniMessage", FakeUniMessage)
+
+    config = SixtyApiConfig(sixty_api_group_mode="blacklist", sixty_api_group_ids=[10001])
+    assert asyncio.run(push_content(config, "world"))
+    assert exported_image.export_bots == [bot]
+    assert bot.sent == [(10002, exported_image.native_message)]
+
+
 def test_random_group_pushes_have_independent_schedules(monkeypatch) -> None:
     try:
         nonebot.get_driver()

@@ -95,7 +95,11 @@ async def push_content(config: SixtyApiConfig, feature: str, *, per_group_random
             except SixtyApiError as exc:
                 nonebot.logger.warning("60s %s 随机推送获取失败（群 %s）：%s", feature, group_id, exc)
                 continue
-            message = UniMessage.image(raw=content.value) if content.kind == "image" else str(content.value)
+            message = (
+                await UniMessage.image(raw=content.value).export(bot)
+                if content.kind == "image"
+                else str(content.value)
+            )
             try:
                 await bot.send_group_msg(group_id=int(group_id), message=message)
             except Exception as exc:
@@ -111,13 +115,20 @@ async def push_content(config: SixtyApiConfig, feature: str, *, per_group_random
     if feature == "ai" and content.empty:
         nonebot.logger.info("60s AI 资讯为空，跳过本次自动推送")
         return False
-    message = UniMessage.image(raw=content.value) if content.kind == "image" else str(content.value)
+    message = (
+        await UniMessage.image(raw=content.value).export(bot)
+        if content.kind == "image"
+        else str(content.value)
+    )
+    sent = False
     for group_id in target_groups:
         try:
             await bot.send_group_msg(group_id=int(group_id), message=message)
         except Exception as exc:
             nonebot.logger.warning("60s 推送到群 %s 失败：%s", group_id, exc)
-    return True
+        else:
+            sent = True
+    return sent
 
 
 def next_random_time(now: datetime, start: str, end: str, min_minutes: int, max_minutes: int) -> datetime:
