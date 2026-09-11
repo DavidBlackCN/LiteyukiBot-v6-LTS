@@ -69,6 +69,36 @@ def test_renderer_embeds_valid_images_and_ignores_failed_ones(monkeypatch) -> No
     assert captured["kwargs"]["scale_factor"] == 1.5
 
 
+def test_video_renderer_embeds_avatar_and_cover(monkeypatch) -> None:
+    _init()
+    from src.nonebot_plugins.liteyuki_bilibili.client import DownloadedImage
+    from src.nonebot_plugins.liteyuki_bilibili import renderer
+
+    class Client:
+        async def download_image(self, url: str):
+            return DownloadedImage(url.encode(), "image/png")
+
+    captured = {}
+
+    async def fake_render(template, variables, selector, **kwargs):
+        captured.update(template=template, variables=variables)
+        return b"png"
+
+    monkeypatch.setattr(renderer, "get_path", lambda *_args, **_kwargs: "video-template.html")
+    monkeypatch.setattr(renderer, "template2image_element", fake_render)
+    event = BilibiliEvent(
+        kind="video",
+        uid="42",
+        event_id="BV1",
+        avatar_url="https://i1.hdslb.com/avatar.jpg",
+        cover_urls=["https://i0.hdslb.com/video-cover.jpg"],
+    )
+    assert asyncio.run(renderer.render_event_card(event, Client())) == b"png"
+    data = captured["variables"]["data"]
+    assert data["avatar"].startswith("data:image/png;base64,")
+    assert len(data["covers"]) == 1
+
+
 def test_delivery_falls_back_to_text_when_card_rendering_fails(monkeypatch) -> None:
     _init()
     from src.nonebot_plugins.liteyuki_bilibili import delivery, renderer

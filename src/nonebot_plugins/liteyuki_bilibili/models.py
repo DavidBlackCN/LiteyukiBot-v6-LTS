@@ -33,6 +33,7 @@ class BilibiliVideo(BaseModel):
     cover_url: str = ""
     author_name: str = ""
     author_uid: str = ""
+    avatar_url: str = ""
     timestamp: datetime | None = None
     metrics: dict[str, int | str] = Field(default_factory=dict)
 

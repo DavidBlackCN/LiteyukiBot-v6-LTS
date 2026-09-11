@@ -103,8 +103,8 @@ def test_video_info_maps_bilibili_pic_to_cover_url() -> None:
             "data": {
                 "bvid": "BV1xx411c7mD",
                 "title": "测试视频",
-                "pic": "https://i0.hdslb.com/video-cover.jpg",
-                "owner": {"mid": 42, "name": "UP"},
+                "pic": "//i0.hdslb.com/video-cover.jpg",
+                "owner": {"mid": 42, "name": "UP", "face": "http://i1.hdslb.com/avatar.jpg"},
             },
         }
         async with httpx.AsyncClient(
@@ -112,23 +112,35 @@ def test_video_info_maps_bilibili_pic_to_cover_url() -> None:
         ) as http_client:
             client = BilibiliClient(BilibiliConfig(), CredentialManager(store=MemoryStore()), http_client)
             video = await client.get_video_info(bvid="BV1xx411c7mD")
-        assert video.cover_url == "https://i0.hdslb.com/video-cover.jpg"
+        assert video.cover_url == "//i0.hdslb.com/video-cover.jpg"
+        assert video.avatar_url == "http://i1.hdslb.com/avatar.jpg"
 
     run(scenario())
 
 
 def test_image_download_is_limited_to_bilibili_cdn_and_image_content() -> None:
     async def scenario() -> None:
+        requested_urls: list[str] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            requested_urls.append(str(request.url))
+            return httpx.Response(200, headers={"content-type": "image/png"}, content=b"png")
+
         async with httpx.AsyncClient(
-            transport=httpx.MockTransport(
-                lambda _: httpx.Response(200, headers={"content-type": "image/png"}, content=b"png")
-            )
+            transport=httpx.MockTransport(handler)
         ) as http_client:
             client = BilibiliClient(BilibiliConfig(), CredentialManager(store=MemoryStore()), http_client)
             image = await client.download_image("https://i0.hdslb.com/cover.png")
             assert image.data == b"png" and image.content_type == "image/png"
+            await client.download_image("//i1.hdslb.com/cover.png")
+            await client.download_image("http://i2.hdslb.com/cover.png")
             with pytest.raises(BilibiliAPIError):
                 await client.download_image("https://example.invalid/image.png")
+        assert requested_urls == [
+            "https://i0.hdslb.com/cover.png",
+            "https://i1.hdslb.com/cover.png",
+            "https://i2.hdslb.com/cover.png",
+        ]
 
     run(scenario())
 

@@ -228,8 +228,14 @@ class BilibiliClient:
 
     async def download_image(self, url: str, max_bytes: int = 4 * 1024 * 1024) -> DownloadedImage:
         """Download only trusted Bilibili CDN images for local card embedding."""
+        if url.startswith("//"):
+            url = f"https:{url}"
         parsed = urlsplit(url)
-        if parsed.scheme != "https" or (parsed.hostname or "").lower() not in _IMAGE_HOSTS:
+        host = (parsed.hostname or "").lower()
+        if parsed.scheme == "http" and host in _IMAGE_HOSTS:
+            url = parsed._replace(scheme="https").geturl()
+            parsed = urlsplit(url)
+        if parsed.scheme != "https" or host not in _IMAGE_HOSTS:
             raise BilibiliAPIError("Bilibili image host was not allowed")
         if self._client is None:
             raise RuntimeError("BilibiliClient must be started before use")
@@ -350,6 +356,7 @@ class BilibiliClient:
             cover_url=str(data.get("pic") or data.get("cover") or ""),
             author_name=str(owner.get("name") or data.get("author") or ""),
             author_uid=str(owner.get("mid") or data.get("mid") or ""),
+            avatar_url=str(owner.get("face") or ""),
             timestamp=timestamp,
             metrics={
                 key: _integer(stat.get(key) if stat else data.get(key))

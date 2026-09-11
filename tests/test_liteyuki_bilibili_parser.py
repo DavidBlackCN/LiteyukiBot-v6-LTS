@@ -48,6 +48,7 @@ def test_parser_normalizes_video_and_live_events() -> None:
                 author_name="UP",
                 title="视频",
                 cover_url="https://i0.hdslb.com/video-cover.jpg",
+                avatar_url="https://i1.hdslb.com/avatar.jpg",
             )
 
         async def get_live_room_status(self, room_id: str):
@@ -58,4 +59,5 @@ def test_parser_normalizes_video_and_live_events() -> None:
     live = asyncio.run(parser.parse(BilibiliLink("live", "456", "")))
     assert (video.kind, video.event_id, video.author_name) == ("video", "BV1xx411c7mD", "UP")
     assert video.cover_urls == ["https://i0.hdslb.com/video-cover.jpg"]
+    assert video.avatar_url == "https://i1.hdslb.com/avatar.jpg"
     assert (live.kind, live.event_id) == ("live_start", "456:live")

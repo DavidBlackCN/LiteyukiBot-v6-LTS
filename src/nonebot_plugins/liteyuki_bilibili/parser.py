@@ -136,6 +136,7 @@ def _video_event(video: BilibiliVideo) -> BilibiliEvent:
         body=video.description,
         url=video.url,
         author_name=video.author_name,
+        avatar_url=video.avatar_url,
         cover_urls=[video.cover_url] if video.cover_url else [],
         timestamp=video.timestamp,
         metrics=video.metrics,
