@@ -43,10 +43,17 @@ class SubscriptionStore:
         live_enabled: bool = True,
         at_all: bool = False,
         created_by: str = "",
+        created_at: datetime | None = None,
     ) -> tuple[BilibiliSubscription, bool]:
         """Create or update one target subscription without clearing its cursors."""
         self._validate_target(target_type, target_id, uid)
         now = _now()
+        if created_at is None:
+            created = now
+        elif created_at.tzinfo is None:
+            created = created_at.replace(tzinfo=UTC).isoformat()
+        else:
+            created = created_at.astimezone(UTC).isoformat()
         with self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
             existed = connection.execute(
@@ -73,7 +80,7 @@ class SubscriptionStore:
                     int(live_enabled),
                     int(at_all),
                     created_by,
-                    now,
+                    created,
                     now,
                 ),
             )

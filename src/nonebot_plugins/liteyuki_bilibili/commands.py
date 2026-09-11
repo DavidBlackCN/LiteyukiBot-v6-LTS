@@ -9,7 +9,8 @@ from nonebot.permission import SUPERUSER
 from nonebot_plugin_alconna import on_alconna
 
 from .errors import BilibiliError
-from .runtime import get_client, get_credentials
+from .migration import migrate_legacy_data
+from .runtime import get_client, get_credentials, get_store
 
 
 login_status = on_alconna(
@@ -22,6 +23,13 @@ login_status = on_alconna(
 logout = on_alconna(
     Alconna("B站登出"),
     aliases={"bili logout"},
+    permission=SUPERUSER,
+    priority=20,
+    block=True,
+)
+migrate = on_alconna(
+    Alconna("B站迁移"),
+    aliases={"bili migrate"},
     permission=SUPERUSER,
     priority=20,
     block=True,
@@ -66,3 +74,20 @@ async def handle_logout(bot: Bot, event: Event, matcher: Matcher) -> None:
         await matcher.finish("已清除扫码登录凭据；当前仍会优先使用 config.yml 中的 bilibili_cookie。")
         return
     await matcher.finish("已清除本地保存的 Bilibili 扫码登录凭据。")
+
+
+@migrate.handle()
+async def handle_migrate(bot: Bot, event: Event, matcher: Matcher) -> None:
+    try:
+        report = migrate_legacy_data(get_store(), get_credentials())
+    except RuntimeError:
+        await matcher.finish("Bilibili 服务当前未启用。")
+        return
+    if not report.source_found:
+        await matcher.finish("未发现可迁移的旧 Bilibili 数据文件。")
+        return
+    await matcher.finish(
+        "Bilibili 旧数据迁移完成："
+        f"新增 {report.imported}，更新 {report.updated}，跳过 {report.skipped}，"
+        f"待首次轮询建立 baseline {report.baseline_pending}。"
+    )

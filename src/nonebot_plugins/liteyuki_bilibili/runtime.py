@@ -18,6 +18,7 @@ from .storage import SubscriptionStore
 JOB_ID = "liteyuki_bilibili.poll"
 _active_client: BilibiliClient | None = None
 _active_credentials: CredentialManager | None = None
+_active_store: SubscriptionStore | None = None
 _shutdown_registered = False
 
 
@@ -28,15 +29,16 @@ def configure_jobs(config: BilibiliConfig) -> None:
     if not config.bilibili_enabled or not config.bilibili_push_enabled:
         return
 
-    global _active_client, _active_credentials, _shutdown_registered
+    global _active_client, _active_credentials, _active_store, _shutdown_registered
     credentials = CredentialManager(config.bilibili_cookie)
     client = BilibiliClient(config, credentials)
     _active_client = client
     _active_credentials = credentials
+    _active_store = SubscriptionStore()
     async def deliver(subscription, event) -> bool:
         return await deliver_event(subscription, event, client, config.bilibili_render_scale)
 
-    poller = SubscriptionPoller(client, SubscriptionStore(), deliver)
+    poller = SubscriptionPoller(client, _active_store, deliver)
 
     if not _shutdown_registered:
         _shutdown_registered = True
@@ -83,3 +85,9 @@ def get_credentials() -> CredentialManager:
     if _active_credentials is None:
         raise RuntimeError("Bilibili service is disabled or has not initialized")
     return _active_credentials
+
+
+def get_store() -> SubscriptionStore:
+    if _active_store is None:
+        raise RuntimeError("Bilibili service is disabled or has not initialized")
+    return _active_store
