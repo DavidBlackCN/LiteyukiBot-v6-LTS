@@ -99,6 +99,28 @@ def test_video_renderer_embeds_avatar_and_cover(monkeypatch) -> None:
     assert len(data["covers"]) == 1
 
 
+def test_live_events_use_the_live_card_template_and_view_data() -> None:
+    _init()
+    from src.nonebot_plugins.liteyuki_bilibili.renderer import _TEMPLATE_BY_KIND, event_view
+
+    event = BilibiliEvent(
+        kind="live_start",
+        uid="42",
+        event_id="100:live_start",
+        author_name="UP",
+        avatar_url="https://i0.hdslb.com/up.jpg",
+        title="直播标题",
+        cover_urls=["https://i0.hdslb.com/live.jpg"],
+        metrics={"area": "游戏"},
+        timestamp=datetime.now(UTC),
+    )
+    assert _TEMPLATE_BY_KIND["live_start"] == "templates/bilibili_live.html"
+    assert _TEMPLATE_BY_KIND["live_end"] == "templates/bilibili_live.html"
+    view = event_view(event)
+    assert view["author"] == "UP" and view["state"] == "开播"
+    assert view["title"] == "直播标题" and view["metrics"] == [{"label": "分区", "value": "游戏"}]
+
+
 def test_delivery_falls_back_to_text_when_card_rendering_fails(monkeypatch) -> None:
     _init()
     from src.nonebot_plugins.liteyuki_bilibili import delivery, renderer

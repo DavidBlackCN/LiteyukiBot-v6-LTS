@@ -17,6 +17,7 @@ from .errors import BilibiliError
 from .login import make_qr_png, wait_for_qr_login
 from .migration import migrate_legacy_data
 from .runtime import get_client, get_credentials, get_store
+from .scheduler import latest_dynamic_id
 
 
 def subscription_options(tokens: list[str], config) -> tuple[bool, bool, bool]:
@@ -39,7 +40,7 @@ async def initialize_subscription_baseline(client, uid: str) -> tuple[str, str, 
         client.get_latest_dynamics(uid), client.get_latest_videos(uid), client.get_live_status(uid),
         return_exceptions=True,
     )
-    dynamic_id = dynamics[0].event_id if isinstance(dynamics, list) and dynamics else ""
+    dynamic_id = latest_dynamic_id(dynamics) if isinstance(dynamics, list) else ""
     video_id = ""
     if isinstance(videos, list) and videos:
         video_id = videos[0].bvid or videos[0].aid

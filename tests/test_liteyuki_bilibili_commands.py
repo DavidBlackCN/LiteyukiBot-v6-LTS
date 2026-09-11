@@ -77,6 +77,36 @@ def test_subscription_options_use_config_defaults_and_explicit_flags() -> None:
     assert subscription_options(["--all"], config) == (True, True, True)
 
 
+def test_subscription_baseline_uses_highest_dynamic_id() -> None:
+    import nonebot
+
+    try:
+        nonebot.get_driver()
+    except ValueError:
+        nonebot.init()
+    from src.nonebot_plugins.liteyuki_bilibili.commands import initialize_subscription_baseline
+    from src.nonebot_plugins.liteyuki_bilibili.models import BilibiliEvent, BilibiliLiveStatus, BilibiliVideo
+
+    class Client:
+        async def start(self) -> None:
+            pass
+
+        async def get_latest_dynamics(self, uid: str):
+            return [
+                BilibiliEvent(kind="dynamic", uid=uid, event_id="100"),
+                BilibiliEvent(kind="dynamic", uid=uid, event_id="300"),
+            ]
+
+        async def get_latest_videos(self, uid: str):
+            return [BilibiliVideo(bvid="BV1")]
+
+        async def get_live_status(self, uid: str):
+            return BilibiliLiveStatus(uid=uid, live=False)
+
+    dynamic_id, video_id, live_state = asyncio.run(initialize_subscription_baseline(Client(), "42"))
+    assert (dynamic_id, video_id, live_state) == ("300", "BV1", "offline")
+
+
 def test_qr_login_rejects_group_messages_before_creating_a_session() -> None:
     import nonebot
 

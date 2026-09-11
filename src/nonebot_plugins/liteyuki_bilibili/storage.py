@@ -164,12 +164,55 @@ class SubscriptionStore:
         """Advance only this target after the send layer confirms delivery."""
         if str(event.uid) != str(uid):
             raise ValueError("event uid does not match subscription uid")
+        if event.kind == "dynamic":
+            return self.rebase_dynamic_cursor(target_type, target_id, uid, event.event_id)
+        if event.kind == "video":
+            return self.rebase_video_cursor(target_type, target_id, uid, event.event_id)
         field, value = _cursor_update(event)
         with self._connect() as connection:
             cursor = connection.execute(
                 f"UPDATE bilibili_subscription SET {field} = ?, updated_at = ? "
                 "WHERE target_type = ? AND target_id = ? AND uid = ?",
                 (value, _now(), target_type, target_id, uid),
+            )
+        if cursor.rowcount == 0:
+            raise KeyError((target_type, target_id, uid))
+        return self.get(target_type, target_id, uid)
+
+    def rebase_dynamic_cursor(
+        self, target_type: str, target_id: str, uid: str, dynamic_id: str
+    ) -> BilibiliSubscription:
+        """Advance a numeric dynamic cursor without allowing it to move backwards."""
+        if not dynamic_id.isdecimal():
+            return self.get(target_type, target_id, uid)
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT last_dynamic_id FROM bilibili_subscription "
+                "WHERE target_type = ? AND target_id = ? AND uid = ?",
+                (target_type, target_id, uid),
+            ).fetchone()
+            if row is None:
+                raise KeyError((target_type, target_id, uid))
+            current = row["last_dynamic_id"]
+            if not current.isdecimal() or int(dynamic_id) > int(current):
+                connection.execute(
+                    "UPDATE bilibili_subscription SET last_dynamic_id = ?, updated_at = ? "
+                    "WHERE target_type = ? AND target_id = ? AND uid = ?",
+                    (dynamic_id, _now(), target_type, target_id, uid),
+                )
+        return self.get(target_type, target_id, uid)
+
+    def rebase_video_cursor(
+        self, target_type: str, target_id: str, uid: str, video_id: str
+    ) -> BilibiliSubscription:
+        """Rebase a missing opaque video cursor without delivering this API page."""
+        if not video_id:
+            return self.get(target_type, target_id, uid)
+        with self._connect() as connection:
+            cursor = connection.execute(
+                "UPDATE bilibili_subscription SET last_video_id = ?, updated_at = ? "
+                "WHERE target_type = ? AND target_id = ? AND uid = ?",
+                (video_id, _now(), target_type, target_id, uid),
             )
         if cursor.rowcount == 0:
             raise KeyError((target_type, target_id, uid))

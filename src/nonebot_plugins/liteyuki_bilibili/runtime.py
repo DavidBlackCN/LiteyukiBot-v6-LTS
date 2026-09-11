@@ -58,11 +58,7 @@ def configure_jobs(config: BilibiliConfig) -> None:
         except Exception as exc:
             logger.warning(f"Bilibili 轮询失败，等待下次恢复: {exc!r}")
             return
-        if result.uid_count:
-            logger.info(
-                f"Bilibili 轮询完成: uid={result.uid_count} "
-                f"delivered={result.delivered_count} failed={result.failed_deliveries}"
-            )
+        _log_poll_result(result)
 
     scheduler.add_job(
         run_poll,
@@ -92,3 +88,18 @@ def get_store() -> SubscriptionStore:
     if _active_store is None:
         raise RuntimeError("Bilibili service is disabled or has not initialized")
     return _active_store
+
+
+def _log_poll_result(result) -> None:
+    if not result.uid_count:
+        return
+    message = (
+        f"Bilibili 轮询完成: uid={result.uid_count} "
+        f"delivered={result.delivered_count} failed={result.failed_deliveries}"
+    )
+    if result.failed_deliveries:
+        logger.warning(message)
+    elif result.delivered_count:
+        logger.info(f"Bilibili 推送完成: delivered={result.delivered_count}")
+    else:
+        logger.debug(message)

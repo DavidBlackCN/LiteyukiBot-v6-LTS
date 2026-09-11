@@ -6,10 +6,17 @@ import asyncio
 from collections import defaultdict
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
+from datetime import UTC, datetime
 
 from nonebot import logger
 
-from .models import BilibiliEvent, BilibiliLiveStatus, BilibiliSubscription, BilibiliVideo
+from .models import (
+    BilibiliEvent,
+    BilibiliLiveStatus,
+    BilibiliSubscription,
+    BilibiliUser,
+    BilibiliVideo,
+)
 from .storage import SubscriptionStore
 
 
@@ -79,6 +86,20 @@ class SubscriptionPoller:
         live_status = _safe_result("直播", uid, live_result, None)
         video_events = [_video_event(video, uid) for video in videos]
         delivered = failed = 0
+        live_user: BilibiliUser | None = None
+        live_transition = live_status is not None and any(
+            subscription.live_enabled
+            and subscription.last_live_state != "unknown"
+            and subscription.last_live_state != _live_state(live_status)
+            for subscription in subscriptions
+        )
+        if live_transition:
+            try:
+                live_user = await self.client.get_user_info(uid)
+            except Exception as exc:
+                logger.warning(
+                    f"Bilibili 直播 UP 信息获取失败，使用 UID 回退: uid={uid} error={exc!r}"
+                )
 
         for subscription in subscriptions:
             current = subscription
@@ -90,21 +111,48 @@ class SubscriptionPoller:
                     current.target_type,
                     current.target_id,
                     current.uid,
-                    dynamic_id=dynamics[0].event_id if dynamics else "",
-                    video_id=video_events[0].event_id if video_events else "",
+                    dynamic_id=latest_dynamic_id(dynamics),
+                    video_id=latest_video_id(video_events),
                     live_state=_live_state(live_status),
                 )
+                logger.debug(f"Bilibili 轮询 baseline 初始化: uid={uid}")
 
             if current.dynamic_enabled and not missing_dynamic:
-                result = await self._deliver_events(current, _events_after(dynamics, current.last_dynamic_id))
+                dynamic_events, rebase_id, reason = _dynamic_events_after(
+                    dynamics, current.last_dynamic_id
+                )
+                if reason:
+                    logger.warning(
+                        f"Bilibili 动态游标丢失，已安全 rebase: uid={uid} "
+                        f"old={current.last_dynamic_id} new={rebase_id or current.last_dynamic_id}"
+                    )
+                    if rebase_id:
+                        current = self.store.rebase_dynamic_cursor(
+                            current.target_type, current.target_id, current.uid, rebase_id
+                        )
+                result = await self._deliver_events(current, dynamic_events)
                 delivered += result[0]
                 failed += result[1]
             if current.video_enabled and not missing_video:
-                result = await self._deliver_events(current, _events_after(video_events, current.last_video_id))
+                video_ids = {event.event_id for event in video_events if event.event_id}
+                if current.last_video_id not in video_ids:
+                    rebase_id = latest_video_id(video_events)
+                    logger.warning(
+                        f"Bilibili 视频游标丢失，已安全 rebase: uid={uid} "
+                        f"old={current.last_video_id} new={rebase_id or current.last_video_id}"
+                    )
+                    if rebase_id:
+                        current = self.store.rebase_video_cursor(
+                            current.target_type, current.target_id, current.uid, rebase_id
+                        )
+                    video_events_after: list[BilibiliEvent] = []
+                else:
+                    video_events_after = _events_after(video_events, current.last_video_id)
+                result = await self._deliver_events(current, video_events_after)
                 delivered += result[0]
                 failed += result[1]
             if current.live_enabled and not missing_live and live_status is not None:
-                event = _live_event(live_status)
+                event = _live_event(live_status, live_user)
                 if event is not None and current.last_live_state != _live_state(live_status):
                     result = await self._deliver_events(current, [event])
                     delivered += result[0]
@@ -148,17 +196,46 @@ def _safe_result(label: str, uid: str, result, fallback):
 
 
 def _events_after(events: Sequence[BilibiliEvent], cursor: str) -> list[BilibiliEvent]:
-    """Return unseen events oldest first; API lists are newest first."""
+    """Return unseen events only when the cursor is present in this API page."""
     unseen: list[BilibiliEvent] = []
     seen: set[str] = set()
+    cursor_found = False
     for event in events:
         if event.event_id == cursor:
+            cursor_found = True
             break
         if event.event_id and event.event_id not in seen:
             unseen.append(event)
             seen.add(event.event_id)
-    unseen.reverse()
-    return unseen
+    return list(reversed(unseen)) if cursor_found else []
+
+
+def latest_dynamic_id(events: Sequence[BilibiliEvent]) -> str:
+    """Return the highest valid Bilibili dynamic ID, ignoring pinned list order."""
+    ids = [event.event_id for event in events if event.event_id.isdecimal()]
+    return max(ids, key=int, default="")
+
+
+def latest_video_id(events: Sequence[BilibiliEvent]) -> str:
+    return next((event.event_id for event in events if event.event_id), "")
+
+
+def _dynamic_events_after(
+    events: Sequence[BilibiliEvent], cursor: str
+) -> tuple[list[BilibiliEvent], str, str]:
+    """Use monotonic numeric IDs so missing pages cannot replay old dynamics."""
+    newest = latest_dynamic_id(events)
+    if not cursor.isdecimal():
+        return [], newest, "invalid cursor"
+    if not newest or any(not event.event_id.isdecimal() for event in events):
+        return [], newest, "invalid API data"
+    cursor_value = int(cursor)
+    unseen = {
+        event.event_id: event
+        for event in events
+        if int(event.event_id) > cursor_value
+    }
+    return sorted(unseen.values(), key=lambda event: int(event.event_id)), "", ""
 
 
 def _video_event(video: BilibiliVideo, fallback_uid: str) -> BilibiliEvent:
@@ -171,6 +248,7 @@ def _video_event(video: BilibiliVideo, fallback_uid: str) -> BilibiliEvent:
         body=video.description,
         url=video.url,
         author_name=video.author_name,
+        avatar_url=video.avatar_url,
         cover_urls=[video.cover_url] if video.cover_url else [],
         timestamp=video.timestamp,
         metrics=video.metrics,
@@ -183,7 +261,9 @@ def _live_state(status: BilibiliLiveStatus | None) -> str:
     return "live" if status.live else "offline"
 
 
-def _live_event(status: BilibiliLiveStatus) -> BilibiliEvent | None:
+def _live_event(
+    status: BilibiliLiveStatus, user: BilibiliUser | None = None
+) -> BilibiliEvent | None:
     if not status.room_id and not status.title:
         return None
     state = "live_start" if status.live else "live_end"
@@ -193,6 +273,9 @@ def _live_event(status: BilibiliLiveStatus) -> BilibiliEvent | None:
         event_id=f"{status.room_id}:{state}",
         title=status.title or ("直播开始" if status.live else "直播结束"),
         url=status.url,
+        author_name=user.name if user and user.name else f"UP {status.uid}",
+        avatar_url=user.avatar_url if user else "",
         cover_urls=[status.cover_url] if status.cover_url else [],
+        timestamp=datetime.now(UTC),
         metrics={"area": status.area_name},
     )

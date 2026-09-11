@@ -48,12 +48,22 @@ def test_delivery_advances_only_the_confirmed_target_and_persists_after_reopen(t
     store = SubscriptionStore(database)
     store.add(target_type="group", target_id="a", uid="42")
     store.add(target_type="group", target_id="b", uid="42")
-    event = BilibiliEvent(kind="dynamic", uid="42", event_id="new-dynamic")
+    event = BilibiliEvent(kind="dynamic", uid="42", event_id="200")
 
     store.record_delivery("group", "a", "42", event)
-    assert store.get("group", "a", "42").last_dynamic_id == "new-dynamic"
+    assert store.get("group", "a", "42").last_dynamic_id == "200"
     assert store.get("group", "b", "42").last_dynamic_id == ""
-    assert SubscriptionStore(database).get("group", "a", "42").last_dynamic_id == "new-dynamic"
+    assert SubscriptionStore(database).get("group", "a", "42").last_dynamic_id == "200"
+
+
+def test_dynamic_delivery_never_moves_a_numeric_cursor_backwards(tmp_path) -> None:
+    store = SubscriptionStore(str(tmp_path / "bilibili.ldb"))
+    store.add(target_type="group", target_id="a", uid="42")
+    store.initialize_baseline("group", "a", "42", dynamic_id="300", video_id="BV1", live_state="offline")
+
+    store.record_delivery("group", "a", "42", BilibiliEvent(kind="dynamic", uid="42", event_id="299"))
+
+    assert store.get("group", "a", "42").last_dynamic_id == "300"
 
 
 def test_active_subscriptions_can_be_aggregated_by_uid(tmp_path) -> None:
