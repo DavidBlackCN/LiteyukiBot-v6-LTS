@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import nonebot
+from nonebot_plugin_alconna import UniMessage
 
 from .models import BilibiliEvent, BilibiliSubscription
 
@@ -41,32 +42,36 @@ async def deliver_text(subscription: BilibiliSubscription, event: BilibiliEvent)
     bot = choose_push_bot()
     if bot is None:
         return False
-    content = event_text(event)
+    return await _send_message(bot, subscription, event_text(event))
+
+
+async def deliver_event(subscription: BilibiliSubscription, event: BilibiliEvent, client) -> bool:
+    """Prefer a locally rendered card and fall back to text for any render/send failure."""
+    bot = choose_push_bot()
+    if bot is None:
+        return False
+    try:
+        from .renderer import render_event_card
+
+        image = await render_event_card(event, client)
+        message = await UniMessage.image(raw=image).export(bot)
+        return await _send_message(bot, subscription, message)
+    except Exception as exc:
+        nonebot.logger.warning("Bilibili 卡片推送失败，改用文本: %r", exc)
+        return await _send_message(bot, subscription, event_text(event))
+
+
+async def _send_message(bot, subscription: BilibiliSubscription, content) -> bool:
     try:
         if subscription.target_type == "group" and hasattr(bot, "send_group_msg"):
             await bot.send_group_msg(group_id=int(subscription.target_id), message=content)
         elif subscription.target_type == "private" and hasattr(bot, "send_private_msg"):
             await bot.send_private_msg(user_id=int(subscription.target_id), message=content)
         elif subscription.target_type == "group":
-            await bot.call_api(
-                "send_message",
-                detail_type="group",
-                group_id=str(subscription.target_id),
-                message=[{"type": "text", "data": {"text": content}}],
-            )
+            await bot.call_api("send_message", detail_type="group", group_id=str(subscription.target_id), message=content)
         else:
-            await bot.call_api(
-                "send_message",
-                detail_type="private",
-                user_id=str(subscription.target_id),
-                message=[{"type": "text", "data": {"text": content}}],
-            )
+            await bot.call_api("send_message", detail_type="private", user_id=str(subscription.target_id), message=content)
     except Exception as exc:
-        nonebot.logger.warning(
-            "Bilibili 文本推送失败: target=%s:%s error=%r",
-            subscription.target_type,
-            subscription.target_id,
-            exc,
-        )
+        nonebot.logger.warning("Bilibili 推送失败: target=%s:%s error=%r", subscription.target_type, subscription.target_id, exc)
         return False
     return True

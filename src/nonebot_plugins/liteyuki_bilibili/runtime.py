@@ -10,7 +10,7 @@ from nonebot_plugin_apscheduler import scheduler
 from .client import BilibiliClient
 from .config import BilibiliConfig
 from .credential import CredentialManager
-from .delivery import deliver_text
+from .delivery import deliver_event
 from .scheduler import SubscriptionPoller
 from .storage import SubscriptionStore
 
@@ -31,7 +31,10 @@ def configure_jobs(config: BilibiliConfig) -> None:
     credentials = CredentialManager(config.bilibili_cookie)
     client = BilibiliClient(config, credentials)
     _active_client = client
-    poller = SubscriptionPoller(client, SubscriptionStore(), deliver_text)
+    async def deliver(subscription, event) -> bool:
+        return await deliver_event(subscription, event, client)
+
+    poller = SubscriptionPoller(client, SubscriptionStore(), deliver)
 
     if not _shutdown_registered:
         _shutdown_registered = True

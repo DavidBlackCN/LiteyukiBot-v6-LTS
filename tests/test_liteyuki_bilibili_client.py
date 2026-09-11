@@ -96,6 +96,22 @@ def test_dynamic_list_is_normalized_without_exposing_api_json() -> None:
     run(scenario())
 
 
+def test_image_download_is_limited_to_bilibili_cdn_and_image_content() -> None:
+    async def scenario() -> None:
+        async with httpx.AsyncClient(
+            transport=httpx.MockTransport(
+                lambda _: httpx.Response(200, headers={"content-type": "image/png"}, content=b"png")
+            )
+        ) as http_client:
+            client = BilibiliClient(BilibiliConfig(), CredentialManager(store=MemoryStore()), http_client)
+            image = await client.download_image("https://i0.hdslb.com/cover.png")
+            assert image.data == b"png" and image.content_type == "image/png"
+            with pytest.raises(BilibiliAPIError):
+                await client.download_image("https://example.invalid/image.png")
+
+    run(scenario())
+
+
 class MemoryStore:
     def load(self) -> str:
         return ""

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 from urllib.parse import urljoin, urlsplit
@@ -39,6 +40,14 @@ _ALLOWED_HOSTS = _SHORT_LINK_HOSTS | {
     "t.bilibili.com",
     "space.bilibili.com",
 }
+_IMAGE_HOSTS = {"i0.hdslb.com", "i1.hdslb.com", "i2.hdslb.com"}
+_IMAGE_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
+
+
+@dataclass(frozen=True)
+class DownloadedImage:
+    data: bytes
+    content_type: str
 
 
 class BilibiliClient:
@@ -199,6 +208,41 @@ class BilibiliClient:
                 return current
             raise BilibiliNetworkError(f"Short link returned HTTP {response.status_code}")
         raise BilibiliAPIError("Bilibili short link exceeded redirect limit")
+
+    async def download_image(self, url: str, max_bytes: int = 4 * 1024 * 1024) -> DownloadedImage:
+        """Download only trusted Bilibili CDN images for local card embedding."""
+        parsed = urlsplit(url)
+        if parsed.scheme != "https" or (parsed.hostname or "").lower() not in _IMAGE_HOSTS:
+            raise BilibiliAPIError("Bilibili image host was not allowed")
+        if self._client is None:
+            raise RuntimeError("BilibiliClient must be started before use")
+        try:
+            async with self._client.stream(
+                "GET",
+                url,
+                headers={
+                    "User-Agent": "Mozilla/5.0 LiteyukiBot-v6-LTS Bilibili Service",
+                    "Referer": "https://www.bilibili.com/",
+                },
+            ) as response:
+                if response.is_error:
+                    raise BilibiliNetworkError(f"Bilibili image returned HTTP {response.status_code}")
+                content_type = response.headers.get("content-type", "").split(";", 1)[0].lower()
+                if content_type not in _IMAGE_CONTENT_TYPES:
+                    raise BilibiliAPIError("Bilibili image returned an unsupported content type")
+                declared_size = response.headers.get("content-length")
+                if declared_size and int(declared_size) > max_bytes:
+                    raise BilibiliAPIError("Bilibili image exceeded size limit")
+                chunks = bytearray()
+                async for chunk in response.aiter_bytes():
+                    chunks.extend(chunk)
+                    if len(chunks) > max_bytes:
+                        raise BilibiliAPIError("Bilibili image exceeded size limit")
+        except ValueError as exc:
+            raise BilibiliAPIError("Bilibili image returned an invalid content length") from exc
+        except httpx.HTTPError as exc:
+            raise BilibiliNetworkError("Bilibili image request failed") from exc
+        return DownloadedImage(bytes(chunks), content_type)
 
     async def _api_get(
         self, url: str, params: Mapping[str, str | int] | None = None

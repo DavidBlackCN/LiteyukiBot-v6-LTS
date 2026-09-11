@@ -1,0 +1,18 @@
+body { min-height: 0; }
+.bili-card { padding: 34px; }
+.eyebrow { color: var(--color-primary); font-size: 20px; font-weight: 700; letter-spacing: .12em; }
+.header { display: flex; align-items: center; gap: 16px; margin-top: 16px; }
+.avatar { width: 62px; height: 62px; border-radius: 50%; object-fit: cover; background: var(--color-primary-soft); }
+.author { color: var(--main-text-color); font-size: 26px; font-weight: 700; overflow-wrap: anywhere; }
+.timestamp { margin-top: 4px; color: var(--tip-text-color); font-size: 18px; }
+.title { margin: 24px 0 14px; font-size: 42px; font-weight: 800; line-height: 1.2; overflow-wrap: anywhere; }
+.body { color: var(--sub-text-color); font-size: 24px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
+.covers { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin-top: 24px; }
+.covers:empty { display: none; }
+.cover { width: 100%; max-height: 460px; border: 1px solid var(--card-border); border-radius: 18px; object-fit: cover; background: var(--color-primary-soft); }
+.metrics { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 24px; }
+.metric { padding: 10px 14px; color: var(--sub-text-color); font-size: 19px; background: var(--color-primary-soft); border-radius: 14px; }
+.metric strong { margin-left: 6px; color: var(--main-text-color); }
+.url { margin-top: 22px; color: var(--color-primary); font-size: 18px; overflow-wrap: anywhere; }
+.state { display: inline-block; margin-left: 12px; padding: 5px 12px; color: #fff; font-size: 18px; letter-spacing: 0; background: #e86d99; border-radius: 999px; }
+.footer { margin-top: 18px; color: var(--tip-text-color); font-size: 16px; text-align: right; }
