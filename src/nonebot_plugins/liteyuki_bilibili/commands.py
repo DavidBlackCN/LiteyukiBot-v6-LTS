@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 
-from arclet.alconna import Alconna, Args, MultiVar
+from arclet.alconna import Alconna, Args, Arparma, MultiVar
 from nonebot import logger
 from nonebot.adapters import Bot, Event
 from nonebot.matcher import Matcher
@@ -206,7 +206,7 @@ def _target(event: Event) -> tuple[str, str]:
 
 
 @subscribe.handle()
-async def handle_subscribe(result, event: Event, matcher: Matcher) -> None:
+async def handle_subscribe(result: Arparma, event: Event, matcher: Matcher) -> None:
     from . import config
 
     raw = [str(value) for value in result.main_args.get("raw", [])]
@@ -240,7 +240,7 @@ async def handle_subscribe(result, event: Event, matcher: Matcher) -> None:
 
 
 @unsubscribe.handle()
-async def handle_unsubscribe(result, event: Event, matcher: Matcher) -> None:
+async def handle_unsubscribe(result: Arparma, event: Event, matcher: Matcher) -> None:
     uid = str(result.main_args.get("uid", ""))
     if not uid.isdigit():
         await matcher.finish("UID 必须为数字。")

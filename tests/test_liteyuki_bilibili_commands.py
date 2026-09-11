@@ -1,4 +1,5 @@
 import asyncio
+from typing import get_type_hints
 
 from src.nonebot_plugins.liteyuki_bilibili.credential import CredentialManager
 
@@ -126,3 +127,17 @@ def test_qr_login_refuses_to_mask_an_explicit_config_cookie(monkeypatch) -> None
     matcher = Matcher()
     asyncio.run(commands.handle_login(PrivateEvent(), matcher))
     assert matcher.message == "当前优先使用 config.yml 中的 bilibili_cookie；请先清空该配置后再使用 /B站登录。"
+
+
+def test_subscription_handlers_request_alconna_parse_result_injection() -> None:
+    import nonebot
+
+    try:
+        nonebot.get_driver()
+    except ValueError:
+        nonebot.init()
+    from arclet.alconna import Arparma
+    from src.nonebot_plugins.liteyuki_bilibili.commands import handle_subscribe, handle_unsubscribe
+
+    assert get_type_hints(handle_subscribe)["result"] is Arparma
+    assert get_type_hints(handle_unsubscribe)["result"] is Arparma
