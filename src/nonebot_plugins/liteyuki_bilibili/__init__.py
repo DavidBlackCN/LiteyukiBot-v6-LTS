@@ -41,3 +41,4 @@ else:
 
     configure_jobs(config)
     from . import commands  # noqa: E402,F401
+    from . import link_matcher  # noqa: E402,F401

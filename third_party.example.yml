@@ -19,13 +19,6 @@ remind_keyword_error: true
 
 # 当前版本无 NoneBot 配置项，安装后即可使用。
 
-# ==================== 链接解析（nonebot_plugin_parser） ====================
-
-# B 站 Cookie；留空仍可使用基础解析，需登录能力时可通过插件扫码命令获取或手动填写。
-parser_bili_ck: ""
-# 自定义字体文件名；字体应放到插件 localstore config 目录，留空使用插件默认字体。
-parser_custom_font: ""
-
 # ==================== 词云（nonebot_plugin_wordcloud） ====================
 
 # 定时词云使用的时区；尺寸、字体与分词等保持插件默认值，需要时再显式添加。
@@ -37,21 +30,6 @@ wordcloud_timezone: "Asia/Shanghai"
 memes_command_prefixes: []
 # 启动时检查并下载缺失的表情资源。
 memes_check_resources_on_startup: true
-
-# ==================== Bilibili 动态/直播订阅 ====================
-
-# 订阅、Cookie、模板与字体的数据目录；请备份整个目录，勿提交其中的 Cookie。
-bili_data: data/nonebot_plugin_bilibili
-# 动态与直播轮询间隔（秒）。
-bili_subscription_dynamic_interval: 120
-bili_subscription_live_interval: 30
-bili_subscription_enable_dynamic: true
-bili_subscription_enable_live: true
-# Web 管理后台默认关闭；启用后务必设置随机 Token，Cookie 也可在后台扫码管理。
-bili_subscription_web_enabled: false
-bili_subscription_web_token: ""
-# 复用项目已经准备的 Playwright/Chromium，不让插件另行下载浏览器。
-bili_subscription_auto_install_browser: false
 
 # ==================== 群历史（nonebot_plugin_group_historian） ====================
 

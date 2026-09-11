@@ -58,3 +58,19 @@ def test_status_text_handles_anonymous_mode() -> None:
             return BilibiliNav(is_login=False)
 
     assert asyncio.run(login_status_text(Client(), CredentialManager(store=MemoryStore()))) == "Bilibili 当前为匿名状态。"
+
+
+def test_subscription_options_use_config_defaults_and_explicit_flags() -> None:
+    import nonebot
+
+    try:
+        nonebot.get_driver()
+    except ValueError:
+        nonebot.init()
+    from src.nonebot_plugins.liteyuki_bilibili.commands import subscription_options
+    from src.nonebot_plugins.liteyuki_bilibili.config import BilibiliConfig
+
+    config = BilibiliConfig(bilibili_push_dynamic=True, bilibili_push_video=False, bilibili_push_live=True)
+    assert subscription_options([], config) == (True, False, True)
+    assert subscription_options(["--video"], config) == (False, True, False)
+    assert subscription_options(["--all"], config) == (True, True, True)

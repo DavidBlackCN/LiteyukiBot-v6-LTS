@@ -26,7 +26,7 @@ def configure_jobs(config: BilibiliConfig) -> None:
     """Register exactly one coalesced job; disabled configuration removes it."""
     if scheduler.get_job(JOB_ID):
         scheduler.remove_job(JOB_ID)
-    if not config.bilibili_enabled or not config.bilibili_push_enabled:
+    if not config.bilibili_enabled:
         return
 
     global _active_client, _active_credentials, _active_store, _shutdown_registered
@@ -39,6 +39,9 @@ def configure_jobs(config: BilibiliConfig) -> None:
         return await deliver_event(subscription, event, client, config.bilibili_render_scale)
 
     poller = SubscriptionPoller(client, _active_store, deliver)
+
+    if not config.bilibili_push_enabled:
+        return
 
     if not _shutdown_registered:
         _shutdown_registered = True

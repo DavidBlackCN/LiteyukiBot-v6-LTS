@@ -13,7 +13,7 @@
 
 `config.yml` 仅保存 Liteyuki 核心和本仓库维护的本地插件配置；`third_party.yml` 保存经由 `requirements.txt` 安装的第三方 NoneBot 插件配置。首次启动会分别从 `config.example.yml` 与 `third_party.example.yml` 创建缺失文件，随后合并为同一份 NoneBot 配置。若键名重复，启动会记录警告，且 `config.yml` 的值优先。
 
-以下插件已是 LTS 默认依赖并会在非安全模式下自动加载，无需再执行 `npm install`：`nonebot-plugin-rollpig-plus`、`nonebot-plugin-manosaba-memes`、`nonebot-plugin-parser`、`nonebot-plugin-wordcloud`、`nonebot-plugin-memes`、`nonebot-plugin-bilibili`、`nonebot-plugin-group-historian`、`nonebot-plugin-cnrail`、`nonebot-plugin-komari-status`。`nonebot-plugin-remind` 也继续作为默认第三方依赖加载。
+以下插件已是 LTS 默认依赖并会在非安全模式下自动加载，无需再执行 `npm install`：`nonebot-plugin-rollpig-plus`、`nonebot-plugin-manosaba-memes`、`nonebot-plugin-wordcloud`、`nonebot-plugin-memes`、`nonebot-plugin-group-historian`、`nonebot-plugin-cnrail`、`nonebot-plugin-komari-status`。`nonebot-plugin-remind` 也继续作为默认第三方依赖加载。Bilibili 的订阅与链接解析由本仓库内置的 `liteyuki_bilibili` 提供，不再依赖第三方 Bilibili 或多平台 parser 插件。
 
 `npm install` 仍用于安装额外的 NoneBot 商店插件；它会遵守 `constraints-lts.txt`，不能替换 LTS 核心栈。词云、表情包与群历史等依赖 ORM 的插件安装或升级后，按既有流程执行 `nb orm heads`、`nb orm current`、`nb orm upgrade`。Playwright/Chromium 复用项目现有环境；Bilibili 插件模板默认禁止其自行下载浏览器。
 
@@ -156,6 +156,16 @@
 把 NoneBot 收到的消息事件投递到 Liteyuki 主框架通道，供 Liteyuki 原生处理器消费。无直接聊天命令；停用会影响原生 Liteyuki 消息插件。
 
 ## 功能插件
+
+### `liteyuki_bilibili` — Bilibili 订阅、链接解析与凭据
+
+内置 Bilibili 服务统一处理视频、动态和直播订阅，以及 Bilibili 链接卡片；不再加载旧的 `nonebot-plugin-bilibili` 或通用 parser 插件。链接解析默认开启，同一消息中的相同目标只处理一次；卡片渲染失败时会退回文本，不会阻断其他消息处理器。
+
+- `/B站订阅 <UID> [--dynamic|--video|--live|--all]`：在当前群订阅 UP；群主、群管理员或超级用户可用。首次成功轮询只建立基线，不补发历史内容。
+- `/B站取消 <UID>`、`/B站订阅列表`：取消或查看当前会话的订阅。
+- `/B站登录状态`、`/B站登出`、`/B站迁移`：仅超级用户可用；状态命令不会显示 Cookie 值，迁移保留旧数据且不会推送历史内容。
+- 主要配置：`bilibili_enabled`、`bilibili_cookie`、`bilibili_push_enabled`、`bilibili_link_parse_enabled`、`bilibili_poll_interval`；完整的安全默认值和中文说明见 `config.example.yml`。
+- 推送以目标会话为单位保存游标：发送失败不会推进游标，网络恢复后可重试。图片仅从受信任 Bilibili CDN 以 HTTPS 下载，并有类型和大小限制。
 
 ### `liteyuki_60s` — 60S 资讯与娱乐
 
