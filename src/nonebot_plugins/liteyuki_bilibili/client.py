@@ -5,8 +5,10 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from hashlib import md5
+import time
 from typing import Any
-from urllib.parse import urljoin, urlsplit
+from urllib.parse import urlencode, urljoin, urlsplit
 
 import httpx
 
@@ -43,6 +45,12 @@ _ALLOWED_HOSTS = _SHORT_LINK_HOSTS | {
 }
 _IMAGE_HOSTS = {"i0.hdslb.com", "i1.hdslb.com", "i2.hdslb.com"}
 _IMAGE_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
+_WBI_MIXIN_KEY_ENC_TAB = (
+    46, 47, 18, 2, 53, 8, 23, 32, 15, 50, 10, 31, 58, 3, 45, 35,
+    27, 43, 5, 49, 33, 9, 42, 19, 29, 28, 14, 39, 12, 38, 41, 13,
+    37, 48, 7, 16, 24, 55, 40, 61, 26, 17, 0, 1, 60, 51, 30, 4,
+    22, 25, 54, 21, 56, 59, 6, 63, 57, 62, 11, 36, 20, 34, 44, 52,
+)
 
 
 @dataclass(frozen=True)
@@ -64,6 +72,7 @@ class BilibiliClient:
         self.credentials = credentials
         self._client = http_client
         self._owns_client = http_client is None
+        self._wbi_mixin_key: str | None = None
 
     async def __aenter__(self) -> "BilibiliClient":
         await self.start()
@@ -97,7 +106,7 @@ class BilibiliClient:
         )
 
     async def get_user_info(self, uid: str) -> BilibiliUser:
-        data = await self._api_get(
+        data = await self._wbi_api_get(
             f"{API_BASE}/x/space/wbi/acc/info", {"mid": str(uid)}
         )
         return BilibiliUser(
@@ -107,7 +116,7 @@ class BilibiliClient:
         )
 
     async def get_latest_videos(self, uid: str) -> list[BilibiliVideo]:
-        data = await self._api_get(
+        data = await self._wbi_api_get(
             f"{API_BASE}/x/space/wbi/arc/search",
             {"mid": str(uid), "pn": 1, "ps": 3, "order": "pubdate"},
         )
@@ -278,6 +287,35 @@ class BilibiliClient:
             raise BilibiliAPIError("Bilibili API returned invalid data")
         return data
 
+    async def _wbi_api_get(
+        self, url: str, params: Mapping[str, str | int]
+    ) -> dict[str, Any]:
+        """Request a WBI endpoint, refreshing signing material once if it rotated."""
+        for refresh in range(2):
+            mixin_key = await self._get_wbi_mixin_key()
+            try:
+                return await self._api_get(url, _sign_wbi_params(params, mixin_key))
+            except BilibiliAPIError as exc:
+                if refresh or "code -403" not in str(exc):
+                    raise
+                self._wbi_mixin_key = None
+        raise AssertionError("unreachable")
+
+    async def _get_wbi_mixin_key(self) -> str:
+        if self._wbi_mixin_key is not None:
+            return self._wbi_mixin_key
+        data = await self._api_get(f"{API_BASE}/x/web-interface/nav")
+        wbi_img = data.get("wbi_img") if isinstance(data.get("wbi_img"), dict) else {}
+        img_key = _wbi_key_from_url(wbi_img.get("img_url"))
+        sub_key = _wbi_key_from_url(wbi_img.get("sub_url"))
+        key_material = img_key + sub_key
+        if len(key_material) < max(_WBI_MIXIN_KEY_ENC_TAB) + 1:
+            raise BilibiliAPIError("Bilibili WBI signing material was invalid")
+        self._wbi_mixin_key = "".join(
+            key_material[index] for index in _WBI_MIXIN_KEY_ENC_TAB
+        )[:32]
+        return self._wbi_mixin_key
+
     async def _request(
         self,
         method: str,
@@ -375,14 +413,47 @@ class BilibiliClient:
         major = dynamic.get("major") if isinstance(dynamic.get("major"), dict) else {}
         archive = major.get("archive") if isinstance(major.get("archive"), dict) else {}
         draw = major.get("draw") if isinstance(major.get("draw"), dict) else {}
+        additional = dynamic.get("additional") if isinstance(dynamic.get("additional"), dict) else {}
+        ugc = additional.get("ugc") if isinstance(additional.get("ugc"), dict) else {}
+        original = data.get("orig") if isinstance(data.get("orig"), dict) else {}
+        original_modules = original.get("modules") if isinstance(original.get("modules"), dict) else {}
+        original_dynamic = (
+            original_modules.get("module_dynamic")
+            if isinstance(original_modules.get("module_dynamic"), dict)
+            else {}
+        )
+        original_major = (
+            original_dynamic.get("major")
+            if isinstance(original_dynamic.get("major"), dict)
+            else {}
+        )
+        original_archive = (
+            original_major.get("archive")
+            if isinstance(original_major.get("archive"), dict)
+            else {}
+        )
+        original_additional = (
+            original_dynamic.get("additional")
+            if isinstance(original_dynamic.get("additional"), dict)
+            else {}
+        )
+        original_ugc = (
+            original_additional.get("ugc")
+            if isinstance(original_additional.get("ugc"), dict)
+            else {}
+        )
         draw_items = draw.get("items") if isinstance(draw.get("items"), list) else []
-        covers = [
+        draw_covers = [
             str(item.get("src"))
             for item in draw_items
             if isinstance(item, dict) and item.get("src")
         ]
-        if archive.get("cover"):
-            covers.insert(0, str(archive["cover"]))
+        covers: list[str] = []
+        for video in (archive, ugc, original_archive, original_ugc):
+            cover = video.get("cover")
+            if cover and str(cover) not in covers and str(cover) not in draw_covers:
+                covers.append(str(cover))
+        covers.extend(draw_covers)
         event_id = str(data.get("id_str") or data.get("id") or "")
         if not event_id:
             raise BilibiliAPIError("Bilibili dynamic item did not contain an id")
@@ -391,7 +462,13 @@ class BilibiliClient:
             kind="dynamic",
             uid=uid,
             event_id=event_id,
-            title=str(archive.get("title") or "动态更新"),
+            title=str(
+                archive.get("title")
+                or ugc.get("title")
+                or original_archive.get("title")
+                or original_ugc.get("title")
+                or "动态更新"
+            ),
             body=str(desc.get("text") or ""),
             url=f"https://t.bilibili.com/{event_id}",
             author_name=str(author.get("name") or ""),
@@ -413,3 +490,25 @@ def _timestamp(value: object) -> datetime | None:
         return datetime.fromtimestamp(int(value), UTC)
     except (TypeError, ValueError, OSError):
         return None
+
+
+def _wbi_key_from_url(value: object) -> str:
+    if not isinstance(value, str):
+        return ""
+    filename = urlsplit(value).path.rsplit("/", 1)[-1]
+    return filename.rsplit(".", 1)[0] if "." in filename else ""
+
+
+def _sign_wbi_params(
+    params: Mapping[str, str | int], mixin_key: str, timestamp: int | None = None
+) -> dict[str, str | int]:
+    signed: dict[str, str | int] = dict(params)
+    signed["wts"] = int(time.time()) if timestamp is None else timestamp
+    query = urlencode(
+        sorted(
+            (key, "".join(char for char in str(value) if char not in "!'()*"))
+            for key, value in signed.items()
+        )
+    )
+    signed["w_rid"] = md5(f"{query}{mixin_key}".encode()).hexdigest()
+    return signed

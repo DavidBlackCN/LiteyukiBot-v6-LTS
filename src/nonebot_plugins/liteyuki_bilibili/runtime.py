@@ -60,10 +60,8 @@ def configure_jobs(config: BilibiliConfig) -> None:
             return
         if result.uid_count:
             logger.info(
-                "Bilibili 轮询完成: uid=%s delivered=%s failed=%s",
-                result.uid_count,
-                result.delivered_count,
-                result.failed_deliveries,
+                f"Bilibili 轮询完成: uid={result.uid_count} "
+                f"delivered={result.delivered_count} failed={result.failed_deliveries}"
             )
 
     scheduler.add_job(

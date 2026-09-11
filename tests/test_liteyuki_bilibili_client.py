@@ -3,7 +3,7 @@ import asyncio
 import httpx
 import pytest
 
-from src.nonebot_plugins.liteyuki_bilibili.client import BilibiliClient
+from src.nonebot_plugins.liteyuki_bilibili.client import BilibiliClient, _sign_wbi_params
 from src.nonebot_plugins.liteyuki_bilibili.config import BilibiliConfig
 from src.nonebot_plugins.liteyuki_bilibili.credential import CredentialManager
 from src.nonebot_plugins.liteyuki_bilibili.errors import (
@@ -114,6 +114,116 @@ def test_video_info_maps_bilibili_pic_to_cover_url() -> None:
             video = await client.get_video_info(bvid="BV1xx411c7mD")
         assert video.cover_url == "//i0.hdslb.com/video-cover.jpg"
         assert video.avatar_url == "http://i1.hdslb.com/avatar.jpg"
+
+    run(scenario())
+
+
+def test_latest_videos_uses_wbi_signature_and_refreshes_after_403(monkeypatch) -> None:
+    async def scenario() -> None:
+        calls = {"nav": 0, "videos": 0}
+        key_material = "abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ-_"
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            if request.url.path == "/x/web-interface/nav":
+                calls["nav"] += 1
+                return httpx.Response(
+                    200,
+                    json={
+                        "code": 0,
+                        "data": {
+                            "wbi_img": {
+                                "img_url": f"https://i0.hdslb.com/{key_material[:32]}.png",
+                                "sub_url": f"https://i0.hdslb.com/{key_material[32:]}.png",
+                            }
+                        },
+                    },
+                )
+            assert request.url.host == "api.bilibili.com"
+            assert request.url.path == "/x/space/wbi/arc/search"
+            assert request.url.params["wts"] == "1700000000"
+            assert request.url.params["w_rid"]
+            calls["videos"] += 1
+            if calls["videos"] == 1:
+                return httpx.Response(200, json={"code": -403, "data": {}})
+            return httpx.Response(
+                200,
+                json={"code": 0, "data": {"list": {"vlist": [{"bvid": "BV1test"}]}}},
+            )
+
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http_client:
+            client = BilibiliClient(BilibiliConfig(), CredentialManager(store=MemoryStore()), http_client)
+            videos = await client.get_latest_videos("453841968")
+        assert [video.bvid for video in videos] == ["BV1test"]
+        assert calls == {"nav": 2, "videos": 2}
+
+    monkeypatch.setattr("src.nonebot_plugins.liteyuki_bilibili.client.time.time", lambda: 1700000000)
+    run(scenario())
+
+
+def test_wbi_signature_removes_reserved_characters() -> None:
+    signed = _sign_wbi_params(
+        {
+            "mid": "453841968",
+            "pn": 1,
+            "ps": 3,
+            "order": "pubdate",
+            "keyword": "a!'()*b",
+        },
+        "0123456789abcdefghijklmnopqrstuv",
+        timestamp=1700000000,
+    )
+    assert signed["w_rid"] == "eb815be96bae17ddeba3818c301daf4d"
+
+
+def test_dynamic_share_video_covers_are_normalized() -> None:
+    async def scenario() -> None:
+        payload = {
+            "code": 0,
+            "data": {
+                "items": [
+                    {
+                        "id_str": "additional-share",
+                        "modules": {
+                            "module_author": {"mid": 7, "name": "UP"},
+                            "module_dynamic": {
+                                "additional": {
+                                    "type": "ADDITIONAL_TYPE_UGC",
+                                    "ugc": {"title": "分享视频", "cover": "//i0.hdslb.com/share.jpg"},
+                                }
+                            },
+                        },
+                    },
+                    {
+                        "id_str": "forward-share",
+                        "modules": {
+                            "module_author": {"mid": 7, "name": "UP"},
+                            "module_dynamic": {"desc": {"text": "转发视频"}},
+                        },
+                        "orig": {
+                            "modules": {
+                                "module_dynamic": {
+                                    "major": {
+                                        "archive": {
+                                            "title": "原视频",
+                                            "cover": "//i1.hdslb.com/original.jpg",
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                    },
+                ]
+            },
+        }
+        async with httpx.AsyncClient(
+            transport=httpx.MockTransport(lambda _: httpx.Response(200, json=payload))
+        ) as http_client:
+            client = BilibiliClient(BilibiliConfig(), CredentialManager(store=MemoryStore()), http_client)
+            events = await client.get_latest_dynamics("7")
+        assert events[0].title == "分享视频"
+        assert events[0].cover_urls == ["//i0.hdslb.com/share.jpg"]
+        assert events[1].title == "原视频"
+        assert events[1].cover_urls == ["//i1.hdslb.com/original.jpg"]
 
     run(scenario())
 
