@@ -124,6 +124,28 @@ githubcard_token: ""
 # GitHub API 请求超时，单位为秒。
 githubcard_timeout: 8
 
+# -------------------- Bilibili 内置服务 --------------------
+
+# 启用统一的 Bilibili 订阅、链接解析与登录凭据服务。
+bilibili_enabled: true
+# Bilibili 登录 Cookie；公开模板保持为空，扫码登录凭据会单独持久化。
+bilibili_cookie: ""
+# 可选 HTTP 代理；留空表示直连。
+bilibili_proxy: ""
+# Bilibili API 请求超时，单位秒。
+bilibili_api_timeout: 15
+# 订阅轮询间隔，单位秒。
+bilibili_poll_interval: 30
+# 是否启用主动订阅推送与消息内 Bilibili 链接自动解析。
+bilibili_push_enabled: true
+bilibili_link_parse_enabled: true
+# 新建订阅默认推送的事件类型。
+bilibili_push_dynamic: true
+bilibili_push_video: true
+bilibili_push_live: true
+# Bilibili 图片卡片渲染比例。
+bilibili_render_scale: 1.5
+
 # -------------------- 60S API 资讯与娱乐 --------------------
 
 # 60s API 实例地址；可替换为自建或公共实例。
