@@ -1,3 +1,5 @@
+from typing import Literal
+
 from nonebot import get_plugin_config
 from pydantic import BaseModel, Field
 
@@ -11,6 +13,10 @@ class GroupManagerConfig(BaseModel):
     group_manager_default_ban_seconds: int = Field(default=600, ge=1, le=2592000)
     group_manager_max_ban_seconds: int = Field(default=2592000, ge=1, le=2592000)
     group_manager_allow_admin_kick: bool = True
+    group_manager_admin_auto_roles: list[Literal["owner", "admin"]] = Field(
+        default_factory=lambda: ["owner", "admin"]
+    )
+    group_manager_admin_data_path: str = "data/liteyuki_group_manager"
 
 
 group_manager_config = get_plugin_config(GroupManagerConfig)

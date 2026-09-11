@@ -95,6 +95,10 @@ group_manager_default_ban_seconds: 600
 group_manager_max_ban_seconds: 2592000
 # 允许群管理员踢人；关闭后仅群主和超级用户可用。
 group_manager_allow_admin_kick: true
+# Bot ADMIN 自动继承的 QQ 群身份；设为 [] 可关闭自动继承。
+group_manager_admin_auto_roles:
+  - owner
+  - admin
 
 # ==================== 三、功能插件配置 ====================
 

@@ -10,8 +10,10 @@ from nonebot.adapters.onebot.v11 import (
     MessageEvent,
 )
 from nonebot.params import CommandArg
+from nonebot.permission import SUPERUSER
 
 from .config import group_manager_config as config
+from .permission import bot_admin_overrides
 from .core import (
     ROLE_RANK,
     ban_member,
@@ -364,3 +366,54 @@ async def handle_leave_notice(bot: Bot, event: GroupDecreaseNoticeEvent):
         await bot.send_group_msg(group_id=event.group_id, message=message)
     except Exception as error:
         logger.warning(f"退群通知发送失败: {error!r}")
+
+
+# Bot ADMIN is deliberately separate from the QQ administrator commands above.
+bot_admin = on_command("botadmin", permission=SUPERUSER, priority=10, block=True)
+
+
+def _format_bot_admin_status(group_id: int) -> str:
+    overrides = bot_admin_overrides.group_overrides(group_id)
+    auto_roles = ", ".join(config.group_manager_admin_auto_roles) or "关闭"
+    grants = ", ".join(overrides["grant"]) or "无"
+    denies = ", ".join(overrides["deny"]) or "无"
+    return (
+        f"本群 Bot ADMIN 状态\n"
+        f"自动继承 QQ 身份：{auto_roles}\n"
+        f"强制授予：{grants}\n"
+        f"强制取消：{denies}"
+    )
+
+
+@bot_admin.handle()
+async def handle_bot_admin(
+    bot: Bot,
+    event: MessageEvent,
+    args: Message = CommandArg(),
+):
+    group_event = await _group_event_or_finish(bot_admin, event)
+    parts = args.extract_plain_text().split()
+    action = parts[0].lower() if parts else ""
+    if action == "list" and len(parts) == 1:
+        await bot_admin.finish(_format_bot_admin_status(group_event.group_id))
+        return
+    if action not in {"add", "remove", "reset"}:
+        await bot_admin.finish("用法：/botadmin add|remove|reset @用户；/botadmin list")
+        return
+    try:
+        target_id = extract_target(args)
+        if action == "add":
+            bot_admin_overrides.set_override(group_event.group_id, target_id, True)
+            reply = f"已强制授予 {target_id} 本群 Bot ADMIN"
+        elif action == "remove":
+            bot_admin_overrides.set_override(group_event.group_id, target_id, False)
+            reply = f"已强制取消 {target_id} 本群 Bot ADMIN"
+        else:
+            bot_admin_overrides.reset_override(group_event.group_id, target_id)
+            reply = f"已重置 {target_id} 的 Bot ADMIN 覆盖，恢复自动继承"
+    except ValueError as error:
+        reply = str(error)
+    except OSError as error:
+        logger.error(f"Bot ADMIN 覆盖规则保存失败: {error}")
+        reply = "Bot ADMIN 规则保存失败，原规则保持不变，请检查文件权限"
+    await bot_admin.finish(reply)

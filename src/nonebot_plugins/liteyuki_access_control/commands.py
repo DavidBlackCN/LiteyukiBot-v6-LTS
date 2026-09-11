@@ -4,15 +4,17 @@ import shlex
 from nonebot import logger, on_command
 from nonebot.adapters import Event, Message
 from nonebot.params import CommandArg
-from nonebot.permission import SUPERUSER
+from src.nonebot_plugins.liteyuki_group_manager.permission import ADMIN, is_superuser
 
 from .api import config, controller
 
-access = on_command("access", permission=SUPERUSER, priority=5, block=True)
+access = on_command("access", permission=ADMIN, priority=5, block=True)
 
 
-def execute_command(text: str, group_id=None) -> str:
+def execute_command(text: str, group_id=None, *, bot_admin: bool = False) -> str:
     args = shlex.split(text)
+    if bot_admin and not (len(args) == 3 and args[0] in ("enable", "disable") and args[1] == "plugin" and group_id is not None):
+        raise ValueError("Bot ADMIN 仅可管理当前群的 plugin enable/disable")
     if args in ([], ["status"]):
         return (
             f"访问控制：{'启用' if config.access_control_enabled else '关闭'}\n"
@@ -49,9 +51,12 @@ def execute_command(text: str, group_id=None) -> str:
 
 
 @access.handle()
-async def handle_access(event: Event, args: Message = CommandArg()):
+async def handle_access(bot, event: Event, args: Message = CommandArg()):
     try:
-        reply = execute_command(args.extract_plain_text(), getattr(event, "group_id", None))
+        reply = execute_command(
+            args.extract_plain_text(), getattr(event, "group_id", None),
+            bot_admin=not await is_superuser(bot, event),
+        )
     except ValueError as error:
         reply = str(error)
     except OSError as error:
