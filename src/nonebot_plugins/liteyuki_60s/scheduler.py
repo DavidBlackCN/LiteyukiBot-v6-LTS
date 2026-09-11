@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import random
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
@@ -36,7 +37,7 @@ def choose_push_bot(config: SixtyApiConfig):
     if config.sixty_api_push_bot_id:
         bot = bots.get(str(config.sixty_api_push_bot_id))
         if bot is None:
-            nonebot.logger.warning("60s 主动推送指定 Bot 未连接：%s", config.sixty_api_push_bot_id)
+            nonebot.logger.warning("60s 主动推送指定 Bot 未连接：{}", config.sixty_api_push_bot_id)
         return bot
     if len(bots) == 1:
         return next(iter(bots.values()))
@@ -61,12 +62,31 @@ async def push_target_groups(config: SixtyApiConfig, bot) -> list[int]:
     try:
         groups = await bot.get_group_list()
     except Exception as exc:
-        nonebot.logger.warning("60s 黑名单模式无法获取当前群列表，跳过本次推送：%s", exc)
+        nonebot.logger.warning("60s 黑名单模式无法获取当前群列表，跳过本次推送：{}", repr(exc))
         return []
     return list(dict.fromkeys(
         group_id for item in groups
         if (group_id := _group_id(item)) is not None and group_allowed(config, group_id)
     ))
+
+
+async def _send_content_to_group(bot, group_id: int, content) -> bool:
+    try:
+        message = (
+            await UniMessage.image(raw=content.value).export(bot)
+            if content.kind == "image"
+            else str(content.value)
+        )
+        await bot.send_group_msg(group_id=int(group_id), message=message)
+    except Exception as exc:
+        nonebot.logger.warning("60s 推送到群 {} 失败：{}", group_id, repr(exc))
+        return False
+    return True
+
+
+async def _wait_for_next_group(config: SixtyApiConfig, index: int, target_groups: list[int]) -> None:
+    if index < len(target_groups) - 1:
+        await asyncio.sleep(config.sixty_api_push_interval_seconds)
 
 
 async def push_content(config: SixtyApiConfig, feature: str, *, per_group_random: bool = False, target_group_id: int | None = None) -> bool:
@@ -86,48 +106,30 @@ async def push_content(config: SixtyApiConfig, feature: str, *, per_group_random
     if per_group_random:
         sent = False
         fabing_name = str(config.sixty_api_fabing_default_name or "").strip() or None
-        for group_id in target_groups:
+        for index, group_id in enumerate(target_groups):
             try:
                 if feature == "fabing":
                     content = await fetch_content(config, feature, name=fabing_name)
                 else:
                     content = await fetch_content(config, feature)
             except SixtyApiError as exc:
-                nonebot.logger.warning("60s %s 随机推送获取失败（群 %s）：%s", feature, group_id, exc)
-                continue
-            message = (
-                await UniMessage.image(raw=content.value).export(bot)
-                if content.kind == "image"
-                else str(content.value)
-            )
-            try:
-                await bot.send_group_msg(group_id=int(group_id), message=message)
-            except Exception as exc:
-                nonebot.logger.warning("60s 推送到群 %s 失败：%s", group_id, exc)
+                nonebot.logger.warning("60s {} 随机推送获取失败（群 {}）：{}", feature, group_id, repr(exc))
             else:
-                sent = True
+                sent = await _send_content_to_group(bot, group_id, content) or sent
+            await _wait_for_next_group(config, index, target_groups)
         return sent
     try:
         content = await fetch_content(config, feature)
     except SixtyApiError as exc:
-        nonebot.logger.warning("60s %s 推送获取失败：%s", feature, exc)
+        nonebot.logger.warning("60s {} 推送获取失败：{}", feature, repr(exc))
         return False
     if feature == "ai" and content.empty:
         nonebot.logger.info("60s AI 资讯为空，跳过本次自动推送")
         return False
-    message = (
-        await UniMessage.image(raw=content.value).export(bot)
-        if content.kind == "image"
-        else str(content.value)
-    )
     sent = False
-    for group_id in target_groups:
-        try:
-            await bot.send_group_msg(group_id=int(group_id), message=message)
-        except Exception as exc:
-            nonebot.logger.warning("60s 推送到群 %s 失败：%s", group_id, exc)
-        else:
-            sent = True
+    for index, group_id in enumerate(target_groups):
+        sent = await _send_content_to_group(bot, group_id, content) or sent
+        await _wait_for_next_group(config, index, target_groups)
     return sent
 
 
@@ -192,7 +194,7 @@ def _schedule_random_group(config: SixtyApiConfig, feature: str, group_id: int) 
     try:
         run_at = _staggered_random_run_at(feature, group_id, _next_random_run_at(config, feature))
     except (ValueError, KeyError) as exc:
-        nonebot.logger.warning("60s %s 随机推送配置无效：%s", feature, exc)
+        nonebot.logger.warning("60s {} 随机推送配置无效：{}", feature, repr(exc))
         return
     job_id = _random_group_job_id(feature, group_id)
 
@@ -221,7 +223,7 @@ def _schedule_random(config: SixtyApiConfig, feature: str, *, initial: bool = Tr
         timezone = ZoneInfo(config.sixty_api_timezone)
         run_at = datetime.now(timezone) + timedelta(seconds=1) if initial else _next_random_run_at(config, feature)
     except (ValueError, KeyError) as exc:
-        nonebot.logger.warning("60s %s 随机推送配置无效：%s", feature, exc)
+        nonebot.logger.warning("60s {} 随机推送配置无效：{}", feature, repr(exc))
         return
 
     async def bootstrap() -> None:
@@ -240,7 +242,7 @@ def configure_jobs(config: SixtyApiConfig) -> None:
     try:
         timezone = ZoneInfo(config.sixty_api_timezone)
     except Exception:
-        nonebot.logger.warning("60s 时区无效：%s", config.sixty_api_timezone)
+        nonebot.logger.warning("60s 时区无效：{}", config.sixty_api_timezone)
         return
     for feature in DAILY_FEATURES:
         job_id = f"liteyuki_60s.{feature}"
@@ -250,7 +252,7 @@ def configure_jobs(config: SixtyApiConfig) -> None:
         try:
             hour, minute = parse_clock(getattr(config, f"sixty_api_{feature}_push_time"))
         except ValueError as exc:
-            nonebot.logger.warning("60s %s 定时推送时间无效：%s", feature, exc)
+            nonebot.logger.warning("60s {} 定时推送时间无效：{}", feature, repr(exc))
             continue
         scheduler.add_job(push_content, "cron", args=[config, feature], hour=hour, minute=minute, timezone=timezone, id=job_id, replace_existing=True, max_instances=1, coalesce=True)
     job_id = "liteyuki_60s.kfc"
@@ -260,6 +262,6 @@ def configure_jobs(config: SixtyApiConfig) -> None:
             hour, minute = parse_clock(config.sixty_api_kfc_push_time)
             scheduler.add_job(push_content, "cron", args=[config, "kfc"], day_of_week="thu", hour=hour, minute=minute, timezone=timezone, id=job_id, replace_existing=True, max_instances=1, coalesce=True)
         except ValueError as exc:
-            nonebot.logger.warning("60s KFC 定时推送时间无效：%s", exc)
+            nonebot.logger.warning("60s KFC 定时推送时间无效：{}", repr(exc))
     _schedule_random(config, "fabing")
     _schedule_random(config, "dad_joke")

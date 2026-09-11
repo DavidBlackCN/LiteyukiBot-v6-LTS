@@ -12,6 +12,7 @@ class SixtyApiConfig(BaseModel):
     sixty_api_group_mode: Literal["whitelist", "blacklist"] = "whitelist"
     sixty_api_group_ids: list[int] = Field(default_factory=list)
     sixty_api_push_bot_id: str = ""
+    sixty_api_push_interval_seconds: float = Field(default=1.5, ge=0)
 
     sixty_api_world_enabled: bool = True
     sixty_api_ai_enabled: bool = True

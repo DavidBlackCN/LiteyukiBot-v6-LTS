@@ -234,6 +234,79 @@ def test_blacklist_image_push_exports_message_for_bot(monkeypatch) -> None:
     assert bot.sent == [(10002, exported_image.native_message)]
 
 
+def test_image_pushes_all_groups_with_throttling_and_independent_exports(monkeypatch) -> None:
+    try:
+        nonebot.get_driver()
+    except ValueError:
+        nonebot.init()
+    from src.nonebot_plugins.liteyuki_60s import scheduler as scheduler_module
+    from src.nonebot_plugins.liteyuki_60s.config import SixtyApiConfig
+    from src.nonebot_plugins.liteyuki_60s.service import Content
+
+    class ExportableImage:
+        def __init__(self):
+            self.export_bots = []
+            self.native_message = object()
+
+        async def export(self, bot):
+            self.export_bots.append(bot)
+            return self.native_message
+
+    exported_images = []
+
+    class FakeUniMessage:
+        @staticmethod
+        def image(*, raw):
+            assert raw == b"image"
+            image = ExportableImage()
+            exported_images.append(image)
+            return image
+
+    class Bot:
+        failed_groups = {10002, 10004}
+
+        def __init__(self):
+            self.attempts = []
+
+        async def send_group_msg(self, *, group_id, message):
+            self.attempts.append((group_id, message))
+            if group_id in self.failed_groups:
+                raise RuntimeError(f"retcode for {group_id}")
+
+    bot = Bot()
+    target_groups = [10001, 10002, 10003, 10004, 10005]
+    sleeps = []
+
+    async def content(*_args):
+        return Content("image", b"image")
+
+    async def sleep(seconds):
+        sleeps.append(seconds)
+
+    monkeypatch.setattr(scheduler_module, "choose_push_bot", lambda _config: bot)
+    monkeypatch.setattr(scheduler_module, "fetch_content", content)
+    monkeypatch.setattr(scheduler_module, "UniMessage", FakeUniMessage)
+    monkeypatch.setattr(scheduler_module.asyncio, "sleep", sleep)
+
+    config = SixtyApiConfig(
+        sixty_api_group_ids=target_groups,
+        sixty_api_push_interval_seconds=0.25,
+    )
+    assert asyncio.run(scheduler_module.push_content(config, "world"))
+    assert [group_id for group_id, _message in bot.attempts] == target_groups
+    assert sleeps == [0.25] * 4
+    assert len(exported_images) == len(target_groups)
+    assert all(image.export_bots == [bot] for image in exported_images)
+    assert [message for _group_id, message in bot.attempts] == [
+        image.native_message for image in exported_images
+    ]
+
+    bot.failed_groups = set(target_groups)
+    bot.attempts.clear()
+    assert not asyncio.run(scheduler_module.push_content(config, "world"))
+    assert [group_id for group_id, _message in bot.attempts] == target_groups
+
+
 def test_random_group_pushes_have_independent_schedules(monkeypatch) -> None:
     try:
         nonebot.get_driver()

@@ -139,6 +139,8 @@ sixty_api_group_mode: "whitelist"
 sixty_api_group_ids: []
 # 主动推送使用的 Bot self_id；留空时仅在唯一 Bot 在线时发送。
 sixty_api_push_bot_id: ""
+# 多群主动推送的间隔秒数；单群不等待。
+sixty_api_push_interval_seconds: 1.5
 
 # 十项手动功能开关。
 sixty_api_world_enabled: true
