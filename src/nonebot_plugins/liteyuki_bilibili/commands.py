@@ -146,6 +146,7 @@ async def handle_login(event: Event, matcher: Matcher) -> None:
                 matcher.send,
             )
     except BilibiliError as exc:
+        logger.warning(f"Bilibili 扫码登录失败: {type(exc).__name__}: {exc}")
         await matcher.finish(exc.user_message)
         return
     except RuntimeError:

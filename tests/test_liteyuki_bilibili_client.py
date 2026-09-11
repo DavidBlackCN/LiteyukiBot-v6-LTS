@@ -112,6 +112,68 @@ def test_image_download_is_limited_to_bilibili_cdn_and_image_content() -> None:
     run(scenario())
 
 
+def test_qr_generate_uses_passport_host() -> None:
+    async def scenario() -> None:
+        def handler(request: httpx.Request) -> httpx.Response:
+            assert request.url.host == "passport.bilibili.com"
+            assert request.url.path == "/x/passport-login/web/qrcode/generate"
+            return httpx.Response(
+                200,
+                json={"code": 0, "data": {"url": "https://login.example/qr", "qrcode_key": "key"}},
+            )
+
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http_client:
+            client = BilibiliClient(BilibiliConfig(), CredentialManager(store=MemoryStore()), http_client)
+            session = await client.create_qr_login()
+        assert session.url == "https://login.example/qr"
+        assert session.key == "key"
+
+    run(scenario())
+
+
+@pytest.mark.parametrize(
+    ("qr_code", "status"),
+    [(86101, "waiting"), (86090, "scanned"), (86038, "expired"), (0, "confirmed")],
+)
+def test_qr_poll_reads_status_from_data_code(qr_code: int, status: str) -> None:
+    async def scenario() -> None:
+        def handler(request: httpx.Request) -> httpx.Response:
+            assert request.url.host == "passport.bilibili.com"
+            assert request.url.path == "/x/passport-login/web/qrcode/poll"
+            assert request.url.params["qrcode_key"] == "one-time-key"
+            return httpx.Response(
+                200,
+                headers=[
+                    ("set-cookie", "SESSDATA=session; Path=/; HttpOnly"),
+                    ("set-cookie", "bili_jct=csrf; Path=/"),
+                ],
+                json={"code": 0, "data": {"code": qr_code, "refresh_token": "refresh"}},
+            )
+
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http_client:
+            client = BilibiliClient(BilibiliConfig(), CredentialManager(store=MemoryStore()), http_client)
+            result = await client.poll_qr_login("one-time-key")
+        assert result.status == status
+        if status == "confirmed":
+            assert result.cookie == "SESSDATA=session; bili_jct=csrf"
+            assert result.refresh_token == "refresh"
+        else:
+            assert result.cookie == ""
+
+    run(scenario())
+
+
+def test_qr_poll_checks_outer_api_code_before_qr_status() -> None:
+    async def scenario() -> None:
+        response = httpx.Response(200, json={"code": -101, "data": {"code": 0}})
+        async with httpx.AsyncClient(transport=httpx.MockTransport(lambda _: response)) as http_client:
+            client = BilibiliClient(BilibiliConfig(), CredentialManager(store=MemoryStore()), http_client)
+            with pytest.raises(BilibiliCredentialError):
+                await client.poll_qr_login("one-time-key")
+
+    run(scenario())
+
+
 class MemoryStore:
     def load(self) -> str:
         return ""

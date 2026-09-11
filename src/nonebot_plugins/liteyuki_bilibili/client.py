@@ -30,6 +30,7 @@ from .models import (
 
 
 API_BASE = "https://api.bilibili.com"
+PASSPORT_API_BASE = "https://passport.bilibili.com"
 LIVE_API_BASE = "https://api.live.bilibili.com"
 _SHORT_LINK_HOSTS = {"b23.tv", "www.b23.tv"}
 _ALLOWED_HOSTS = _SHORT_LINK_HOSTS | {
@@ -174,7 +175,7 @@ class BilibiliClient:
         return self._dynamic_from_api(item)
 
     async def create_qr_login(self) -> BilibiliQRCode:
-        data = await self._api_get(f"{API_BASE}/x/passport-login/web/qrcode/generate")
+        data = await self._api_get(f"{PASSPORT_API_BASE}/x/passport-login/web/qrcode/generate")
         url = str(data.get("url") or "")
         key = str(data.get("qrcode_key") or "")
         if not url or not key:
@@ -184,11 +185,15 @@ class BilibiliClient:
     async def poll_qr_login(self, key: str) -> BilibiliQRLoginResult:
         response = await self._request(
             "GET",
-            f"{API_BASE}/x/passport-login/web/qrcode/poll",
+            f"{PASSPORT_API_BASE}/x/passport-login/web/qrcode/poll",
             {"qrcode_key": key},
         )
         payload = self._json(response)
-        code = payload.get("code")
+        self._raise_api_code(payload.get("code"))
+        data = payload.get("data")
+        if not isinstance(data, dict):
+            raise BilibiliAPIError("QR login response data was invalid")
+        code = data.get("code")
         if code == 86101:
             return BilibiliQRLoginResult(status="waiting")
         if code == 86090:
@@ -196,10 +201,7 @@ class BilibiliClient:
         if code == 86038:
             return BilibiliQRLoginResult(status="expired")
         if code != 0:
-            self._raise_api_code(code)
-        data = payload.get("data")
-        if not isinstance(data, dict):
-            raise BilibiliAPIError("QR login response data was invalid")
+            raise BilibiliAPIError("Bilibili QR login returned an unknown status")
         cookies: dict[str, str] = {}
         for header in response.headers.get_list("set-cookie"):
             cookies.update(parse_cookie(header.split(";", 1)[0]))
