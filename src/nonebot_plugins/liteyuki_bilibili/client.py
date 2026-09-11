@@ -141,6 +141,21 @@ class BilibiliClient:
             url=f"https://live.bilibili.com/{room_id}" if room_id else "",
         )
 
+    async def get_live_room_status(self, room_id: str) -> BilibiliLiveStatus:
+        data = await self._api_get(
+            f"{LIVE_API_BASE}/room/v1/Room/get_info", {"room_id": str(room_id)}
+        )
+        resolved_room_id = str(data.get("room_id") or room_id)
+        return BilibiliLiveStatus(
+            uid=str(data.get("uid") or ""),
+            room_id=resolved_room_id,
+            live=bool(data.get("live_status")),
+            title=str(data.get("title") or ""),
+            area_name=str(data.get("area_name") or ""),
+            cover_url=str(data.get("user_cover") or data.get("keyframe") or ""),
+            url=f"https://live.bilibili.com/{resolved_room_id}",
+        )
+
     async def get_video_info(self, *, bvid: str = "", aid: str = "") -> BilibiliVideo:
         if not bvid and not aid:
             raise ValueError("bvid or aid is required")
