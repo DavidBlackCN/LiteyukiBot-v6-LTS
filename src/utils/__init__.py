@@ -3,7 +3,7 @@ import sys
 import nonebot
 
 __NAME__ = "LiteyukiBot v6 LTS"
-__VERSION__ = "6.3.9"  # 60201
+__VERSION__ = "v6"
 
 import requests
 
