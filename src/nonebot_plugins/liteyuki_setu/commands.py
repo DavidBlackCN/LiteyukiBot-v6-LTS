@@ -78,24 +78,24 @@ async def handle_setu(
         if not group_allowed(config, group_id):
             return
         if r18_requested:
-            await matcher.finish("R18 内容仅限已授权私聊使用。")
+            await matcher.finish("R18 内容仅限已授权私聊使用喵~")
             return
         group_key = str(group_id)
         settings = get_group_settings(group_key, config)
         if not settings.enabled:
-            await matcher.finish("本群未开启此功能。")
+            await matcher.finish("本群未开启此功能喵~")
             return
         r18_allowed = False
     else:
         group_key = None
         if not config.setu_private_enabled:
-            await matcher.finish("私聊未开启此功能。")
+            await matcher.finish("私聊未开启此功能喵~")
             return
         settings = default_settings(config)
         access = get_private_r18_access(config)
         r18_allowed = r18_requested and access.enabled and user_id in access.allowed_user_ids
         if r18_requested and not r18_allowed:
-            await matcher.finish("此私聊未获授权使用 R18 功能。")
+            await matcher.finish("你不准使用 R18 功能喵！")
             return
     try:
         query = parse_query(raw_args, default_count=settings.default_count,
@@ -108,7 +108,7 @@ async def handle_setu(
     key = f"{user_id}:{group_key or 'private'}"
     bypass = is_superuser and config.setu_superuser_bypass_cooldown
     if not cooldown.reserve(key, settings.cooldown_seconds, bypass):
-        await matcher.finish("正在冷却中，请稍后再试。")
+        await matcher.finish("你冲的太快了喵，请稍后再试喵！")
         return
     sent = False
     sent_count = 0
@@ -117,11 +117,11 @@ async def handle_setu(
         if group_key and not has_quota(group_key, user_id, quota_date,
                                        limit=settings.daily_image_limit_per_user,
                                        requested=query.count):
-            await matcher.finish(f"你今天在本群的图片额度已不足，本群每人每日最多获取 {settings.daily_image_limit_per_user} 张。")
+            await matcher.finish(f"别再冲了喵！本群每人每日最多获取 {settings.daily_image_limit_per_user} 张喵！")
             return
         downloaded = await fetch_and_download(query, config)
         if not downloaded:
-            await matcher.finish("图片下载失败，请稍后再试。")
+            await matcher.finish("图片下载失败，请稍后再试喵~")
             return
         attempted_count = 0
         for position, (image, raw) in enumerate(downloaded):
@@ -150,7 +150,7 @@ async def handle_setu(
             if position + 1 < len(downloaded):
                 await asyncio.sleep(config.setu_send_interval_seconds)
         if sent_count < query.count:
-            await matcher.send(f"本次仅成功获取 {sent_count}/{query.count} 张图片。")
+            await matcher.send(f"本次仅成功获取 {sent_count}/{query.count} 张图片喵~")
         logger.info(f"色图发送完成: requested={query.count} attempted={attempted_count} "
                     f"confirmed={sent_count}")
     except NoResultError as exc:
