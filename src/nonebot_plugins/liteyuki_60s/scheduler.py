@@ -15,6 +15,8 @@ from nonebot_plugin_apscheduler import scheduler
 
 from .client import SixtyApiError
 from .config import SixtyApiConfig
+from .group_settings import (PUSH_FEATURES, RANDOM_FEATURES, feature_allowed,
+                             resolve_push_settings, resolve_random_push_settings)
 from .service import enabled, fetch_content, group_allowed
 from .state import random_push_plan_store
 
@@ -97,7 +99,7 @@ async def push_content(config: SixtyApiConfig, feature: str, *, per_group_random
     bot = choose_push_bot(config)
     if bot is None:
         return False
-    target_groups = await push_target_groups(config, bot)
+    target_groups = [group_id for group_id in await push_target_groups(config, bot) if feature_allowed(config, group_id, feature)]
     if target_group_id is not None:
         target_group_id = int(target_group_id)
         if target_group_id not in target_groups:
@@ -176,15 +178,27 @@ def _remove_random_group_jobs(feature: str, group_id: int | None = None) -> None
             scheduler.remove_job(job.id)
 
 
-def _next_random_run_at(config: SixtyApiConfig, feature: str) -> datetime:
+def _next_random_run_at(config: SixtyApiConfig, feature: str, settings: dict | None = None) -> datetime:
     timezone = ZoneInfo(config.sixty_api_timezone)
+    settings = settings or {}
     return next_random_time(
         datetime.now(timezone),
-        getattr(config, f"sixty_api_{feature}_random_start"),
-        getattr(config, f"sixty_api_{feature}_random_end"),
+        str(settings.get("start", getattr(config, f"sixty_api_{feature}_random_start"))),
+        str(settings.get("end", getattr(config, f"sixty_api_{feature}_random_end"))),
         getattr(config, f"sixty_api_{feature}_random_min_interval_minutes"),
         getattr(config, f"sixty_api_{feature}_random_max_interval_minutes"),
     )
+
+
+def _resolved_random_config(config: SixtyApiConfig, feature: str, group_id: int) -> SixtyApiConfig:
+    settings = resolve_random_push_settings(config, group_id, feature)
+    return config.model_copy(update={
+        f"sixty_api_{feature}_random_push_enabled": settings["enabled"],
+        f"sixty_api_{feature}_random_start": settings["start"],
+        f"sixty_api_{feature}_random_end": settings["end"],
+        f"sixty_api_{feature}_random_daily_min": settings["daily_min"],
+        f"sixty_api_{feature}_random_daily_max": settings["daily_max"],
+    })
 
 
 def _staggered_random_run_at(feature: str, group_id: int, run_at: datetime) -> datetime:
@@ -203,10 +217,11 @@ def _staggered_random_run_at(feature: str, group_id: int, run_at: datetime) -> d
 
 
 def _schedule_random_group(config: SixtyApiConfig, feature: str, group_id: int) -> None:
-    if not getattr(config, f"sixty_api_{feature}_random_push_enabled") or not enabled(config, feature):
+    settings = resolve_random_push_settings(config, group_id, feature)
+    if not settings["enabled"]:
         return
     try:
-        run_at = _staggered_random_run_at(feature, group_id, _next_random_run_at(config, feature))
+        run_at = _staggered_random_run_at(feature, group_id, _next_random_run_at(config, feature, settings))
     except (ValueError, KeyError) as exc:
         nonebot.logger.warning("60s {} 随机推送配置无效：{}", feature, repr(exc))
         return
@@ -319,7 +334,8 @@ def _daily_plan(config: SixtyApiConfig, feature: str, group_id: int, now: dateti
 
 
 def _schedule_daily_group(config: SixtyApiConfig, feature: str, group_id: int) -> None:
-    if not getattr(config, f"sixty_api_{feature}_random_push_enabled") or not enabled(config, feature):
+    config = _resolved_random_config(config, feature, group_id)
+    if not getattr(config, f"sixty_api_{feature}_random_push_enabled"):
         return
     try:
         timezone = ZoneInfo(config.sixty_api_timezone)
@@ -390,7 +406,7 @@ def _schedule_random(config: SixtyApiConfig, feature: str, *, initial: bool = Tr
     if initial:
         _remove_random_group_jobs(feature)
         _remove_job(_daily_refresh_job_id(feature))
-    if not getattr(config, f"sixty_api_{feature}_random_push_enabled") or not enabled(config, feature):
+    if not enabled(config, feature):
         return
     if config.sixty_api_random_push_mode == "daily_slots":
         _schedule_daily_random(config, feature, initial=initial)
@@ -426,39 +442,63 @@ async def initialize_random_pushes_after_connect(config: SixtyApiConfig, bot) ->
         return
     if not config.sixty_api_push_bot_id and len(nonebot.get_bots()) != 1:
         return
-    for feature in ("fabing", "dad_joke"):
-        if not getattr(config, f"sixty_api_{feature}_random_push_enabled") or not enabled(config, feature):
-            continue
-        for group_id in await push_target_groups(config, bot):
-            if config.sixty_api_random_push_mode == "daily_slots":
-                _schedule_daily_group(config, feature, group_id)
-            else:
-                _schedule_random_group(config, feature, group_id)
+    for group_id in await push_target_groups(config, bot):
+        reschedule_group(config, group_id)
+
+def _fixed_group_job_id(feature: str, group_id: int) -> str:
+    return f"liteyuki_60s.{feature}.{group_id}"
+
+
+def _remove_group_jobs(group_id: int) -> None:
+    suffix = f".{group_id}"
+    for job in scheduler.get_jobs():
+        if job.id.startswith("liteyuki_60s.") and (job.id.endswith(suffix) or job.id.startswith(f"liteyuki_60s.fabing_random.{group_id}.") or job.id.startswith(f"liteyuki_60s.dad_joke_random.{group_id}.")):
+            scheduler.remove_job(job.id)
+
+
+def _schedule_fixed_group(config: SixtyApiConfig, feature: str, group_id: int) -> None:
+    settings = resolve_push_settings(config, group_id, feature)
+    if not settings["enabled"]:
+        return
+    try:
+        hour, minute = parse_clock(settings["time"])
+    except ValueError as exc:
+        nonebot.logger.warning("60s {} 群 {} 定时推送时间无效：{}", feature, group_id, repr(exc))
+        return
+    kwargs = {"hour": hour, "minute": minute, "timezone": ZoneInfo(config.sixty_api_timezone),
+              "id": _fixed_group_job_id(feature, group_id), "replace_existing": True,
+              "max_instances": 1, "coalesce": True}
+    if feature == "kfc":
+        kwargs["day_of_week"] = "thu"
+    scheduler.add_job(push_content, "cron", args=[config, feature], kwargs={"target_group_id": group_id}, **kwargs)
+
+
+def reschedule_group(config: SixtyApiConfig, group_id: int) -> None:
+    """Replace only one group's 60s jobs after an ADMIN setting change."""
+    _remove_group_jobs(group_id)
+    if not group_allowed(config, group_id):
+        return
+    for feature in PUSH_FEATURES:
+        _schedule_fixed_group(config, feature, group_id)
+    for feature in RANDOM_FEATURES:
+        if config.sixty_api_random_push_mode == "daily_slots":
+            _schedule_daily_group(config, feature, group_id)
+        else:
+            _schedule_random_group(config, feature, group_id)
+
 
 def configure_jobs(config: SixtyApiConfig) -> None:
     try:
-        timezone = ZoneInfo(config.sixty_api_timezone)
+        ZoneInfo(config.sixty_api_timezone)
     except Exception:
         nonebot.logger.warning("60s 时区无效：{}", config.sixty_api_timezone)
         return
-    for feature in DAILY_FEATURES:
-        job_id = f"liteyuki_60s.{feature}"
-        _remove_job(job_id)
-        if not enabled(config, feature) or not getattr(config, f"sixty_api_{feature}_push_enabled"):
-            continue
-        try:
-            hour, minute = parse_clock(getattr(config, f"sixty_api_{feature}_push_time"))
-        except ValueError as exc:
-            nonebot.logger.warning("60s {} 定时推送时间无效：{}", feature, repr(exc))
-            continue
-        scheduler.add_job(push_content, "cron", args=[config, feature], hour=hour, minute=minute, timezone=timezone, id=job_id, replace_existing=True, max_instances=1, coalesce=True)
-    job_id = "liteyuki_60s.kfc"
-    _remove_job(job_id)
-    if enabled(config, "kfc") and config.sixty_api_kfc_push_enabled:
-        try:
-            hour, minute = parse_clock(config.sixty_api_kfc_push_time)
-            scheduler.add_job(push_content, "cron", args=[config, "kfc"], day_of_week="thu", hour=hour, minute=minute, timezone=timezone, id=job_id, replace_existing=True, max_instances=1, coalesce=True)
-        except ValueError as exc:
-            nonebot.logger.warning("60s KFC 定时推送时间无效：{}", repr(exc))
+    # Remove legacy global fixed jobs, then create per-group jobs where the
+    # whitelist already provides the complete target set.
+    for feature in PUSH_FEATURES:
+        _remove_job(f"liteyuki_60s.{feature}")
+    if config.sixty_api_group_mode == "whitelist":
+        for group_id in dict.fromkeys(int(value) for value in config.sixty_api_group_ids):
+            reschedule_group(config, group_id)
     _schedule_random(config, "fabing")
     _schedule_random(config, "dad_joke")

@@ -168,7 +168,7 @@ sixty_api_push_bot_id: ""
 # 多群主动推送的间隔秒数；单群不等待。
 sixty_api_push_interval_seconds: 1.5
 
-# 十项手动功能开关。
+# 十项手动功能全局默认开关；当前群 Bot ADMIN 可通过“60s管理 功能”覆盖，但不能突破群名单安全边界。
 sixty_api_world_enabled: true
 sixty_api_ai_enabled: true
 sixty_api_history_enabled: true
@@ -182,7 +182,7 @@ sixty_api_fabing_default_name: ""
 sixty_api_kfc_enabled: true
 sixty_api_dad_joke_enabled: true
 
-# 五项日报/资讯定时群推送（默认关闭）。
+# 五项日报/资讯定时群推送全局默认值（默认关闭）；当前群 Bot ADMIN 可通过“60s管理 推送”覆盖开关和时间。
 sixty_api_world_push_enabled: false
 sixty_api_world_push_time: "10:00"
 sixty_api_ai_push_enabled: false
@@ -200,7 +200,7 @@ sixty_api_kfc_push_time: "12:00"
 # 每位用户每天可查询运势的次数。
 sixty_api_luck_daily_limit: 1
 
-# 随机推送开关
+# 随机推送全局默认开关；当前群 Bot ADMIN 可通过“60s管理 随机”覆盖内容开关、次数和时段。
 sixty_api_fabing_random_push_enabled: false
 sixty_api_dad_joke_random_push_enabled: false
 # 随机推送模式
