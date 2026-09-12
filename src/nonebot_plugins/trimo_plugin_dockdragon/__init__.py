@@ -39,7 +39,7 @@ from nonebot_plugin_session import SessionId, SessionIdType
 from .utils import random_idiom, legal_idiom, legal_patted_idiom, get_idiom
 
 __plugin_meta__ = PluginMetadata(
-    name="接龙",
+    name="轻雪接龙",
     description="汉字词语或成语接龙",
     usage=(
         "@我 + “接龙”开始游戏；\n"

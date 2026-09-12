@@ -7,7 +7,7 @@ from .api import (
 )
 
 __plugin_meta__ = PluginMetadata(
-    name="Liteyuki 权限控制",
+    name="轻雪权限控制",
     description="轻量插件访问规则与内存限流",
     usage="/access status；/access list（仅 SUPERUSER）",
     type="application",

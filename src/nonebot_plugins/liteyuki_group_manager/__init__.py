@@ -4,7 +4,7 @@ from .config import GroupManagerConfig, group_manager_config
 
 
 __plugin_meta__ = PluginMetadata(
-    name="Liteyuki 群管理",
+    name="轻雪群管理",
     description="面向 OneBot V11 的轻量基础群管理",
     usage=(
         "禁言 @用户 10m / 解禁 @用户\n"

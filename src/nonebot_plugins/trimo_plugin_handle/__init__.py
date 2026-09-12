@@ -43,7 +43,7 @@ from .utils import (
 )
 
 __plugin_meta__ = PluginMetadata(
-    name="猜成语",
+    name="轻雪猜成语",
     description="汉字 Wordle 猜成语",
     usage=(
         "@我 + “猜成语”开始游戏；\n"

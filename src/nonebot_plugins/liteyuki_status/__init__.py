@@ -4,8 +4,8 @@ from .status import *
 
 __author__ = "神羽SnowyKami & 金羿Eilles & DavidBlackCN"
 __plugin_meta__ = PluginMetadata(
-    name="轻雪状态查看器",
-    description="",
+    name="轻雪状态",
+    description="查看机器人的状态",
     usage=(
         "MARKDOWN### 状态查看器\n"
         "查看机器人的状态\n"
