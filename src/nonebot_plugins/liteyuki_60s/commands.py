@@ -209,10 +209,10 @@ luck_command = _register(
 )
 
 fabing_command = _register(
-    "发病",
+    "fabing",
     "发病文学",
     {
-        "fabing",
+        "发病",
         "随机发病文学",
     },
     accepts_name=True,
