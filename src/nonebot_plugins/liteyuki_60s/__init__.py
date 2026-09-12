@@ -1,4 +1,4 @@
-from nonebot import get_plugin_config, require
+from nonebot import get_driver, get_plugin_config, require
 from nonebot.plugin import PluginMetadata
 
 require("nonebot_plugin_alconna")
@@ -18,6 +18,11 @@ __plugin_meta__ = PluginMetadata(
 )
 
 from . import commands  # noqa: E402,F401
-from .scheduler import configure_jobs  # noqa: E402
+from .scheduler import configure_jobs, initialize_random_pushes_after_connect  # noqa: E402
 
 configure_jobs(config)
+
+
+@get_driver().on_bot_connect
+async def _initialize_random_pushes_on_bot_connect(bot) -> None:
+    await initialize_random_pushes_after_connect(config, bot)

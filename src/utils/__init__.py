@@ -4,7 +4,6 @@ import nonebot
 
 __NAME__ = "LiteyukiBot v6 LTS"
 __VERSION__ = "v6"
-
 import requests
 
 from src.utils.base.config import load_from_yaml, config

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import random
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
@@ -15,6 +16,7 @@ from nonebot_plugin_apscheduler import scheduler
 from .client import SixtyApiError
 from .config import SixtyApiConfig
 from .service import enabled, fetch_content, group_allowed
+from .state import random_push_plan_store
 
 DAILY_FEATURES = ("world", "ai", "history", "it", "moyu")
 
@@ -156,10 +158,21 @@ def _random_group_job_id(feature: str, group_id: int) -> str:
     return f"liteyuki_60s.{feature}_random.{group_id}"
 
 
-def _remove_random_group_jobs(feature: str) -> None:
+def _daily_slot_job_id(feature: str, group_id: int, run_at: datetime) -> str:
+    return f"{_random_group_job_id(feature, group_id)}.{run_at.strftime('%Y%m%d%H%M')}"
+
+
+def _daily_refresh_job_id(feature: str) -> str:
+    return f"liteyuki_60s.{feature}_random_daily_refresh"
+
+
+def _remove_random_group_jobs(feature: str, group_id: int | None = None) -> None:
     prefix = f"liteyuki_60s.{feature}_random."
+    group_prefix = f"{prefix}{group_id}" if group_id is not None else None
     for job in scheduler.get_jobs():
-        if job.id.startswith(prefix):
+        if not job.id.startswith(prefix):
+            continue
+        if group_prefix is None or job.id == group_prefix or job.id.startswith(f"{group_prefix}."):
             scheduler.remove_job(job.id)
 
 
@@ -188,6 +201,7 @@ def _staggered_random_run_at(feature: str, group_id: int, run_at: datetime) -> d
         candidate += timedelta(seconds=random.randint(1, 59))
     return candidate
 
+
 def _schedule_random_group(config: SixtyApiConfig, feature: str, group_id: int) -> None:
     if not getattr(config, f"sixty_api_{feature}_random_push_enabled") or not enabled(config, feature):
         return
@@ -208,12 +222,178 @@ def _schedule_random_group(config: SixtyApiConfig, feature: str, group_id: int) 
                       replace_existing=True, max_instances=1, coalesce=True)
 
 
+def _daily_signature(config: SixtyApiConfig, feature: str) -> str:
+    values = (
+        feature,
+        getattr(config, f"sixty_api_{feature}_random_start"),
+        getattr(config, f"sixty_api_{feature}_random_end"),
+        getattr(config, f"sixty_api_{feature}_random_daily_min"),
+        getattr(config, f"sixty_api_{feature}_random_daily_max"),
+        config.sixty_api_random_global_cooldown_minutes,
+        config.sixty_api_random_edge_padding_minutes,
+    )
+    return hashlib.sha256(repr(values).encode()).hexdigest()
+
+
+def _daily_window(config: SixtyApiConfig, feature: str, now: datetime) -> tuple[datetime, datetime]:
+    start_hour, start_minute = parse_clock(getattr(config, f"sixty_api_{feature}_random_start"))
+    end_hour, end_minute = parse_clock(getattr(config, f"sixty_api_{feature}_random_end"))
+    start = now.replace(hour=start_hour, minute=start_minute, second=0, microsecond=0)
+    end = now.replace(hour=end_hour, minute=end_minute, second=0, microsecond=0)
+    if end <= start:
+        end += timedelta(days=1)
+    padding = timedelta(minutes=config.sixty_api_random_edge_padding_minutes)
+    return start + padding, end - padding
+
+
+def _parse_plan_time(value: str, timezone: ZoneInfo) -> datetime | None:
+    try:
+        parsed = datetime.fromisoformat(value)
+        return parsed.astimezone(timezone) if parsed.tzinfo else parsed.replace(tzinfo=timezone)
+    except (TypeError, ValueError):
+        return None
+
+
+def _daily_occupied_times(date: str, group_id: int, timezone: ZoneInfo, exclude_feature: str) -> list[datetime]:
+    occupied: list[datetime] = []
+    for other_feature in ("fabing", "dad_joke"):
+        if other_feature == exclude_feature:
+            continue
+        plan = random_push_plan_store.get(date, group_id, other_feature)
+        if plan is None:
+            continue
+        scheduled = plan["scheduled_times"]
+        assert isinstance(scheduled, list)
+        occupied.extend(
+            parsed for value in scheduled
+            if (parsed := _parse_plan_time(str(value), timezone)) is not None
+        )
+    return occupied
+
+
+def _daily_plan(config: SixtyApiConfig, feature: str, group_id: int, now: datetime) -> tuple[str, list[datetime], set[str]]:
+    timezone = ZoneInfo(config.sixty_api_timezone)
+    date = now.date().isoformat()
+    signature = _daily_signature(config, feature)
+    current = random_push_plan_store.get(date, group_id, feature)
+    if current is not None and current["signature"] == signature:
+        scheduled = current["scheduled_times"]
+        sent = current["sent_times"]
+        assert isinstance(scheduled, list) and isinstance(sent, list)
+        return date, [parsed for value in scheduled if (parsed := _parse_plan_time(str(value), timezone)) is not None], set(map(str, sent))
+
+    sent_values: list[str] = [] if current is None else list(map(str, current["sent_times"]))
+    sent_times = [parsed for value in sent_values if (parsed := _parse_plan_time(value, timezone)) is not None]
+    try:
+        window_start, window_end = _daily_window(config, feature, now)
+    except ValueError as exc:
+        nonebot.logger.warning("60s {} daily_slots 时间配置无效：{}", feature, repr(exc))
+        return date, [], set(sent_values)
+    earliest = max(window_start, (now + timedelta(minutes=config.sixty_api_random_startup_grace_minutes)).replace(second=0, microsecond=0))
+    if earliest > window_end:
+        candidates: list[datetime] = []
+    else:
+        minutes = int((window_end - earliest).total_seconds() // 60)
+        candidates = [earliest + timedelta(minutes=offset) for offset in range(minutes + 1)]
+    minimum = getattr(config, f"sixty_api_{feature}_random_daily_min")
+    maximum = getattr(config, f"sixty_api_{feature}_random_daily_max")
+    wanted = random.randint(minimum, maximum)
+    occupied = _daily_occupied_times(date, group_id, timezone, feature)
+    cooldown = timedelta(minutes=config.sixty_api_random_global_cooldown_minutes)
+    random.shuffle(candidates)
+    selected = list(sent_times)
+    for candidate in candidates:
+        if len(selected) >= wanted:
+            break
+        if any(abs(candidate - other) < cooldown for other in [*occupied, *selected]):
+            continue
+        selected.append(candidate)
+    selected.sort()
+    scheduled_values = [value.isoformat() for value in selected]
+    random_push_plan_store.save(date, group_id, feature, {
+        "scheduled_times": scheduled_values,
+        "sent_times": sent_values,
+        "signature": signature,
+    })
+    return date, selected, set(sent_values)
+
+
+def _schedule_daily_group(config: SixtyApiConfig, feature: str, group_id: int) -> None:
+    if not getattr(config, f"sixty_api_{feature}_random_push_enabled") or not enabled(config, feature):
+        return
+    try:
+        timezone = ZoneInfo(config.sixty_api_timezone)
+        now = datetime.now(timezone)
+        date, scheduled_times, sent_times = _daily_plan(config, feature, group_id, now)
+    except (ValueError, KeyError) as exc:
+        nonebot.logger.warning("60s {} daily_slots 配置无效：{}", feature, repr(exc))
+        return
+    _remove_random_group_jobs(feature, group_id)
+    for run_at in scheduled_times:
+        scheduled_value = run_at.isoformat()
+        if scheduled_value in sent_times or run_at <= now:
+            continue
+        job_id = _daily_slot_job_id(feature, group_id, run_at)
+
+        async def run_once(slot: str = scheduled_value, plan_date: str = date) -> None:
+            if await push_content(config, feature, per_group_random=True, target_group_id=group_id):
+                random_push_plan_store.mark_sent(plan_date, group_id, feature, slot)
+
+        scheduler.add_job(run_once, "date", run_date=run_at, id=job_id,
+                          replace_existing=True, max_instances=1, coalesce=True)
+
+
+def _schedule_daily_refresh(config: SixtyApiConfig, feature: str) -> None:
+    timezone = ZoneInfo(config.sixty_api_timezone)
+
+    async def refresh() -> None:
+        bot = choose_push_bot(config)
+        if bot is None:
+            return
+        for group_id in await push_target_groups(config, bot):
+            _schedule_daily_group(config, feature, group_id)
+
+    scheduler.add_job(refresh, "cron", hour=0, minute=1, timezone=timezone,
+                      id=_daily_refresh_job_id(feature), replace_existing=True,
+                      max_instances=1, coalesce=True)
+
+
+def _schedule_daily_random(config: SixtyApiConfig, feature: str, *, initial: bool) -> None:
+    try:
+        _schedule_daily_refresh(config, feature)
+    except (ValueError, KeyError) as exc:
+        nonebot.logger.warning("60s {} daily_slots 配置无效：{}", feature, repr(exc))
+        return
+    if config.sixty_api_group_mode == "whitelist":
+        for group_id in dict.fromkeys(int(group_id) for group_id in config.sixty_api_group_ids):
+            _schedule_daily_group(config, feature, group_id)
+        return
+    if not initial:
+        return
+    job_id = f"liteyuki_60s.{feature}_random"
+    timezone = ZoneInfo(config.sixty_api_timezone)
+
+    async def bootstrap() -> None:
+        bot = choose_push_bot(config)
+        if bot is None:
+            return
+        for group_id in await push_target_groups(config, bot):
+            _schedule_daily_group(config, feature, group_id)
+
+    scheduler.add_job(bootstrap, "date", run_date=datetime.now(timezone) + timedelta(seconds=1),
+                      id=job_id, replace_existing=True, max_instances=1, coalesce=True)
+
+
 def _schedule_random(config: SixtyApiConfig, feature: str, *, initial: bool = True) -> None:
     job_id = f"liteyuki_60s.{feature}_random"
     _remove_job(job_id)
     if initial:
         _remove_random_group_jobs(feature)
+        _remove_job(_daily_refresh_job_id(feature))
     if not getattr(config, f"sixty_api_{feature}_random_push_enabled") or not enabled(config, feature):
+        return
+    if config.sixty_api_random_push_mode == "daily_slots":
+        _schedule_daily_random(config, feature, initial=initial)
         return
     if initial and config.sixty_api_group_mode == "whitelist":
         for group_id in dict.fromkeys(int(group_id) for group_id in config.sixty_api_group_ids):
@@ -237,6 +417,23 @@ def _schedule_random(config: SixtyApiConfig, feature: str, *, initial: bool = Tr
     scheduler.add_job(bootstrap, "date", run_date=run_at, id=job_id,
                       replace_existing=True, max_instances=1, coalesce=True)
 
+
+async def initialize_random_pushes_after_connect(config: SixtyApiConfig, bot) -> None:
+    """Populate blacklist random jobs once the configured Bot has connected."""
+    if config.sixty_api_group_mode != "blacklist":
+        return
+    if config.sixty_api_push_bot_id and str(getattr(bot, "self_id", "")) != str(config.sixty_api_push_bot_id):
+        return
+    if not config.sixty_api_push_bot_id and len(nonebot.get_bots()) != 1:
+        return
+    for feature in ("fabing", "dad_joke"):
+        if not getattr(config, f"sixty_api_{feature}_random_push_enabled") or not enabled(config, feature):
+            continue
+        for group_id in await push_target_groups(config, bot):
+            if config.sixty_api_random_push_mode == "daily_slots":
+                _schedule_daily_group(config, feature, group_id)
+            else:
+                _schedule_random_group(config, feature, group_id)
 
 def configure_jobs(config: SixtyApiConfig) -> None:
     try:

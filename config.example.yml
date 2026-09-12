@@ -200,18 +200,35 @@ sixty_api_kfc_push_time: "12:00"
 # 每位用户每天可查询运势的次数。
 sixty_api_luck_daily_limit: 1
 
-# 发病文学随机群推送；每个目标群独立随机安排时间（秒级错峰）并请求文案。
+# 随机推送开关
 sixty_api_fabing_random_push_enabled: false
+sixty_api_dad_joke_random_push_enabled: false
+# 随机推送模式
+# interval 每天均匀随机间隔
+# daily_slots 每天按随机时段发送。
+sixty_api_random_push_mode: "interval"
+# 随机推送时间窗口
+sixty_api_fabing_random_start: "08:00"
+sixty_api_fabing_random_end: "23:00"
+sixty_api_dad_joke_random_start: "08:00"
+sixty_api_dad_joke_random_end: "23:00"
+
+# 发病文学 interval 模式随机群推送
 sixty_api_fabing_random_min_interval_minutes: 180
 sixty_api_fabing_random_max_interval_minutes: 360
-sixty_api_fabing_random_start: "08:00"
-sixty_api_fabing_random_end: "22:00"
-# 冷笑话随机群推送；每个目标群独立随机安排时间（秒级错峰）并请求文案。
-sixty_api_dad_joke_random_push_enabled: false
+# 冷笑话 interval 模式随机群推送
 sixty_api_dad_joke_random_min_interval_minutes: 180
 sixty_api_dad_joke_random_max_interval_minutes: 360
-sixty_api_dad_joke_random_start: "08:00"
-sixty_api_dad_joke_random_end: "22:00"
+
+# daily_slots 模式下，每群每天的随机推送次数范围。
+sixty_api_fabing_random_daily_min: 1
+sixty_api_fabing_random_daily_max: 4
+sixty_api_dad_joke_random_daily_min: 1
+sixty_api_dad_joke_random_daily_max: 3
+# 同一群两类随机内容的最小间隔、窗口边缘留白及启动后不立即推送的缓冲时间（分钟）。
+sixty_api_random_global_cooldown_minutes: 90
+sixty_api_random_edge_padding_minutes: 20
+sixty_api_random_startup_grace_minutes: 10
 
 # -------------------- 二次元图片（全年龄） --------------------
 

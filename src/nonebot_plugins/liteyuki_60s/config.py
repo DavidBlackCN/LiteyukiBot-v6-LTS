@@ -51,6 +51,15 @@ class SixtyApiConfig(BaseModel):
     sixty_api_dad_joke_random_max_interval_minutes: int = Field(default=360, ge=1)
     sixty_api_dad_joke_random_start: str = "08:00"
     sixty_api_dad_joke_random_end: str = "22:00"
+    # 随机群推送默认沿用旧的间隔模式；daily_slots 按每天随机时段发送。
+    sixty_api_random_push_mode: Literal["interval", "daily_slots"] = "interval"
+    sixty_api_fabing_random_daily_min: int = Field(default=1, ge=0, le=100)
+    sixty_api_fabing_random_daily_max: int = Field(default=3, ge=0, le=100)
+    sixty_api_dad_joke_random_daily_min: int = Field(default=1, ge=0, le=100)
+    sixty_api_dad_joke_random_daily_max: int = Field(default=2, ge=0, le=100)
+    sixty_api_random_global_cooldown_minutes: int = Field(default=90, ge=0, le=1440)
+    sixty_api_random_edge_padding_minutes: int = Field(default=20, ge=0, le=720)
+    sixty_api_random_startup_grace_minutes: int = Field(default=10, ge=0, le=1440)
 
     @field_validator("sixty_api_base_url")
     @classmethod
@@ -61,4 +70,15 @@ class SixtyApiConfig(BaseModel):
         parsed = urlparse(value)
         if parsed.scheme not in {"http", "https"} or not parsed.netloc:
             raise ValueError("sixty_api_base_url 必须是 HTTP/HTTPS URL")
+        return value
+
+    @field_validator(
+        "sixty_api_fabing_random_daily_max",
+        "sixty_api_dad_joke_random_daily_max",
+    )
+    @classmethod
+    def validate_daily_range(cls, value: int, info) -> int:
+        minimum = info.data.get(info.field_name.replace("_max", "_min"), 0)
+        if value < minimum:
+            raise ValueError(f"{info.field_name} 不得小于对应的 daily_min")
         return value
