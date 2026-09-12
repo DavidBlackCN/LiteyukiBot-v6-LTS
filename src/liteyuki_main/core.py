@@ -21,6 +21,7 @@ from src.utils.base.language import get_user_lang
 from src.utils.base.ly_typing import T_Bot, T_MessageEvent
 from src.utils.message.message import MarkdownMessage as md, broadcast_to_superusers
 from .api import update_liteyuki  # type: ignore
+from .reload_state import begin_reload, mark_worker_started, prepare_reload_receipt
 from ..utils.base import reload  # type: ignore
 from ..utils.base.ly_function import get_function  # type: ignore
 from ..utils.message.html_tool import md_to_pic
@@ -101,22 +102,18 @@ async def _(matcher: Matcher, bot: T_Bot, event: T_MessageEvent):
     await matcher.send("Liteyuki v6 LTS 正在重载")
     temp_data = common_db.where_one(TempConfig(), default=TempConfig())
 
-    temp_data.data.update(
-        {
-            "reload": True,
-            "reload_time": time.time(),
-            "reload_bot_id": bot.self_id,
-            "reload_session_type": event_utils.get_message_type(event),
-            "reload_session_id": (
-                (event.group_id if event.message_type == "group" else event.user_id)
-                if not is_satori_object(event)
-                else event.chan_active.id
-            ),
-            "delta_time": 0,
-        }
+    begin_reload(
+        temp_data.data,
+        bot_id=bot.self_id,
+        session_type=event_utils.get_message_type(event),
+        session_id=(
+            (event.group_id if event.message_type == "group" else event.user_id)
+            if not is_satori_object(event)
+            else event.chan_active.id
+        ),
     )
-
     common_db.save(temp_data)
+    nonebot.logger.info("收到 reload-liteyuki 请求，等待 Bot {} 重连回执", str(bot.self_id))
     reload()
 
 
@@ -224,11 +221,13 @@ async def _(result: Arparma, bot: T_Bot, event: T_MessageEvent, matcher: Matcher
 @driver.on_startup
 async def on_startup():
     temp_data = common_db.where_one(TempConfig(), default=TempConfig())
-    # 储存重启信息
-    if temp_data.data.get("reload", False):
-        delta_time = time.time() - temp_data.data.get("reload_time", 0)
-        temp_data.data["delta_time"] = delta_time
-        common_db.save(temp_data)  # 更新数据
+    reload_status, elapsed = mark_worker_started(temp_data.data)
+    if reload_status == "pending":
+        common_db.save(temp_data)
+        nonebot.logger.info("Worker 启动检测到 reload 状态，已记录耗时 {:.2f} 秒", elapsed)
+    elif reload_status == "expired":
+        common_db.save(temp_data)
+        nonebot.logger.warning("Worker 启动检测到过期 reload 状态，已清理且不会发送迟到回执")
     """
     该部分将迁移至轻雪生命周期
     Returns:
@@ -246,49 +245,59 @@ async def _(bot: T_Bot):
     temp_data = common_db.where_one(TempConfig(), default=TempConfig())
     if is_satori_object(bot):
         await satori_utils.user_infos.load_friends(bot)
-    # 用于重启计时
-    if temp_data.data.get("reload", False):
-        temp_data.data["reload"] = False
-        reload_bot_id = temp_data.data.get("reload_bot_id", 0)
-        if reload_bot_id != bot.self_id:
-            return
-        reload_session_type = temp_data.data.get("reload_session_type", "private")
-        reload_session_id = temp_data.data.get("reload_session_id", 0)
-        delta_time = temp_data.data.get("delta_time", 0)
-        common_db.save(temp_data)  # 更新数据
-
-        return_msg = "Liteyuki v6 LTS 核心重载耗时 {:.2f} 秒\n客户端恢复耗时 {:.2f} 秒\n*此数据仅作参考，具体计时请以实际为准".format(
-            delta_time, time.time() - temp_data.data.get("reload_time", 0)
+    reload_status, receipt = prepare_reload_receipt(temp_data.data, str(bot.self_id))
+    if reload_status == "mismatch":
+        nonebot.logger.warning(
+            "reload 回执 Bot ID 不匹配：等待 {}，收到 {}",
+            str(temp_data.data.get("reload_bot_id", "")),
+            str(bot.self_id),
         )
+        return
+    if reload_status == "expired":
+        common_db.save(temp_data)
+        nonebot.logger.warning("过期 reload 状态已清理，不发送迟到成功回执")
+        return
+    if reload_status != "receipt":
+        return
 
-        if is_satori_object(bot):
-            await bot.send_message(
-                channel_id=reload_session_id,
-                message=return_msg,
-            )
-        elif isinstance(bot, onebot.v11.Bot):
-            await bot.send_msg(
-                message_type=reload_session_type,
-                user_id=reload_session_id,
-                group_id=reload_session_id,
-                message=return_msg,
-            )
-        elif isinstance(bot, onebot.v12.Bot):
-            await bot.send_msg(
-                message_type=reload_session_type,
-                user_id=reload_session_id,
-                group_id=reload_session_id,
-                message=return_msg,
-                detail_type="group",
-            )
-        else:
-            await bot.call_api(
-                "send_msg",
-                message_type=reload_session_type,
-                user_id=reload_session_id,
-                group_id=reload_session_id,
-                message=return_msg,
-            )
+    reload_session_type = receipt["session_type"]
+    reload_session_id = receipt["session_id"]
+    delta_time = receipt["delta_time"]
+    reload_time = receipt["reload_time"]
+    common_db.save(temp_data)
+    nonebot.logger.info("reload 成功回执：Bot {}", str(bot.self_id))
+    return_msg = "Liteyuki v6 LTS 核心重载耗时 {:.2f} 秒\n客户端恢复耗时 {:.2f} 秒\n*此数据仅作参考，具体计时请以实际为准".format(
+        delta_time, time.time() - reload_time
+    )
+
+    if is_satori_object(bot):
+        await bot.send_message(
+            channel_id=reload_session_id,
+            message=return_msg,
+        )
+    elif isinstance(bot, onebot.v11.Bot):
+        await bot.send_msg(
+            message_type=reload_session_type,
+            user_id=reload_session_id,
+            group_id=reload_session_id,
+            message=return_msg,
+        )
+    elif isinstance(bot, onebot.v12.Bot):
+        await bot.send_msg(
+            message_type=reload_session_type,
+            user_id=reload_session_id,
+            group_id=reload_session_id,
+            message=return_msg,
+            detail_type="group",
+        )
+    else:
+        await bot.call_api(
+            "send_msg",
+            message_type=reload_session_type,
+            user_id=reload_session_id,
+            group_id=reload_session_id,
+            message=return_msg,
+        )
 
 
 # 每天4点更新
