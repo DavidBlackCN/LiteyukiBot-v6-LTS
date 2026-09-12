@@ -6,7 +6,7 @@ require("nonebot_plugin_alconna")
 from .config import SetuConfig
 
 __plugin_meta__ = PluginMetadata(
-    name="Liteyuki 二次元图片",
+    name="轻雪色色",
     description="多来源二次元图片获取；群聊仅全年龄，私聊 R18 需显式授权。",
     usage=("/色图 [数量] [关键词]（数量可写 3 或 3张）\n/色图 -t 标签 [-t 标签] [数量]\n"
            "/色图 --source lolicon|mirlkoi|auto\n/色图 --size regular|original\n"

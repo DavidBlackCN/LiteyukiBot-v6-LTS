@@ -154,7 +154,7 @@
 
 ## 功能插件
 
-### `liteyuki_smart_reply` — 智能回复
+### `liteyuki_smart_reply` — 轻雪智障回复
 
 - `设置回复概率 <0-1>`：当前群 Bot ADMIN 可设置当前群回复概率。
 
@@ -178,7 +178,7 @@
 - 运势按用户和 `sixty_api_timezone` 持久化记录，默认每天 1 次；请求或发送失败不会消耗次数。
 - 可分别设置五项日报/资讯的每日推送、每周四 KFC 推送，以及发病文学/冷笑话在指定时间窗内的随机推送。多 Bot 时请设置 `sixty_api_push_bot_id`，否则仅会在唯一在线 Bot 时主动发送，避免重复群发。
 
-### `liteyuki_setu` — Liteyuki 二次元图片
+### `liteyuki_setu` — 轻雪色色
 
 从 Lolicon v2 和 MirlKoi 获取全年龄二次元图片；群聊由 `setu_group_mode` 与 `setu_enabled_groups` 控制，默认白名单，私聊由 `setu_private_enabled` 控制。群聊始终只提供全年龄内容。私聊 R18 默认关闭，只有超级用户开启并授权指定 QQ 后，授权用户才能使用。
 
