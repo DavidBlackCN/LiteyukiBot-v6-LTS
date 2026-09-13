@@ -28,6 +28,8 @@ class SetuConfig(BaseModel):
     setu_image_max_bytes: int = Field(default=20 * 1024 * 1024, ge=1024, le=50 * 1024 * 1024)
     setu_api_timeout: float | None = Field(default=None, ge=1, le=60)
     setu_image_timeout: float | None = Field(default=None, ge=1, le=120)
+    setu_image_candidate_timeout: float = Field(default=8, ge=1, le=60)
+    setu_image_candidate_retries: int = Field(default=0, ge=0, le=5)
     # Legacy shared timeout used only when a new timeout is not configured.
     setu_request_timeout: float = Field(default=15, ge=1, le=60)
     setu_request_retries: int = Field(default=2, ge=0, le=5)
@@ -43,6 +45,8 @@ class SetuConfig(BaseModel):
     })
     setu_default_provider: str = "auto"
     setu_pixiv_proxy: str = "i.pximg.net"
+    setu_api_http_proxy: str = ""
+    setu_image_http_proxy: str = ""
     setu_lolicon_api_http_proxy: str = ""
     setu_lolicon_image_http_proxy: str = ""
     setu_show_metadata: bool = True
@@ -109,6 +113,20 @@ class SetuConfig(BaseModel):
         value = value.strip().lower()
         if value not in {"original", "regular", "small", "thumb", "mini"}:
             raise ValueError("setu_image_size 不受支持")
+        return value
+
+    @field_validator(
+        "setu_api_http_proxy", "setu_image_http_proxy",
+        "setu_lolicon_api_http_proxy", "setu_lolicon_image_http_proxy",
+    )
+    @classmethod
+    def validate_http_proxy(cls, value: str) -> str:
+        value = value.strip().rstrip("/")
+        if not value:
+            return ""
+        parsed = urlparse(value)
+        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+            raise ValueError("出站代理必须是 HTTP/HTTPS URL")
         return value
 
     @field_validator(

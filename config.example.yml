@@ -301,10 +301,16 @@ setu_provider_weights:
 setu_default_provider: "auto"
 # Lolicon 返回的 Pixiv 图片 host（不含协议）。
 setu_pixiv_proxy: "i.pximg.net"
+# 所有图片源 API/图片下载的通用出站 HTTP 代理；留空直连。
+setu_api_http_proxy: "http://127.0.0.1:7890"
+setu_image_http_proxy: "http://127.0.0.1:7890"
 # Lolicon API 出站 HTTP 代理；留空直连。
 setu_lolicon_api_http_proxy: ""
-# Lolicon/Pixiv 图片下载出站 HTTP 代理；留空直连，MirlKoi 不使用此代理。
-setu_lolicon_image_http_proxy: "http://127.0.0.1:7890"
+# Lolicon/Pixiv 专用图片代理；非空时覆盖通用图片代理。
+setu_lolicon_image_http_proxy: ""
+# 多候选图片地址逐个尝试时，每个候选的超时与重试次数。
+setu_image_candidate_timeout: 8
+setu_image_candidate_retries: 0
 # 是否在图片前展示作品简要信息；超级用户默认绕过冷却。
 setu_show_metadata: true
 setu_superuser_bypass_cooldown: true

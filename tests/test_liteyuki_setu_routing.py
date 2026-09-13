@@ -68,3 +68,18 @@ def test_config_normalizes_weights_and_ignores_unknown_provider() -> None:
         })
     assert len(warnings) == 2
     assert config.setu_provider_weights == {"lolicon": 0, "mirlkoi": 0}
+
+
+def test_http_proxy_config_accepts_empty_or_http_urls_only() -> None:
+    _init()
+    from src.nonebot_plugins.liteyuki_setu.config import SetuConfig
+
+    assert SetuConfig().setu_api_http_proxy == ""
+    config = SetuConfig(
+        setu_api_http_proxy=" http://user:pass@proxy.example:7890/ ",
+        setu_image_http_proxy="https://proxy.example:8443",
+    )
+    assert config.setu_api_http_proxy == "http://user:pass@proxy.example:7890"
+    assert config.setu_image_http_proxy == "https://proxy.example:8443"
+    with pytest.raises(ValueError, match="HTTP/HTTPS"):
+        SetuConfig(setu_api_http_proxy="socks5://proxy.example:1080")

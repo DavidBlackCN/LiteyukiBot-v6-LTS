@@ -9,15 +9,18 @@ from urllib.parse import urlparse
 import aiohttp
 from nonebot import logger
 
-from .models import ProviderError
+from .models import NetworkError, ProviderError
 
 
 class HttpClient:
     """One small HTTP boundary shared by all providers and image downloads."""
 
-    def __init__(self, timeout: float, retries: int = 2, session: aiohttp.ClientSession | None = None):
+    def __init__(self, timeout: float, retries: int = 2,
+                 session: aiohttp.ClientSession | None = None,
+                 default_proxy: str | None = None):
         self.timeout = aiohttp.ClientTimeout(total=timeout)
         self.retries = retries
+        self.default_proxy = default_proxy or None
         self._session = session
         self._owns_session = session is None
 
@@ -44,10 +47,12 @@ class HttpClient:
                 return await client.request_json(
                     method, url, params=params, json=json, headers=headers, proxy=proxy,
                 )
+        effective_proxy = proxy or self.default_proxy
         last_error: Exception | None = None
         for attempt in range(self.retries + 1):
             try:
-                async with session.request(method, url, params=params, json=json, headers=headers, proxy=proxy,
+                async with session.request(method, url, params=params, json=json, headers=headers,
+                                           proxy=effective_proxy,
                                            allow_redirects=True) as response:
                     if 400 <= response.status < 500:
                         raise ProviderError(f"HTTP {response.status}")
@@ -63,24 +68,34 @@ class HttpClient:
                 last_error = exc
             if attempt < self.retries:
                 await asyncio.sleep(0.2 * (attempt + 1))
-        reason = _error_reason(last_error)
+        reason = _error_reason(last_error, proxy=effective_proxy)
         logger.warning(f"HTTP JSON 请求失败: host={_host(url)}, reason={reason}")
-        raise ProviderError(f"图片源请求失败: {reason}") from last_error
+        raise NetworkError(f"图片源请求失败: {reason}") from last_error
 
     async def download_image(self, url: str, *, max_bytes: int,
                              headers: Mapping[str, str] | None = None,
-                             proxy: str | None = None) -> bytes:
+                             proxy: str | None = None, timeout: float | None = None,
+                             retries: int | None = None) -> bytes:
         parsed = urlparse(url)
         if parsed.scheme not in {"http", "https"} or not parsed.netloc:
             raise ProviderError("图片地址无效")
         session = self._session
         if session is None:
             async with self as client:
-                return await client.download_image(url, max_bytes=max_bytes, headers=headers, proxy=proxy)
+                return await client.download_image(
+                    url, max_bytes=max_bytes, headers=headers, proxy=proxy,
+                    timeout=timeout, retries=retries,
+                )
+        effective_proxy = proxy or self.default_proxy
+        request_timeout = aiohttp.ClientTimeout(total=timeout) if timeout is not None else self.timeout
+        retry_count = self.retries if retries is None else retries
         last_error: Exception | None = None
-        for attempt in range(self.retries + 1):
+        for attempt in range(retry_count + 1):
             try:
-                async with session.get(url, headers=headers, proxy=proxy, allow_redirects=True) as response:
+                async with session.get(
+                    url, headers=headers, proxy=effective_proxy, timeout=request_timeout,
+                    allow_redirects=True,
+                ) as response:
                     if 400 <= response.status < 500:
                         raise ProviderError(f"图片 HTTP {response.status}")
                     if not 200 <= response.status < 300:
@@ -97,11 +112,11 @@ class HttpClient:
                 last_error = exc
             except (aiohttp.ClientError, asyncio.TimeoutError) as exc:
                 last_error = exc
-            if attempt < self.retries:
+            if attempt < retry_count:
                 await asyncio.sleep(0.2 * (attempt + 1))
-        reason = _error_reason(last_error)
+        reason = _error_reason(last_error, proxy=effective_proxy)
         logger.warning(f"图片下载失败: host={parsed.hostname or ''}, reason={reason}")
-        raise ProviderError(f"图片下载失败: {reason}") from last_error
+        raise NetworkError(f"图片下载失败: {reason}") from last_error
 
     @staticmethod
     def _verify_image(body: bytes) -> None:
@@ -120,11 +135,16 @@ def _host(url: str) -> str:
     return urlparse(url).hostname or ""
 
 
-def _error_reason(error: Exception | None) -> str:
+def _error_reason(error: Exception | None, *, proxy: str | None = None) -> str:
     if error is None:
         return "unknown"
     detail = str(error).strip()
     detail = re.sub(r"(https?://)[^/@\s]+@", r"\1***@", detail)
+    if proxy:
+        parsed = urlparse(proxy)
+        for value in (proxy, parsed.netloc, parsed.hostname):
+            if value:
+                detail = re.sub(re.escape(value), "***", detail, flags=re.IGNORECASE)
     return f"{type(error).__name__}: {detail}" if detail else type(error).__name__
 
 

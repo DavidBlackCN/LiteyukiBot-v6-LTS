@@ -154,6 +154,48 @@ def test_same_failed_image_host_stops_after_two_results() -> None:
     assert calls == [1, 1]
 
 
+def test_candidate_fallback_success_does_not_refetch_provider() -> None:
+    _init()
+    from src.nonebot_plugins.liteyuki_setu import service
+    from src.nonebot_plugins.liteyuki_setu.config import SetuConfig
+    from src.nonebot_plugins.liteyuki_setu.models import ImageQuery, ImageResult, NetworkError
+
+    provider_calls = []
+    download_calls = []
+
+    class Provider:
+        name = "random_mage"
+
+        async def fetch(self, query):
+            provider_calls.append(query.count)
+            return [ImageResult(
+                provider=self.name, image_url="https://proxy.example/a.jpg",
+                fallback_image_urls=["https://origin.example/a.jpg"], is_adult=False,
+            )]
+
+    class Client:
+        async def download_image(self, url, **kwargs):
+            download_calls.append((url, kwargs))
+            if "proxy.example" in url:
+                raise NetworkError("图片下载失败: TimeoutError")
+            return b"image"
+
+    config = SetuConfig(
+        setu_recent_dedup_enabled=False, setu_image_candidate_timeout=8,
+        setu_image_candidate_retries=0,
+    )
+    result = asyncio.run(service._fetch_with_refills(
+        Provider(), ImageQuery(count=1), config, Client(),
+    ))
+    assert result[0][1] == b"image"
+    assert provider_calls == [1]
+    assert [url for url, _options in download_calls] == [
+        "https://proxy.example/a.jpg", "https://origin.example/a.jpg",
+    ]
+    assert all(options["timeout"] == 8 and options["retries"] == 0
+               for _url, options in download_calls)
+
+
 class _Message:
     @classmethod
     def image(cls, raw):

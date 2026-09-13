@@ -3,7 +3,8 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
-from ..models import ImageQuery, ImageResult, NoResultError, ProviderCapabilities, ProviderError
+from ..models import (ImageQuery, ImageResult, NetworkError, NoResultError,
+                      ProviderCapabilities, ProviderError)
 from .base import ImageProvider
 
 
@@ -21,8 +22,11 @@ class DuckMoXProvider(ImageProvider):
 
     async def fetch(self, query: ImageQuery) -> list[ImageResult]:
         async def fetch_one() -> ImageResult | None:
-            async with self._semaphore:
-                response = await self.client.request_json("GET", self.url)
+            try:
+                async with self._semaphore:
+                    response = await self.client.request_json("GET", self.url)
+            except NetworkError:
+                return ImageResult(provider=self.name, image_url=self.render_url)
             if not isinstance(response, dict):
                 raise ProviderError("DuckMo X 返回格式无效")
             if response.get("success") is not True:

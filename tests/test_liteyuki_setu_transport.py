@@ -48,6 +48,24 @@ class _Session:
         return _Response()
 
 
+class _PayloadResponse(_Response):
+    def __init__(self, payload) -> None:
+        self.payload = payload
+
+    async def json(self, **_kwargs):
+        return self.payload
+
+
+class _PayloadSession(_Session):
+    def __init__(self, payloads) -> None:
+        super().__init__()
+        self.payloads = iter(payloads)
+
+    def request(self, *args, **kwargs):
+        self.request_calls.append((args, kwargs))
+        return _PayloadResponse(next(self.payloads))
+
+
 def test_http_client_passes_proxy_and_image_headers_per_request() -> None:
     _init()
     from src.nonebot_plugins.liteyuki_setu.network import HttpClient
@@ -63,6 +81,61 @@ def test_http_client_passes_proxy_and_image_headers_per_request() -> None:
     assert session.request_calls[0][1]["proxy"] is None
     assert session.get_calls[0][1]["proxy"] == "http://127.0.0.1:7890"
     assert session.get_calls[0][1]["headers"] == {"Referer": "https://www.pixiv.net/"}
+
+
+def test_http_client_default_proxy_and_request_override() -> None:
+    _init()
+    from src.nonebot_plugins.liteyuki_setu.network import HttpClient
+
+    session = _Session()
+    client = HttpClient(10, session=session, default_proxy="http://general.example:7890")
+    asyncio.run(client.request_json("GET", "https://api.example/general"))
+    asyncio.run(client.request_json(
+        "GET", "https://api.example/special", proxy="http://special.example:7890",
+    ))
+    assert session.request_calls[0][1]["proxy"] == "http://general.example:7890"
+    assert session.request_calls[1][1]["proxy"] == "http://special.example:7890"
+
+
+def test_general_api_proxy_reaches_random_mage_and_duckmo_x_and_lolicon_overrides() -> None:
+    _init()
+    from src.nonebot_plugins.liteyuki_setu.models import ImageQuery
+    from src.nonebot_plugins.liteyuki_setu.network import HttpClient
+    from src.nonebot_plugins.liteyuki_setu.providers.duckmo_x import DuckMoXProvider
+    from src.nonebot_plugins.liteyuki_setu.providers.lolicon import LoliconProvider
+    from src.nonebot_plugins.liteyuki_setu.providers.random_mage import RandomMageProvider
+
+    session = _PayloadSession([
+        {"ok": True, "data": {"items": [{
+            "image": {"illust_id": 1, "user": {}},
+            "urls": {"proxy": "https://image.example/a.jpg"},
+        }]}},
+        {"success": True, "data": [{"pictureUrl": "https://pbs.twimg.com/a.jpg"}]},
+        {"data": [{
+            "pid": 2, "r18": False,
+            "urls": {"regular": "https://i.pximg.net/a.jpg"},
+        }]},
+    ])
+    client = HttpClient(
+        10, session=session, default_proxy="http://general.example:7890",
+    )
+
+    async def fetch_all():
+        await RandomMageProvider(client, "https://i.mukyu.ru").fetch(ImageQuery(count=1))
+        await DuckMoXProvider(client, "https://api.mossia.top/duckMo/x").fetch(
+            ImageQuery(count=1, provider="duckmo_x"),
+        )
+        await LoliconProvider(
+            client, "https://api.lolicon.app/setu/v2", "i.pximg.net",
+            "http://lolicon.example:7890",
+        ).fetch(ImageQuery(count=1))
+
+    asyncio.run(fetch_all())
+    assert [call[1]["proxy"] for call in session.request_calls] == [
+        "http://general.example:7890",
+        "http://general.example:7890",
+        "http://lolicon.example:7890",
+    ]
 
 
 class _LoliconClient:
@@ -95,14 +168,17 @@ class _DownloadClient:
         return b"image"
 
 
-def test_only_lolicon_pximg_download_uses_proxy_and_pixiv_headers() -> None:
+def test_lolicon_image_proxy_overrides_general_image_proxy() -> None:
     _init()
     from src.nonebot_plugins.liteyuki_setu.config import SetuConfig
     from src.nonebot_plugins.liteyuki_setu.models import ImageResult
     from src.nonebot_plugins.liteyuki_setu.service import download_results
 
     client = _DownloadClient()
-    config = SetuConfig(setu_lolicon_image_http_proxy="http://127.0.0.1:7890")
+    config = SetuConfig(
+        setu_image_http_proxy="http://general.example:7890",
+        setu_lolicon_image_http_proxy="http://127.0.0.1:7890",
+    )
     results = asyncio.run(download_results([
         ImageResult(provider="lolicon", image_url="https://i.pximg.net/a.jpg"),
         ImageResult(provider="mirlkoi", image_url="https://setu.iw233.top/a.jpg"),
@@ -113,7 +189,7 @@ def test_only_lolicon_pximg_download_uses_proxy_and_pixiv_headers() -> None:
     assert calls["https://i.pximg.net/a.jpg"]["headers"] == {
         "Referer": "https://www.pixiv.net/", "User-Agent": "Mozilla/5.0",
     }
-    assert calls["https://setu.iw233.top/a.jpg"]["proxy"] is None
+    assert calls["https://setu.iw233.top/a.jpg"]["proxy"] == "http://general.example:7890"
     assert calls["https://setu.iw233.top/a.jpg"]["headers"] is None
 
 
@@ -169,6 +245,30 @@ def test_proxy_connection_failure_is_logged_and_wrapped_as_provider_error() -> N
             ))
     assert "host=api.lolicon.app" in str(warning.call_args.args[0])
 
+
+class _CredentialFailureSession:
+    def request(self, *_args, **_kwargs):
+        raise aiohttp.ClientConnectionError(
+            "Cannot connect via http://alice:top-secret@proxy.example:7890",
+        )
+
+
+def test_proxy_credentials_are_redacted_from_error_and_log() -> None:
+    _init()
+    from src.nonebot_plugins.liteyuki_setu.models import NetworkError
+    from src.nonebot_plugins.liteyuki_setu.network import HttpClient, logger
+
+    with patch.object(logger, "warning") as warning:
+        with pytest.raises(NetworkError) as caught:
+            asyncio.run(HttpClient(
+                10, retries=0, session=_CredentialFailureSession(),
+                default_proxy="http://alice:top-secret@proxy.example:7890",
+            ).request_json("GET", "https://api.example/data"))
+    output = f"{caught.value} {warning.call_args.args[0]}"
+    assert "top-secret" not in output
+    assert "alice" not in output
+    assert "proxy.example" not in output
+
 class _ImageFailureClient:
     async def download_image(self, _url, **_kwargs):
         from src.nonebot_plugins.liteyuki_setu.models import ProviderError
@@ -217,12 +317,20 @@ def test_random_mage_download_falls_back_and_pximg_gets_referer() -> None:
         provider="random_mage", image_url=proxy,
         fallback_image_urls=[local, origin], is_adult=False,
     )
-    result = asyncio.run(download_results([image], SetuConfig(), client=client))
+    config = SetuConfig(
+        setu_image_http_proxy="http://general.example:7890",
+        setu_image_candidate_timeout=8, setu_image_candidate_retries=0,
+    )
+    result = asyncio.run(download_results([image], config, client=client))
     assert result == [(image, b"image")]
     assert [url for url, _options in client.calls] == [proxy, local, origin]
     assert client.calls[-1][1]["headers"] == {
         "Referer": "https://www.pixiv.net/", "User-Agent": "Mozilla/5.0",
     }
+    assert all(options["proxy"] == "http://general.example:7890"
+               for _url, options in client.calls)
+    assert all(options["timeout"] == 8 and options["retries"] == 0
+               for _url, options in client.calls)
 
 
 def test_all_image_candidates_failed_and_duckmo_x_render_fallback() -> None:

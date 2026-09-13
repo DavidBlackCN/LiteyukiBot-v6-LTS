@@ -123,3 +123,32 @@ def test_duckmo_x_is_explicit_only_by_default() -> None:
 
     enabled = config.model_copy(update={"setu_duckmo_x_random_pool_enabled": True})
     assert choose_providers(ImageQuery(), enabled, {"duckmo_x": provider}) == [provider]
+
+
+def test_duckmo_x_network_error_falls_back_to_render_url() -> None:
+    _init()
+    from src.nonebot_plugins.liteyuki_setu.models import ImageQuery, NetworkError
+    from src.nonebot_plugins.liteyuki_setu.providers.duckmo_x import DuckMoXProvider
+
+    class Client:
+        async def request_json(self, *_args, **_kwargs):
+            raise NetworkError("图片源请求失败: ClientConnectorDNSError")
+
+    result = asyncio.run(DuckMoXProvider(
+        Client(), "https://api.example/duckMo/x", "https://render.example/",
+    ).fetch(ImageQuery(count=1, provider="duckmo_x")))
+    assert result[0].image_url == "https://render.example/"
+    assert result[0].fallback_image_urls == []
+    assert result[0].source_url is None
+
+
+def test_duckmo_x_business_error_does_not_fall_back() -> None:
+    _init()
+    from src.nonebot_plugins.liteyuki_setu.models import ImageQuery, ProviderError
+    from src.nonebot_plugins.liteyuki_setu.providers.duckmo_x import DuckMoXProvider
+
+    client = _Client([{"success": False, "message": "quota exceeded"}])
+    with pytest.raises(ProviderError, match="quota exceeded"):
+        asyncio.run(DuckMoXProvider(
+            client, "https://api.example/duckMo/x", "https://render.example/",
+        ).fetch(ImageQuery(count=1, provider="duckmo_x")))

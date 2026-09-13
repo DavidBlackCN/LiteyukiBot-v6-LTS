@@ -19,6 +19,10 @@ class ProviderError(SetuError):
     pass
 
 
+class NetworkError(ProviderError):
+    pass
+
+
 class ProviderUnavailableError(ProviderError):
     pass
 
