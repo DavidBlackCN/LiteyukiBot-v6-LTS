@@ -4,12 +4,12 @@ import re
 import shlex
 
 from .models import ImageQuery, SetuError, UnsafeQueryError
+from .providers.registry import provider_names
 
 
 _ADULT_TOKEN = re.compile(r"^(?:-r|-r18|--r18(?:=.+)?|--nsfw|r18|nsfw)$", re.IGNORECASE)
 _COUNT_TOKEN = re.compile(r"^(\d+)(?:张)?$")
 _SIZES = {"original", "regular", "small", "thumb", "mini"}
-_SOURCES = {"auto", "lolicon", "mirlkoi"}
 
 
 def _tokens(raw: str) -> list[str]:
@@ -25,7 +25,8 @@ def is_r18_request(raw: str) -> bool:
 
 def parse_query(raw: str, *, default_count: int = 3, max_count: int = 5,
                 default_provider: str = "auto", default_size: str = "regular",
-                default_exclude_ai: bool = True, allow_r18: bool = False) -> ImageQuery:
+                default_exclude_ai: bool = True, allow_r18: bool = False,
+                r18_max_count: int = 1) -> ImageQuery:
     tokens = _tokens(raw)
     r18 = any(_ADULT_TOKEN.fullmatch(token) for token in tokens)
     if r18 and not allow_r18:
@@ -33,12 +34,15 @@ def parse_query(raw: str, *, default_count: int = 3, max_count: int = 5,
     tokens = [token for token in tokens if not _ADULT_TOKEN.fullmatch(token)]
     tags: list[str] = []
     uids: list[int] = []
+    pids: list[int] = []
+    author: str | None = None
     words: list[str] = []
     count = default_count
     source = default_provider
     size = default_size
     exclude_ai = default_exclude_ai
     orientation: str | None = None
+    explicit_filters: set[str] = {"r18"} if r18 else set()
     count_seen = False
     index = 0
     while index < len(tokens):
@@ -48,6 +52,7 @@ def parse_query(raw: str, *, default_count: int = 3, max_count: int = 5,
             if index >= len(tokens) or not tokens[index].strip():
                 raise SetuError("-t 需要一个标签。")
             tags.append(tokens[index].strip())
+            explicit_filters.add("tags")
         elif token.startswith("--source="):
             source = token.split("=", 1)[1].lower()
         elif token == "--source":
@@ -57,24 +62,42 @@ def parse_query(raw: str, *, default_count: int = 3, max_count: int = 5,
             source = tokens[index].lower()
         elif token.startswith("--size="):
             size = token.split("=", 1)[1].lower()
+            explicit_filters.add("size")
         elif token == "--size":
             index += 1
             if index >= len(tokens):
                 raise SetuError("--size 需要尺寸。")
             size = tokens[index].lower()
+            explicit_filters.add("size")
         elif token == "--uid":
             index += 1
             if index >= len(tokens) or not tokens[index].isdigit():
                 raise SetuError("--uid 需要 Pixiv UID。")
             uids.append(int(tokens[index]))
+            explicit_filters.add("uid")
+        elif token == "--pid":
+            index += 1
+            if index >= len(tokens) or not tokens[index].isdigit():
+                raise SetuError("--pid 需要 Pixiv PID。")
+            pids.append(int(tokens[index]))
+            explicit_filters.add("pid")
+        elif token == "--author":
+            index += 1
+            if index >= len(tokens) or not tokens[index].strip():
+                raise SetuError("--author 需要作者名称。")
+            author = tokens[index].strip()
+            explicit_filters.add("author")
         elif token == "--no-ai":
             exclude_ai = True
+            explicit_filters.add("exclude_ai")
         elif token == "--portrait":
             orientation = "portrait"
+            explicit_filters.add("orientation")
         elif token == "--landscape":
             if orientation == "portrait":
                 raise SetuError("不能同时指定横图和竖图。")
             orientation = "landscape"
+            explicit_filters.add("orientation")
         elif (count_match := _COUNT_TOKEN.fullmatch(token)) and not count_seen:
             count = int(count_match.group(1))
             count_seen = True
@@ -84,16 +107,20 @@ def parse_query(raw: str, *, default_count: int = 3, max_count: int = 5,
             words.append(token)
         index += 1
     if r18:
-        count = 1
-        source = "lolicon"
+        count = min(count, r18_max_count)
     if count < 1:
         raise SetuError("图片数量至少为 1。")
     if count > max_count:
         raise SetuError(f"单次最多获取 {max_count} 张图片。")
-    if source not in _SOURCES:
+    if source not in provider_names(include_auto=True):
         raise SetuError("不支持的图片源。")
     if size not in _SIZES:
         raise SetuError("不支持的图片尺寸。")
-    return ImageQuery(count=count, keyword=" ".join(words) or None, tags=tags, uid=uids,
+    keyword = " ".join(words) or None
+    if keyword:
+        explicit_filters.add("keyword")
+    return ImageQuery(count=count, keyword=keyword, tags=tags, uid=uids, pid=pids,
+                      author=author,
                       size=size, exclude_ai=exclude_ai, orientation=orientation,
-                      provider=source, r18=r18)
+                      provider=source, r18=r18,
+                      explicit_filters=frozenset(explicit_filters))

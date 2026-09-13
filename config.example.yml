@@ -248,9 +248,11 @@ sixty_api_random_startup_grace_minutes: 10
 
 # 私聊是否允许使用全年龄图片命令；群聊仍需单独开启。
 setu_private_enabled: true
-# 私聊 R18 默认关闭；仅超级用户开启后，以下 QQ 或动态白名单可请求，且每次固定一张。
+# 私聊 R18 默认关闭；仅超级用户开启后，以下 QQ 或动态白名单可请求。
 setu_private_r18_enabled: false
 setu_private_r18_user_ids: []
+# 单次 R18 图片上限，默认仍为 1。
+setu_r18_max_count: 1
 # 默认单次图片数与硬上限（上限不得超过 5）。
 setu_default_count: 1
 setu_max_count: 5
@@ -279,10 +281,23 @@ setu_group_mode: "whitelist"
 # 群聊名单目标 QQ 群号；白名单模式下仅这些群启用，黑名单模式下这些群被忽略。
 # 保留原配置名以兼容现有部署。
 setu_enabled_groups: []
-# 自动选源顺序与默认来源。
+# 自动选源候选、权重与默认来源；0 权重表示不参与自动选择。
 setu_provider_order:
   - lolicon
+  - random_mage
+  - duckmo
+  - duckmo_x
   - mirlkoi
+  - liemoe
+  - waifuim
+setu_provider_weights:
+  lolicon: 2
+  random_mage: 2
+  duckmo: 2
+  duckmo_x: 1
+  mirlkoi: 2
+  liemoe: 3
+  waifuim: 1
 setu_default_provider: "auto"
 # Lolicon 返回的 Pixiv 图片 host（不含协议）。
 setu_pixiv_proxy: "i.pximg.net"
@@ -296,14 +311,41 @@ setu_superuser_bypass_cooldown: true
 # Provider 连续失败后的进程内熔断阈值与恢复等待秒数。
 setu_provider_failure_threshold: 3
 setu_provider_cooldown_seconds: 120
+# 近期图片按作品 ID/URL 与 dHash 去重；当前为进程内 TTL 缓存。
+setu_recent_dedup_enabled: true
+setu_recent_dedup_hours: 24
+setu_recent_dedup_max_entries: 500
+setu_recent_dedup_refill_attempts: 5
 
 # Lolicon v2（请求始终强制全年龄 r18=0）。
 setu_lolicon_enabled: true
 setu_lolicon_api_url: "https://api.lolicon.app/setu/v2"
-# MirlKoi/cnmiw 的 CDN 无色图 JSON 接口。
+# MirlKoi/cnmiw 的分级图库；内容分级优先于横竖偏好。
 setu_mirlkoi_enabled: true
 setu_mirlkoi_base_url: "https://api.cnmiw.com"
 setu_mirlkoi_endpoint: "/api.php"
+setu_mirlkoi_sfw_sort: "CDNcat"
+setu_mirlkoi_r18_sort: "CDNsetu"
+setu_mirlkoi_random_sort: "CDNiw233"
+setu_mirlkoi_portrait_sort: "CDNmp"
+setu_mirlkoi_landscape_sort: "CDNpc"
+# DuckMo Pixiv 与 X；X 无内容分级，默认不进入 auto 随机池。
+setu_duckmo_enabled: true
+setu_duckmo_base_url: "https://api.mossia.top/duckMo"
+setu_duckmo_x_enabled: true
+setu_duckmo_x_url: "https://api.mossia.top/duckMo/x"
+setu_duckmo_x_random_pool_enabled: false
+# Random Mage；API Key 留空时使用公开访问。
+setu_random_mage_enabled: true
+setu_random_mage_base_url: "https://i.mukyu.ru"
+setu_random_mage_api_key: ""
+# LieMoe 仅进入全年龄池。
+setu_liemoe_enabled: true
+setu_liemoe_base_url: "https://imgapi.lie.moe"
+# Waifu.im；API Key 留空即可使用公开图片查询。
+setu_waifuim_enabled: true
+setu_waifuim_base_url: "https://api.waifu.im"
+setu_waifuim_api_key: ""
 
 # -------------------- 成语游戏 --------------------
 

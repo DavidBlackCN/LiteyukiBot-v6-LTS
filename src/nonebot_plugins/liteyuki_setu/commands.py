@@ -15,7 +15,8 @@ from .models import NoResultError, SetuError, UnsafeQueryError
 from .parser import is_r18_request, parse_query
 from .quota import get_private_r18_access, has_quota, record_success
 from .recall import schedule_recall
-from .service import cooldown, fetch_and_download, metadata_text
+from .service import (commit_result, cooldown, fetch_and_download, metadata_text,
+                      release_result, release_results)
 from .storage import default_settings, get_group_settings, group_allowed
 
 
@@ -101,7 +102,8 @@ async def handle_setu(
         query = parse_query(raw_args, default_count=settings.default_count,
                             max_count=config.setu_max_count, default_provider=settings.provider,
                             default_size=config.setu_image_size,
-                            default_exclude_ai=settings.exclude_ai, allow_r18=r18_allowed)
+                            default_exclude_ai=settings.exclude_ai, allow_r18=r18_allowed,
+                            r18_max_count=config.setu_r18_max_count)
     except (UnsafeQueryError, SetuError) as exc:
         await matcher.finish(str(exc))
         return
@@ -112,6 +114,7 @@ async def handle_setu(
         return
     sent = False
     sent_count = 0
+    downloaded = []
     quota_date = datetime.now(ZoneInfo(config.setu_daily_limit_timezone)).date().isoformat()
     try:
         if group_key and not has_quota(group_key, user_id, quota_date,
@@ -121,7 +124,7 @@ async def handle_setu(
             return
         downloaded = await fetch_and_download(query, config)
         if not downloaded:
-            await matcher.finish("图片下载失败，请稍后再试喵~")
+            await matcher.finish("图片下载失败，请稍后再试。")
             return
         attempted_count = 0
         for position, (image, raw) in enumerate(downloaded):
@@ -133,16 +136,19 @@ async def handle_setu(
                 receipt = await matcher.send(message)
             except Exception as exc:
                 logger.warning(f"色图发送[{position + 1}/{query.count}]失败: pid={image.pid}, reason={exc!r}")
+                release_result(image)
                 continue
             message_ids = _receipt_message_ids(receipt)
             if not message_ids:
                 logger.warning(f"色图发送[{position + 1}/{query.count}]未取得有效回执: "
                                f"pid={image.pid}, msg_ids={getattr(receipt, 'msg_ids', None)!r}")
+                release_result(image)
                 continue
             logger.info(f"色图发送[{position + 1}/{query.count}]: "
                         f"pid={image.pid}, message_ids={message_ids}")
             sent = True
             sent_count += 1
+            commit_result(image, config)
             if group_key:
                 record_success(group_key, user_id, quota_date)
             if settings.auto_recall:
@@ -150,7 +156,7 @@ async def handle_setu(
             if position + 1 < len(downloaded):
                 await asyncio.sleep(config.setu_send_interval_seconds)
         if sent_count < query.count:
-            await matcher.send(f"本次仅成功获取 {sent_count}/{query.count} 张图片喵~")
+            await matcher.send(f"本次仅成功获取 {sent_count}/{query.count} 张图片。")
         logger.info(f"色图发送完成: requested={query.count} attempted={attempted_count} "
                     f"confirmed={sent_count}")
     except NoResultError as exc:
@@ -158,4 +164,5 @@ async def handle_setu(
     except SetuError as exc:
         await matcher.finish(str(exc))
     finally:
+        release_results(downloaded)
         cooldown.finish(key, sent)

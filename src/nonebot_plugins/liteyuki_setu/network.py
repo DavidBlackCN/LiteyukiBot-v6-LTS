@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import re
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Any
 from urllib.parse import urlparse
 
@@ -33,16 +33,21 @@ class HttpClient:
         if self._owns_session and self._session is not None:
             await self._session.close()
 
-    async def request_json(self, method: str, url: str, *, params: Mapping[str, Any] | None = None,
-                           json: Mapping[str, Any] | None = None, proxy: str | None = None) -> Any:
+    async def request_json(self, method: str, url: str, *,
+                           params: Mapping[str, Any] | Sequence[tuple[str, Any]] | None = None,
+                           json: Mapping[str, Any] | None = None,
+                           headers: Mapping[str, str] | None = None,
+                           proxy: str | None = None) -> Any:
         session = self._session
         if session is None:
             async with self as client:
-                return await client.request_json(method, url, params=params, json=json, proxy=proxy)
+                return await client.request_json(
+                    method, url, params=params, json=json, headers=headers, proxy=proxy,
+                )
         last_error: Exception | None = None
         for attempt in range(self.retries + 1):
             try:
-                async with session.request(method, url, params=params, json=json, proxy=proxy,
+                async with session.request(method, url, params=params, json=json, headers=headers, proxy=proxy,
                                            allow_redirects=True) as response:
                     if 400 <= response.status < 500:
                         raise ProviderError(f"HTTP {response.status}")

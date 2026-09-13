@@ -4,6 +4,7 @@ import asyncio
 from types import SimpleNamespace
 
 import nonebot
+import pytest
 
 
 def _init() -> None:
@@ -68,7 +69,10 @@ def _run_refill(monkeypatch, batches, *, fail_once: set[str] | None = None):
     monkeypatch.setattr(service, "download_results", download_results)
     monkeypatch.setattr(service, "health", service.ProviderHealth())
     result = asyncio.run(service.fetch_and_download(
-        ImageQuery(count=3, provider="lolicon"), SetuConfig(setu_provider_order=["lolicon"]),
+        ImageQuery(count=3, provider="lolicon"), SetuConfig(
+            setu_provider_order=["lolicon"], setu_recent_dedup_enabled=False,
+            setu_recent_dedup_refill_attempts=2,
+        ),
     ))
     return result, requests, downloaded_candidates
 
@@ -189,6 +193,137 @@ async def _immediate(value):
     return value
 
 
+def test_auto_no_result_falls_back_without_marking_provider_failed(monkeypatch) -> None:
+    _init()
+    from src.nonebot_plugins.liteyuki_setu import service
+    from src.nonebot_plugins.liteyuki_setu.config import SetuConfig
+    from src.nonebot_plugins.liteyuki_setu.models import ImageQuery, NoResultError
+
+    calls = []
+
+    class Provider:
+        safe_available = True
+
+        def __init__(self, name, result=None):
+            self.name = name
+            self.result = result
+
+        def supports(self, _query):
+            return True
+
+        async def fetch(self, _query):
+            calls.append(self.name)
+            if self.result is None:
+                raise NoResultError("empty")
+            return [self.result]
+
+    first = Provider("lolicon")
+    second = Provider("mirlkoi", _image("fallback"))
+
+    async def download_results(results, _config, *, client):
+        return [(item, b"image") for item in results]
+
+    monkeypatch.setattr(service, "HttpClient", _HttpClient)
+    monkeypatch.setattr(service, "build_providers", lambda *_args: {
+        "lolicon": first, "mirlkoi": second,
+    })
+    monkeypatch.setattr(service, "download_results", download_results)
+    monkeypatch.setattr(service.random, "choices", lambda population, **_kwargs: [population[0]])
+    test_health = service.ProviderHealth()
+    monkeypatch.setattr(service, "health", test_health)
+
+    result = asyncio.run(service.fetch_and_download(
+        ImageQuery(count=1, provider="auto"),
+        SetuConfig(setu_provider_order=["lolicon", "mirlkoi"]),
+    ))
+
+    assert calls == ["lolicon", "mirlkoi"]
+    assert result[0][0].image_url.endswith("fallback.jpg")
+    assert "lolicon" not in test_health._items
+
+
+def test_explicit_provider_no_result_does_not_fallback(monkeypatch) -> None:
+    _init()
+    from src.nonebot_plugins.liteyuki_setu import service
+    from src.nonebot_plugins.liteyuki_setu.config import SetuConfig
+    from src.nonebot_plugins.liteyuki_setu.models import ImageQuery, NoResultError
+
+    calls = []
+
+    class Provider:
+        safe_available = True
+
+        def __init__(self, name):
+            self.name = name
+
+        def supports(self, _query):
+            return True
+
+        async def fetch(self, _query):
+            calls.append(self.name)
+            raise NoResultError("empty")
+
+    monkeypatch.setattr(service, "HttpClient", _HttpClient)
+    monkeypatch.setattr(service, "build_providers", lambda *_args: {
+        "lolicon": Provider("lolicon"), "mirlkoi": Provider("mirlkoi"),
+    })
+    test_health = service.ProviderHealth()
+    monkeypatch.setattr(service, "health", test_health)
+
+    with pytest.raises(NoResultError):
+        asyncio.run(service.fetch_and_download(
+            ImageQuery(count=1, provider="lolicon"), SetuConfig(),
+        ))
+
+    assert calls == ["lolicon"]
+    assert "lolicon" not in test_health._items
+
+
+def test_auto_provider_timeout_falls_back_and_records_failure(monkeypatch) -> None:
+    _init()
+    from src.nonebot_plugins.liteyuki_setu import service
+    from src.nonebot_plugins.liteyuki_setu.config import SetuConfig
+    from src.nonebot_plugins.liteyuki_setu.models import ImageQuery, ProviderError
+
+    calls = []
+
+    class Provider:
+        safe_available = True
+
+        def __init__(self, name, result=None):
+            self.name = name
+            self.result = result
+
+        def supports(self, _query):
+            return True
+
+        async def fetch(self, _query):
+            calls.append(self.name)
+            if self.result is None:
+                raise ProviderError("TimeoutError")
+            return [self.result]
+
+    async def download_results(results, _config, *, client):
+        return [(item, b"image") for item in results]
+
+    monkeypatch.setattr(service, "HttpClient", _HttpClient)
+    monkeypatch.setattr(service, "build_providers", lambda *_args: {
+        "lolicon": Provider("lolicon"), "mirlkoi": Provider("mirlkoi", _image("fallback")),
+    })
+    monkeypatch.setattr(service, "download_results", download_results)
+    monkeypatch.setattr(service.random, "choices", lambda population, **_kwargs: [population[0]])
+    test_health = service.ProviderHealth()
+    monkeypatch.setattr(service, "health", test_health)
+    config = SetuConfig(
+        setu_provider_order=["lolicon", "mirlkoi"], setu_recent_dedup_enabled=False,
+    )
+
+    result = asyncio.run(service.fetch_and_download(ImageQuery(count=1), config))
+    assert calls == ["lolicon", "mirlkoi"]
+    assert result[0][0].image_url.endswith("fallback.jpg")
+    assert test_health._items["lolicon"].failures == 1
+
+
 def test_send_counts_only_confirmed_receipts_and_recalls_them(monkeypatch) -> None:
     _init()
     from src.nonebot_plugins.liteyuki_setu import commands
@@ -199,6 +334,9 @@ def test_send_counts_only_confirmed_receipts_and_recalls_them(monkeypatch) -> No
     images = [(_image("a", 1), b"a"), (_image("b", 2), b"b"), (_image("c", 3), b"c")]
     usage = []
     recalls = []
+    committed = []
+    released = []
+    final_released = []
 
     async def allow_access(*_args, **_kwargs):
         return True
@@ -213,6 +351,11 @@ def test_send_counts_only_confirmed_receipts_and_recalls_them(monkeypatch) -> No
     monkeypatch.setattr(commands, "has_quota", lambda *_args, **_kwargs: True)
     monkeypatch.setattr(commands, "record_success", lambda *_args: usage.append(1))
     monkeypatch.setattr(commands, "schedule_recall", lambda receipt, *_args: recalls.append(receipt))
+    monkeypatch.setattr(commands, "commit_result", lambda image, _config: committed.append(image.pid))
+    monkeypatch.setattr(commands, "release_result", lambda image: released.append(image.pid))
+    monkeypatch.setattr(commands, "release_results", lambda items: final_released.extend(
+        image.pid for image, _raw in items
+    ))
     monkeypatch.setattr(commands, "cooldown", Cooldown())
     monkeypatch.setattr(commands, "UniMessage", _Message)
     monkeypatch.setattr(commands.asyncio, "sleep", no_sleep)
@@ -226,6 +369,9 @@ def test_send_counts_only_confirmed_receipts_and_recalls_them(monkeypatch) -> No
     assert matcher.messages[-1] == "本次仅成功获取 2/3 张图片。"
     assert len(usage) == 2
     assert [receipt.msg_ids for receipt in recalls] == [[101], [103]]
+    assert committed == [1, 3]
+    assert released == [2]
+    assert final_released == [1, 2, 3]
 
 
 def test_confirmed_send_waits_after_send_completion(monkeypatch) -> None:

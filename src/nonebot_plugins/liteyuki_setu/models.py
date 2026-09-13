@@ -33,11 +33,16 @@ class ImageQuery:
     keyword: str | None = None
     tags: list[str] = field(default_factory=list)
     uid: list[int] = field(default_factory=list)
+    pid: list[int] = field(default_factory=list)
+    author: str | None = None
     size: str = "regular"
     exclude_ai: bool = True
     orientation: str | None = None
     provider: str = "auto"
     r18: bool = False
+    # Filters supplied by the user. Configuration defaults such as image size
+    # and AI exclusion are preferences, not routing requirements.
+    explicit_filters: frozenset[str] = field(default_factory=frozenset)
 
 
 @dataclass(frozen=True)
@@ -63,6 +68,8 @@ class ProviderCapabilities:
     keyword: bool = False
     tags: bool = False
     uid: bool = False
+    pid: bool = False
+    author: bool = False
     size: bool = False
     exclude_ai: bool = False
     orientation: bool = False

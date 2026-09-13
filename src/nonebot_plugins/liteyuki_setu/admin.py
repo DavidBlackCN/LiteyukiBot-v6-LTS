@@ -11,6 +11,7 @@ from src.nonebot_plugins.liteyuki_group_manager.permission import ADMIN, is_supe
 
 from .quota import (add_private_r18_user, get_private_r18_access,
                     remove_private_r18_user, set_private_r18_enabled)
+from .providers.registry import provider_names
 from .storage import get_group_settings, reset_group_settings, update_group_settings
 
 
@@ -110,8 +111,8 @@ async def handle_admin(
         else:
             update_group_settings(target, config, default_count=count)
             await matcher.finish("默认数量已更新。")
-    elif action == "来源" and len(args) >= 2 and args[1] in {"auto", "lolicon", "mirlkoi"}:
-        update_group_settings(target, config, provider=args[1])
+    elif action == "来源" and len(args) >= 2 and args[1].lower() in provider_names(include_auto=True):
+        update_group_settings(target, config, provider=args[1].lower())
         await matcher.finish("默认图片源已更新。")
     elif action == "AI过滤" and len(args) >= 2 and args[1] in {"开", "关"}:
         update_group_settings(target, config, exclude_ai=args[1] == "开")

@@ -64,7 +64,20 @@ def test_mirlkoi_uses_verified_safe_json_category() -> None:
         ImageQuery(count=1, exclude_ai=False)))
     assert result[0].image_url.endswith("/bmiddle/example.jpg")
     assert client.calls[0][1] == "https://api.cnmiw.com/api.php"
-    assert client.calls[0][2]["params"] == {"sort": "CDNiw233", "type": "json", "num": 1}
+    assert result[0].is_adult is False
+    assert client.calls[0][2]["params"] == {"sort": "CDNcat", "type": "json", "num": 1}
+
+
+def test_mirlkoi_r18_uses_explicit_adult_bucket() -> None:
+    _init()
+    from src.nonebot_plugins.liteyuki_setu.models import ImageQuery
+    from src.nonebot_plugins.liteyuki_setu.providers.mirlkoi import MirlKoiProvider
+
+    client = _Client({"pic": ["https://setu.iw233.top/large/adult.jpg"]})
+    result = asyncio.run(MirlKoiProvider(client, "https://api.cnmiw.com", "/api.php").fetch(
+        ImageQuery(count=1, r18=True)))
+    assert result[0].is_adult is True
+    assert client.calls[0][2]["params"] == {"sort": "CDNsetu", "type": "json", "num": 1}
 
 
 def test_provider_selection_never_falls_back_to_incompatible_source() -> None:
@@ -79,6 +92,74 @@ def test_provider_selection_never_falls_back_to_incompatible_source() -> None:
     config = SetuConfig(setu_exclude_ai=False, setu_provider_order=["mirlkoi"])
     with pytest.raises(UnsupportedQueryError):
         choose_providers(ImageQuery(uid=[123456], exclude_ai=False), config, {"mirlkoi": provider})
+
+
+def test_default_preferences_do_not_exclude_simple_random_provider() -> None:
+    _init()
+    from src.nonebot_plugins.liteyuki_setu.config import SetuConfig
+    from src.nonebot_plugins.liteyuki_setu.models import ImageQuery, ProviderCapabilities
+    from src.nonebot_plugins.liteyuki_setu.providers.base import ImageProvider
+    from src.nonebot_plugins.liteyuki_setu.service import choose_providers
+
+    class SimpleRandomProvider(ImageProvider):
+        name = "mirlkoi"
+        capabilities = ProviderCapabilities(random=True, count=True)
+
+        async def fetch(self, _query):
+            return []
+
+    provider = SimpleRandomProvider()
+    query = ImageQuery(exclude_ai=True, size="regular")
+    selected = choose_providers(
+        query,
+        SetuConfig(setu_provider_order=["mirlkoi"], setu_provider_weights={"mirlkoi": 1}),
+        {"mirlkoi": provider},
+    )
+    assert selected == [provider]
+
+
+def test_explicit_no_ai_excludes_provider_without_ai_filter() -> None:
+    _init()
+    from src.nonebot_plugins.liteyuki_setu.config import SetuConfig
+    from src.nonebot_plugins.liteyuki_setu.models import ImageQuery, ProviderCapabilities, UnsupportedQueryError
+    from src.nonebot_plugins.liteyuki_setu.providers.base import ImageProvider
+    from src.nonebot_plugins.liteyuki_setu.service import choose_providers
+
+    class SimpleRandomProvider(ImageProvider):
+        name = "mirlkoi"
+        capabilities = ProviderCapabilities(random=True, count=True)
+
+        async def fetch(self, _query):
+            return []
+
+    with pytest.raises(UnsupportedQueryError):
+        choose_providers(
+            ImageQuery(exclude_ai=True, explicit_filters=frozenset({"exclude_ai"})),
+            SetuConfig(setu_provider_order=["mirlkoi"], setu_provider_weights={"mirlkoi": 1}),
+            {"mirlkoi": SimpleRandomProvider()},
+        )
+
+
+def test_weighted_selection_skips_zero_and_does_not_repeat(monkeypatch) -> None:
+    _init()
+    from src.nonebot_plugins.liteyuki_setu import service
+    from src.nonebot_plugins.liteyuki_setu.config import SetuConfig
+    from src.nonebot_plugins.liteyuki_setu.models import ImageQuery
+
+    providers = {
+        name: SimpleNamespace(name=name, safe_available=True, supports=lambda _query: True)
+        for name in ("lolicon", "mirlkoi")
+    }
+    monkeypatch.setattr(service.random, "choices", lambda population, **_kwargs: [population[-1]])
+    selected = service.choose_providers(
+        ImageQuery(),
+        SetuConfig(
+            setu_provider_order=["lolicon", "mirlkoi"],
+            setu_provider_weights={"lolicon": 0, "mirlkoi": 3},
+        ),
+        providers,
+    )
+    assert [provider.name for provider in selected] == ["mirlkoi"]
 
 
 def test_group_storage_daily_limit_and_reset_preserves_other_plugin_configuration() -> None:
@@ -150,7 +231,7 @@ def test_r18_parser_is_private_opt_in_and_forces_one_image() -> None:
     with pytest.raises(UnsafeQueryError):
         parse_query("--r18")
     query = parse_query("--r18 5 原神", allow_r18=True)
-    assert query.r18 and query.count == 1 and query.keyword == "原神" and query.provider == "lolicon"
+    assert query.r18 and query.count == 1 and query.keyword == "原神" and query.provider == "auto"
 
 
 def test_lolicon_r18_requires_adult_result_and_forces_grade() -> None:

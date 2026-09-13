@@ -4,6 +4,7 @@ from dataclasses import asdict, dataclass
 from typing import Any
 
 from .config import SetuConfig
+from .providers.registry import provider_names
 
 NAMESPACE = "liteyuki_setu"
 
@@ -54,7 +55,7 @@ def get_group_settings(group_id: str, config: SetuConfig) -> GroupSettings:
     defaults["recall_seconds"] = min(max(int(defaults["recall_seconds"]), 5), 600)
     defaults["cooldown_seconds"] = min(max(int(defaults["cooldown_seconds"]), 0), 3600)
     defaults["daily_image_limit_per_user"] = min(max(int(defaults["daily_image_limit_per_user"]), 0), 1000)
-    if defaults["provider"] not in {"auto", "lolicon", "mirlkoi"}:
+    if defaults["provider"] not in provider_names(include_auto=True):
         defaults["provider"] = config.setu_default_provider
     return GroupSettings(**defaults)
 

@@ -144,6 +144,7 @@ def test_proxy_failure_logs_provider_reason_and_preserves_auto_fallback(monkeypa
     from src.nonebot_plugins.liteyuki_setu.models import ImageQuery
 
     monkeypatch.setattr(service, "health", service.ProviderHealth())
+    monkeypatch.setattr(service.random, "choices", lambda population, **_kwargs: [population[0]])
     config = SetuConfig(setu_exclude_ai=False, setu_request_retries=0)
     with patch.object(service.logger, "warning") as warning:
         result = asyncio.run(service.fetch_images(ImageQuery(exclude_ai=False), config, client=_FallbackClient()))

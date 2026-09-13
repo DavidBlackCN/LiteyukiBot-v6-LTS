@@ -8,6 +8,7 @@ from .base import ImageProvider
 
 class LoliconProvider(ImageProvider):
     name = "lolicon"
+    rating_mode = "filterable"
     capabilities = ProviderCapabilities(random=True, count=True, keyword=True, tags=True, uid=True,
                                         size=True, exclude_ai=True, orientation=True, metadata=True,
                                         safe_classification=True, r18=True)

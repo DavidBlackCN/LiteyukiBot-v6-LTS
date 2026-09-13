@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import random
 import time
 from dataclasses import dataclass, replace
 from typing import Any
@@ -12,7 +13,8 @@ from .config import SetuConfig
 from .models import (ImageQuery, ImageResult, NoResultError, ProviderError,
                      ProviderUnavailableError, UnsupportedQueryError, is_result_allowed)
 from .network import HttpClient
-from .providers import LoliconProvider, MirlKoiProvider
+from .providers.registry import PROVIDER_REGISTRY, get_provider_spec
+from .recent import DedupLease, RecentDeduplicator
 
 _PIXIV_HEADERS = {"Referer": "https://www.pixiv.net/", "User-Agent": "Mozilla/5.0"}
 
@@ -64,6 +66,8 @@ class Cooldown:
 
 health = ProviderHealth()
 cooldown = Cooldown()
+recent_dedup = RecentDeduplicator()
+_dedup_leases: dict[int, tuple[ImageResult, DedupLease]] = {}
 
 
 def _api_timeout(config: SetuConfig) -> float:
@@ -76,7 +80,8 @@ def _image_timeout(config: SetuConfig) -> float:
 
 def _provider_name(provider: Any) -> str:
     name = getattr(provider, "name", getattr(provider, "provider", ""))
-    return "Lolicon" if name == "lolicon" else "MirlKoi" if name == "mirlkoi" else str(name)
+    spec = get_provider_spec(str(name))
+    return spec.display_name if spec else str(name)
 
 
 def _image_options(result: ImageResult, config: SetuConfig) -> tuple[dict[str, str] | None, str | None]:
@@ -88,15 +93,33 @@ def _image_options(result: ImageResult, config: SetuConfig) -> tuple[dict[str, s
 
 
 def build_providers(config: SetuConfig, client: HttpClient) -> dict[str, Any]:
-    return {
-        "lolicon": LoliconProvider(client, config.setu_lolicon_api_url, config.setu_pixiv_proxy,
-                                   config.setu_lolicon_api_http_proxy),
-        "mirlkoi": MirlKoiProvider(client, config.setu_mirlkoi_base_url, config.setu_mirlkoi_endpoint),
-    }
+    return {name: spec.factory(client, config) for name, spec in PROVIDER_REGISTRY.items()}
 
 
 def _enabled(name: str, config: SetuConfig) -> bool:
     return bool(getattr(config, f"setu_{name}_enabled", False))
+
+
+def _rating_allowed(name: str, query: ImageQuery, config: SetuConfig, *, explicit: bool) -> bool:
+    spec = get_provider_spec(name)
+    rating_mode = spec.rating_mode if spec else "unclassified"
+    if query.r18:
+        return rating_mode in {"filterable", "bucketed"}
+    if rating_mode == "unclassified" and not explicit:
+        return bool(getattr(config, f"setu_{name}_random_pool_enabled", False))
+    return True
+
+
+def _weighted_order(providers: list[Any], config: SetuConfig) -> list[Any]:
+    remaining = [provider for provider in providers
+                 if config.setu_provider_weights.get(provider.name, 0) > 0]
+    ordered: list[Any] = []
+    while remaining:
+        weights = [config.setu_provider_weights.get(provider.name, 0) for provider in remaining]
+        selected = random.choices(remaining, weights=weights, k=1)[0]
+        ordered.append(selected)
+        remaining.remove(selected)
+    return ordered
 
 
 def choose_providers(query: ImageQuery, config: SetuConfig, providers: dict[str, Any]) -> list[Any]:
@@ -109,6 +132,10 @@ def choose_providers(query: ImageQuery, config: SetuConfig, providers: dict[str,
             continue
         if not provider.safe_available:
             continue
+        if not _rating_allowed(name, query, config, explicit=explicit):
+            if explicit:
+                raise UnsupportedQueryError("该图片源不支持请求的内容分级。")
+            continue
         if not provider.supports(query):
             if explicit:
                 raise UnsupportedQueryError("该图片源不支持此筛选条件。")
@@ -116,6 +143,8 @@ def choose_providers(query: ImageQuery, config: SetuConfig, providers: dict[str,
         if not health.available(name):
             continue
         selected.append(provider)
+    if not explicit:
+        selected = _weighted_order(selected, config)
     if not selected:
         if explicit:
             raise ProviderUnavailableError(f"{query.provider} 当前不可用，请稍后重试或使用 --source auto。")
@@ -129,6 +158,7 @@ async def fetch_images(query: ImageQuery, config: SetuConfig, *, client: HttpCli
             return await fetch_images(query, config, client=owned)
     providers = build_providers(config, client)
     last_error: Exception | None = None
+    saw_no_result = False
     for provider in choose_providers(query, config, providers):
         try:
             results = [result for result in await provider.fetch(query) if is_result_allowed(result, r18=query.r18)]
@@ -138,13 +168,18 @@ async def fetch_images(query: ImageQuery, config: SetuConfig, *, client: HttpCli
             return results[:query.count]
         except NoResultError:
             # An empty search is a valid answer and must not be treated as an outage.
-            raise
+            if query.provider != "auto":
+                raise
+            saw_no_result = True
+            continue
         except ProviderError as exc:
             logger.warning(f"{_provider_name(provider)} API 请求失败: {exc}")
             health.failure(provider.name, config, exc)
             last_error = exc
             if query.provider != "auto":
                 raise ProviderUnavailableError(f"{provider.name} 当前不可用，请稍后重试或使用 --source auto。") from exc
+    if saw_no_result:
+        raise NoResultError("没有找到符合条件的图片。")
     if last_error:
         raise ProviderUnavailableError("图片源暂时不可用，请稍后再试。") from last_error
     raise UnsupportedQueryError("没有可用图片源支持当前筛选条件。")
@@ -177,16 +212,47 @@ def _result_key(result: ImageResult) -> tuple[str, str]:
     return "url", result.image_url
 
 
+def _dedup_ttl(config: SetuConfig) -> float:
+    return config.setu_recent_dedup_hours * 3600.0
+
+
+def commit_result(result: ImageResult, config: SetuConfig) -> None:
+    reserved = _dedup_leases.pop(id(result), None)
+    if reserved is None or reserved[0] is not result:
+        return
+    recent_dedup.commit(
+        reserved[1], ttl_seconds=_dedup_ttl(config),
+        max_entries=config.setu_recent_dedup_max_entries,
+    )
+
+
+def release_result(result: ImageResult) -> None:
+    reserved = _dedup_leases.pop(id(result), None)
+    if reserved is not None and reserved[0] is result:
+        recent_dedup.release(reserved[1])
+
+
+def release_results(results: list[tuple[ImageResult, bytes]]) -> None:
+    for result, _raw in results:
+        release_result(result)
+
+
 async def _fetch_with_refills(provider: Any, query: ImageQuery, config: SetuConfig,
                               image_client: HttpClient) -> list[tuple[ImageResult, bytes]]:
     successful: list[tuple[ImageResult, bytes]] = []
     seen: set[tuple[str, str]] = set()
-    for attempt in range(3):
+    saw_recent_duplicate = False
+    saw_download_failure = False
+    max_attempts = 1 + config.setu_recent_dedup_refill_attempts
+    for attempt in range(max_attempts):
         missing = query.count - len(successful)
         if missing <= 0:
             break
         if attempt:
-            logger.info(f"{_provider_name(provider)} 补图: missing={missing} attempt={attempt}/2")
+            logger.info(
+                f"{_provider_name(provider)} 补图: missing={missing} "
+                f"attempt={attempt}/{max_attempts - 1}"
+            )
         refill_query = query if attempt == 0 else replace(query, count=missing)
         try:
             returned = await provider.fetch(refill_query)
@@ -200,17 +266,55 @@ async def _fetch_with_refills(provider: Any, query: ImageQuery, config: SetuConf
                 logger.warning(f"{_provider_name(provider)} 补图请求失败，保留已下载图片: {exc}")
                 break
             raise
-        accepted = [
-            result for result in returned
-            if is_result_allowed(result, r18=query.r18) and _result_key(result) not in seen
-        ]
-        for result in accepted:
-            seen.add(_result_key(result))
+        accepted: list[ImageResult] = []
+        leases: dict[int, DedupLease] = {}
+        for result in returned:
+            result_key = _result_key(result)
+            if not is_result_allowed(result, r18=query.r18) or result_key in seen:
+                continue
+            seen.add(result_key)
+            if config.setu_recent_dedup_enabled:
+                lease = recent_dedup.reserve(
+                    result, ttl_seconds=_dedup_ttl(config),
+                    max_entries=config.setu_recent_dedup_max_entries,
+                )
+                if lease is None:
+                    saw_recent_duplicate = True
+                    continue
+                leases[id(result)] = lease
+            accepted.append(result)
         logger.info(f"{_provider_name(provider)} 图片结果: requested={missing} returned={len(returned)} accepted={len(accepted)}")
-        downloaded = await download_results(accepted, config, client=image_client)
-        successful.extend(downloaded[:missing])
-        logger.info(f"{_provider_name(provider)} 图片下载: success={len(downloaded)} failed={len(accepted) - len(downloaded)}")
+        try:
+            downloaded = await download_results(accepted, config, client=image_client)
+        except BaseException:
+            for lease in leases.values():
+                recent_dedup.release(lease)
+            raise
+        downloaded_ids = {id(result) for result, _raw in downloaded}
+        for result in accepted:
+            if id(result) not in downloaded_ids and id(result) in leases:
+                recent_dedup.release(leases[id(result)])
+        usable: list[tuple[ImageResult, bytes]] = []
+        for result, raw in downloaded:
+            lease = leases.get(id(result))
+            if lease is not None:
+                if not recent_dedup.reserve_hash(lease, raw):
+                    recent_dedup.release(lease)
+                    saw_recent_duplicate = True
+                    continue
+                _dedup_leases[id(result)] = (result, lease)
+            usable.append((result, raw))
+        saw_download_failure = saw_download_failure or len(downloaded) < len(accepted)
+        successful.extend(usable[:missing])
+        for extra_result, _raw in usable[missing:]:
+            release_result(extra_result)
+        logger.info(
+            f"{_provider_name(provider)} 图片下载: success={len(usable)} "
+            f"failed={len(accepted) - len(downloaded)} duplicate={len(downloaded) - len(usable)}"
+        )
     logger.info(f"{_provider_name(provider)} 图片获取完成: requested={query.count} downloaded={len(successful)}")
+    if not successful and saw_recent_duplicate and not saw_download_failure:
+        raise NoResultError("没有找到近期未发送过的图片。")
     return successful[:query.count]
 
 
@@ -219,6 +323,7 @@ async def fetch_and_download(query: ImageQuery, config: SetuConfig) -> list[tupl
     async with HttpClient(_api_timeout(config), config.setu_request_retries) as api_client:
         providers = build_providers(config, api_client)
         last_error: Exception | None = None
+        saw_no_result = False
         for provider in choose_providers(query, config, providers):
             try:
                 async with HttpClient(_image_timeout(config), config.setu_request_retries) as image_client:
@@ -228,13 +333,18 @@ async def fetch_and_download(query: ImageQuery, config: SetuConfig) -> list[tupl
                 health.success(provider.name)
                 return downloaded
             except NoResultError:
-                raise
+                if query.provider != "auto":
+                    raise
+                saw_no_result = True
+                continue
             except ProviderError as exc:
                 logger.warning(f"{_provider_name(provider)} 图片获取失败: {exc}")
                 health.failure(provider.name, config, exc)
                 last_error = exc
                 if query.provider != "auto":
                     raise ProviderUnavailableError(f"{provider.name} 当前不可用，请稍后重试或使用 --source auto。") from exc
+        if saw_no_result:
+            raise NoResultError("没有找到符合条件的图片。")
         if last_error:
             raise ProviderUnavailableError("图片源暂时不可用，请稍后再试。") from last_error
         raise UnsupportedQueryError("没有可用图片源支持当前筛选条件。")
@@ -247,5 +357,5 @@ def metadata_text(result: ImageResult) -> str:
         lines.append(f"画师：{result.author}")
     if result.pid is not None:
         lines.append(f"PID：{result.pid}")
-    lines.append(f"来源：{result.provider.title()}")
+    lines.append(f"来源：{_provider_name(result)}")
     return "\n".join(lines)
