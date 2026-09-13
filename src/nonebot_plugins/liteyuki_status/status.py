@@ -89,25 +89,26 @@ status_alc = on_alconna(
 
 
 STATUS_CACHE_TTL = 300
-status_card_cache: dict[str, tuple[bytes, float]] = {}
-_status_render_locks: defaultdict[str, asyncio.Lock] = defaultdict(asyncio.Lock)
+status_card_cache: dict[tuple[str, bool], tuple[bytes, float]] = {}
+_status_render_locks: defaultdict[tuple[str, bool], asyncio.Lock] = defaultdict(asyncio.Lock)
 
 
-def _cache_is_fresh(lang_code: str, now: float) -> bool:
-    cached = status_card_cache.get(lang_code)
+def _cache_is_fresh(cache_key: tuple[str, bool], now: float) -> bool:
+    cached = status_card_cache.get(cache_key)
     return cached is not None and now - cached[1] <= STATUS_CACHE_TTL
 
 
 async def _get_status_card(
     lang_code: str, *, refresh: bool, markdown: bool, bot_id: str
 ) -> bytes:
+    cache_key = (lang_code, markdown)
     request_started_at = time.monotonic()
-    if not refresh and _cache_is_fresh(lang_code, request_started_at):
-        return status_card_cache[lang_code][0]
+    if not refresh and _cache_is_fresh(cache_key, request_started_at):
+        return status_card_cache[cache_key][0]
 
-    async with _status_render_locks[lang_code]:
+    async with _status_render_locks[cache_key]:
         now = time.monotonic()
-        cached = status_card_cache.get(lang_code)
+        cached = status_card_cache.get(cache_key)
         if cached and (
             (not refresh and now - cached[1] <= STATUS_CACHE_TTL)
             or (refresh and cached[1] >= request_started_at)
@@ -138,7 +139,7 @@ async def _get_status_card(
                 logger.warning("状态卡刷新失败，继续使用上一张缓存")
                 return cached[0]
             raise
-        status_card_cache[lang_code] = (image, time.monotonic())
+        status_card_cache[cache_key] = (image, time.monotonic())
         return image
 
 
