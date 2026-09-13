@@ -324,6 +324,12 @@ async def _notice_nickname(bot: Bot, group_id: int, user_id: int) -> str:
     try:
         return member_nickname(await _member_info(bot, group_id, user_id))
     except Exception as error:
+        logger.debug(f"群通知成员信息查询失败，尝试查询陌生人资料: {error!r}")
+    try:
+        return member_nickname(
+            await bot.get_stranger_info(user_id=user_id, no_cache=True)
+        )
+    except Exception as error:
         logger.debug(f"群通知昵称查询失败，使用 QQ 号代替: {error!r}")
         return str(user_id)
 

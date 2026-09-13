@@ -128,6 +128,24 @@ def test_group_manager_core_behaviour() -> None:
             )
 
         asyncio.run(verify_api_arguments())
+
+        from src.nonebot_plugins.liteyuki_group_manager.handlers import (
+            _notice_nickname,
+        )
+
+        async def verify_leave_notice_nickname():
+            bot = SimpleNamespace(
+                get_group_member_info=AsyncMock(
+                    side_effect=RuntimeError("member already left")
+                ),
+                get_stranger_info=AsyncMock(return_value={"nickname": "小雪"}),
+            )
+            assert await _notice_nickname(bot, 10001, 2) == "小雪"
+            bot.get_stranger_info.assert_awaited_once_with(
+                user_id=2, no_cache=True,
+            )
+
+        asyncio.run(verify_leave_notice_nickname())
         """
     )
 
