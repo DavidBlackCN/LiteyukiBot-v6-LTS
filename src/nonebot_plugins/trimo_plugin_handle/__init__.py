@@ -40,6 +40,7 @@ from .utils import (
     remove_idiom,
     HANDLE_COMMON_PHRASES,
     HANDLE_LEGAL_PHRASES,
+    ensure_wordbase_loaded,
 )
 
 __plugin_meta__ = PluginMetadata(
@@ -309,6 +310,7 @@ async def _(
             "用法：更正拼音 <成语> <拼音1> <拼音2> <拼音3> <拼音4>"
         )
 
+    ensure_wordbase_loaded()
     if idiom not in HANDLE_LEGAL_PHRASES:
         await handle_update_pinyin_matcher.finish(
             "未在词库中找到该成语，请使用 `新成语 <成语>` 来添加成语"

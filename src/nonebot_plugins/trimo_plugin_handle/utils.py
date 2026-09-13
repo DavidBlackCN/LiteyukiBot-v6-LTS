@@ -1,5 +1,7 @@
 import json
 import random
+import threading
+import threading
 from io import BytesIO
 from pathlib import Path
 from typing import Dict, List, Tuple, TypedDict, Optional, Union
@@ -27,20 +29,37 @@ class IdiomEntry(TypedDict):
     pinyin: List[str]
 
 
-HANDLE_COMMON_PHRASES: List[str] = json.load(
-    handle_common_idiom_path.open("r", encoding="utf-8")
-)
-HANDLE_LEGAL_PHRASES: List[str] = json.load(
-    handle_all_idiom_path.open("r", encoding="utf-8")
-)
-HANDLE_ANSWER_PHRASES: Dict[str, IdiomEntry] = json.load(
-    handle_answer_path.open("r", encoding="utf-8")
-)
-handle_now_common_idioms = HANDLE_COMMON_PHRASES.copy()
-handle_now_all_idioms = HANDLE_LEGAL_PHRASES.copy()
-random.shuffle(handle_now_common_idioms)
-random.shuffle(handle_now_all_idioms)
+HANDLE_COMMON_PHRASES: List[str] = []
+HANDLE_LEGAL_PHRASES: List[str] = []
+HANDLE_ANSWER_PHRASES: Dict[str, IdiomEntry] = {}
+handle_now_common_idioms: List[str] = []
+handle_now_all_idioms: List[str] = []
+_wordbase_loaded = False
+_wordbase_lock = threading.Lock()
 
+
+def ensure_wordbase_loaded() -> None:
+    """Load the large idiom JSON files once, only when game data is needed."""
+    global _wordbase_loaded
+    if _wordbase_loaded:
+        return
+    with _wordbase_lock:
+        if _wordbase_loaded:
+            return
+        with handle_common_idiom_path.open("r", encoding="utf-8") as file:
+            common = json.load(file)
+        with handle_all_idiom_path.open("r", encoding="utf-8") as file:
+            legal = json.load(file)
+        with handle_answer_path.open("r", encoding="utf-8") as file:
+            answers = json.load(file)
+        HANDLE_COMMON_PHRASES.extend(common)
+        HANDLE_LEGAL_PHRASES.extend(legal)
+        HANDLE_ANSWER_PHRASES.update(answers)
+        handle_now_common_idioms.extend(HANDLE_COMMON_PHRASES)
+        handle_now_all_idioms.extend(HANDLE_LEGAL_PHRASES)
+        random.shuffle(handle_now_common_idioms)
+        random.shuffle(handle_now_all_idioms)
+        _wordbase_loaded = True
 
 def v_to_u(v_strings: List[str]) -> List[str]:
     """
@@ -75,6 +94,7 @@ def wordbase_updater(
 
     return: 是否为原有成语，成语释义，词条的拼音
     """
+    ensure_wordbase_loaded()
     if (not idiom) or (len(idiom) != 4):
         raise ValueError("不可以非四字成语载入词库")
 
@@ -131,6 +151,7 @@ def remove_idiom(idiom: str) -> List[str]:
     idiom: 需要删除的成语
     return: 是否成功删除
     """
+    ensure_wordbase_loaded()
     operations = []
     if idiom in HANDLE_LEGAL_PHRASES:
         HANDLE_LEGAL_PHRASES.remove(idiom)
@@ -163,10 +184,12 @@ def remove_idiom(idiom: str) -> List[str]:
 
 
 def legal_idiom(word: str) -> bool:
+    ensure_wordbase_loaded()
     return word in HANDLE_LEGAL_PHRASES
 
 
 def random_idiom(is_hard: bool = False) -> Tuple[str, str]:
+    ensure_wordbase_loaded()
     if is_hard:
         global handle_now_all_idioms
         if not handle_now_all_idioms:
@@ -230,6 +253,7 @@ def get_pinyin(
     return: 返回一个元组，每个元素是一个三元组，分别表示该汉字的声母，韵母，声调
     """
 
+    ensure_wordbase_loaded()
     return [
         split_pinyin(py)
         for py in (

@@ -35,6 +35,12 @@ log_level: INFO
 safe_mode: false
 # 自动更新开关。
 auto_update: false
+# Liteyuki 图片渲染最大并发数；4G 或更小机器建议保持 1。
+liteyuki_render_max_concurrency: 1
+# 等待图片渲染槽位的最长时间（秒）；仅限制排队时间，不是整个截图操作的超时时间。
+liteyuki_render_queue_timeout: 15
+# /status Markdown 图片的设备像素比；2 在清晰度与内存占用之间更均衡。
+status_render_device_scale_factor: 2
 
 # ==================== 二、核心插件配置 ====================
 
