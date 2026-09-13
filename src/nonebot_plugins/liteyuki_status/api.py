@@ -1,3 +1,4 @@
+import math
 import platform
 
 import aiohttp
@@ -283,7 +284,25 @@ async def generate_status_card_markdown(
         acknowledgement=status_config.status_acknowledgement,
     )
 
-    return await md_to_pic(fnl_text, width=540, device_scale_factor=4)
+    return await md_to_pic(
+        fnl_text,
+        width=540,
+        device_scale_factor=_status_render_device_scale_factor(),
+    )
+
+
+def _status_render_device_scale_factor() -> float:
+    value = get_config("status_render_device_scale_factor", 2)
+    try:
+        if isinstance(value, bool):
+            raise ValueError
+        scale_factor = float(value)
+        if not math.isfinite(scale_factor) or not 1 <= scale_factor <= 3:
+            raise ValueError
+        return scale_factor
+    except (TypeError, ValueError):
+        nonebot.logger.warning("status_render_device_scale_factor 无效，使用默认值 2")
+        return 2.0
 
 
 # def gogop(x):

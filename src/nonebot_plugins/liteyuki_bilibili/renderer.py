@@ -26,6 +26,8 @@ _LABELS = {
     "live_end": "BILIBILI · LIVE END",
 }
 _METRIC_LABELS = {"view": "播放", "like": "点赞", "reply": "评论", "coin": "投币", "area": "分区"}
+BILIBILI_IMAGE_DOWNLOAD_CONCURRENCY = 2
+_image_download_semaphore = asyncio.Semaphore(BILIBILI_IMAGE_DOWNLOAD_CONCURRENCY)
 
 
 def event_view(event: BilibiliEvent) -> dict[str, Any]:
@@ -71,7 +73,8 @@ async def render_event_card(event: BilibiliEvent, client, scale_factor: float = 
 
 
 async def _data_uri(client, url: str) -> str:
-    image = await client.download_image(url)
+    async with _image_download_semaphore:
+        image = await client.download_image(url)
     encoded = base64.b64encode(image.data).decode("ascii")
     return f"data:{image.content_type};base64,{encoded}"
 

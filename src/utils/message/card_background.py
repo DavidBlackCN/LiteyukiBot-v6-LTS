@@ -1,9 +1,12 @@
 """Opt-in background downloading shared by public cards; never a render hook."""
 import asyncio
 import base64
+import math
+from io import BytesIO
 import time
 
 import aiohttp
+from PIL import Image, ImageOps, UnidentifiedImageError
 from nonebot import get_driver, logger
 from pydantic import BaseModel, Field, ValidationError
 
@@ -33,12 +36,45 @@ def resolve_config(raw=None) -> CardBackgroundConfig:
 
 
 CARD_BACKGROUND_MAX_BYTES = 12 * 1024 * 1024
+CARD_BACKGROUND_HARD_MAX_PIXELS = 16_777_216
+CARD_BACKGROUND_TARGET_MAX_PIXELS = 4_194_304
+CARD_BACKGROUND_TARGET_MAX_DIMENSION = 2560
 CACHE_TTL = 60
 RETRY_TTL = 10
 _lock = asyncio.Lock()
 _cache_url = None
 _cache_image = None
 _next_request = 0.0
+
+
+def _prepare_background(content: bytes) -> tuple[bytes, str]:
+    """Validate, flatten, and bound an image before Chromium sees it."""
+    with Image.open(BytesIO(content)) as image:
+        source_format = image.format
+        width, height = image.size
+        pixels = width * height
+        if not width or not height or pixels > CARD_BACKGROUND_HARD_MAX_PIXELS:
+            raise ValueError("background image dimensions exceed the hard limit")
+        if getattr(image, "is_animated", False):
+            image.seek(0)
+        image = ImageOps.exif_transpose(image)
+        width, height = image.size
+        scale = min(
+            1.0,
+            math.sqrt(CARD_BACKGROUND_TARGET_MAX_PIXELS / (width * height)),
+            CARD_BACKGROUND_TARGET_MAX_DIMENSION / max(width, height),
+        )
+        if scale < 1:
+            image = image.resize(
+                (max(1, int(width * scale)), max(1, int(height * scale))),
+                Image.Resampling.LANCZOS,
+            )
+        output = BytesIO()
+        if source_format == "JPEG" and image.mode not in {"RGBA", "LA"}:
+            image.convert("RGB").save(output, format="JPEG", quality=85)
+            return output.getvalue(), "image/jpeg"
+        image.save(output, format="PNG")
+        return output.getvalue(), "image/png"
 
 
 async def get_card_background(*, config: CardBackgroundConfig | None = None) -> dict:
@@ -71,10 +107,11 @@ async def get_card_background(*, config: CardBackgroundConfig | None = None) -> 
                     if not content:
                         raise ValueError("empty image")
                     final_url = str(response.url)
-            _cache_image = f"data:{media_type};base64,{base64.b64encode(content).decode('ascii')}"
+            processed, final_media_type = await asyncio.to_thread(_prepare_background, bytes(content))
+            _cache_image = f"data:{final_media_type};base64,{base64.b64encode(processed).decode('ascii')}"
             _next_request = time.monotonic() + CACHE_TTL
             logger.debug(f"Card background loaded: url={final_url}, content_type={media_type}, size={len(content)} bytes")
-        except (aiohttp.ClientError, asyncio.TimeoutError, TimeoutError, ValueError) as error:
+        except (aiohttp.ClientError, asyncio.TimeoutError, TimeoutError, ValueError, UnidentifiedImageError, OSError) as error:
             _next_request = time.monotonic() + RETRY_TTL
             logger.debug(f"Card background unavailable, using {'cached image' if _cache_image else 'fallback'}: {error}")
         return {"image": _cache_image, "mask": mask}

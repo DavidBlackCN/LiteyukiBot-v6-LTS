@@ -1,4 +1,6 @@
+import asyncio
 import time
+from collections import defaultdict
 
 import aiohttp
 import zhDateTime
@@ -9,6 +11,7 @@ from src.utils.base.language import get_user_lang
 from src.utils.base.ly_typing import T_Bot, T_MessageEvent
 
 from .api import *
+from src.utils.message.html_tool import RenderQueueTimeoutError
 
 require("nonebot_plugin_alconna")
 from nonebot_plugin_alconna import (
@@ -85,7 +88,58 @@ status_alc = on_alconna(
 )
 
 
-status_card_cache = {}  # lang -> bytes
+STATUS_CACHE_TTL = 300
+status_card_cache: dict[str, tuple[bytes, float]] = {}
+_status_render_locks: defaultdict[str, asyncio.Lock] = defaultdict(asyncio.Lock)
+
+
+def _cache_is_fresh(lang_code: str, now: float) -> bool:
+    cached = status_card_cache.get(lang_code)
+    return cached is not None and now - cached[1] <= STATUS_CACHE_TTL
+
+
+async def _get_status_card(
+    lang_code: str, *, refresh: bool, markdown: bool, bot_id: str
+) -> bytes:
+    request_started_at = time.monotonic()
+    if not refresh and _cache_is_fresh(lang_code, request_started_at):
+        return status_card_cache[lang_code][0]
+
+    async with _status_render_locks[lang_code]:
+        now = time.monotonic()
+        cached = status_card_cache.get(lang_code)
+        if cached and (
+            (not refresh and now - cached[1] <= STATUS_CACHE_TTL)
+            or (refresh and cached[1] >= request_started_at)
+        ):
+            return cached[0]
+        try:
+            motto = dict(zip(("text", "source"), await get_hitokoto()))
+            image = (
+                await generate_status_card_markdown(
+                    bot=await get_bots_data(),
+                    hardware=await get_hardware_data(lang_code),
+                    liteyuki=await get_liteyuki_data(),
+                    lang=lang_code,
+                    motto=motto,
+                )
+                if markdown
+                else await generate_status_card(
+                    bot=await get_bots_data(),
+                    hardware=await get_hardware_data(lang_code),
+                    liteyuki=await get_liteyuki_data(),
+                    lang=lang_code,
+                    motto=motto,
+                    bot_id=bot_id,
+                )
+            )
+        except Exception:
+            if cached:
+                logger.warning("状态卡刷新失败，继续使用上一张缓存")
+                return cached[0]
+            raise
+        status_card_cache[lang_code] = (image, time.monotonic())
+        return image
 
 
 @status_alc.handle()
@@ -93,45 +147,19 @@ async def _(
     result: Arparma,
     event: T_MessageEvent,
     bot: T_Bot,
-    # refresh: Query[bool] = AlconnaQuery("refresh.value", False),
 ):
     ulang = get_user_lang(event_utils.get_user_id(event))  # type: ignore
-    global status_card_cache
-    if (
-        result.options["refresh"].value
-        or ulang.lang_code not in status_card_cache.keys()
-        or (
-            ulang.lang_code in status_card_cache.keys()
-            and time.time() - status_card_cache[ulang.lang_code][1] > 300  # 缓存
+    try:
+        image = await _get_status_card(
+            ulang.lang_code,
+            refresh=result.options["refresh"].value,
+            markdown=result.options["markdown"].value,
+            bot_id=bot.self_id,
         )
-    ):
-        motto = dict(zip(("text", "source"), await get_hitokoto()))
-        status_card_cache[ulang.lang_code] = (
-            (
-                await generate_status_card_markdown(
-                    bot=await get_bots_data(),
-                    hardware=await get_hardware_data(ulang.lang_code),
-                    liteyuki=await get_liteyuki_data(),
-                    lang=ulang.lang_code,
-                    motto=motto,
-                )
-                if result.options["markdown"].value
-                else (
-                    await generate_status_card(
-                        bot=await get_bots_data(),
-                        hardware=await get_hardware_data(ulang.lang_code),
-                        liteyuki=await get_liteyuki_data(),
-                        lang=ulang.lang_code,
-                        motto=motto,
-                        bot_id=bot.self_id,
-                    )
-                )
-            ),
-            time.time(),
-        )
-    image = status_card_cache[ulang.lang_code][0]
+    except RenderQueueTimeoutError:
+        await status_alc.finish(UniMessage.text("当前图片渲染任务较多，请稍后再试。"))
+        return
     await status_alc.finish(UniMessage.image(raw=image))
-
 
 @status_alc.assign("memory")
 async def _():
