@@ -185,13 +185,12 @@
 
 - `色图 [数量] [关键词]`：随机获取或按关键词获取，数量可写为 `3` 或 `3张`，单次 1–5 张。
 - `色图 -t <标签> [-t <标签>] [数量]`：标签查询；`--uid <Pixiv UID>`、`--pid <Pixiv PID>`、`--author <作者>`、`--portrait`、`--landscape` 仅在当前图片源支持时可用。
-- `色图 --source auto|lolicon|random_mage|duckmo|duckmo_x|mirlkoi|liemoe|waifuim`、`--size regular|original`、`--no-ai`：选择来源、尺寸或加强 AI 过滤。`auto` 按权重随机选择，只会回退至能够完整表达显式筛选条件、内容分级正确且健康的来源。
+- `色图 --source auto|lolicon|random_mage|duckmo|mirlkoi|liemoe|waifuim`、`--size regular|original`、`--no-ai`：选择来源、尺寸或加强 AI 过滤。`auto` 按权重随机选择，只会回退至能够完整表达显式筛选条件、内容分级正确且健康的来源。
 - `色图 --r18 [筛选条件]`：仅已授权私聊可用，只进入明确可筛选或分桶的 R18 来源；数量由 `setu_r18_max_count` 限制。群聊和未授权私聊均在请求前拒绝。
 - `色图管理 状态|开启|关闭|撤回 开|关|撤回时间 <秒>|数量 <1-5>|来源 <名称>|AI过滤 开|关|冷却 <秒>|日限 <张数>|重置`：当前群 Bot ADMIN 管理本群；指定其他群仅 SUPERUSER 可用。
 - `色图管理 私聊R18 状态|开|关|添加 <QQ>|移除 <QQ>`：仅超级用户可配置持久化的私聊 R18 总开关与动态 QQ 白名单。
 - 群级覆盖持久化在 `Group.config["liteyuki_setu"]`，不修改部署者的 `config.yml`；每张成功发送的图片可以独立后台撤回；`日限` 按群、用户和配置时区持久化记录成功发送数量，`0` 表示不限。
 - 近期去重先比较 Pixiv PID/来源 URL/图片 URL，下载后再比较 64-bit dHash；只有获得有效发送回执才提交记录，失败会释放预留。第一版使用进程内 TTL 缓存，重启后清空。
-- DuckMo X 没有可靠内容分级，默认只能显式 `--source duckmo_x` 使用；管理员明确开启 `setu_duckmo_x_random_pool_enabled` 后才进入普通随机池，且永不进入 R18 池。作品版权归原作者及权利人所有。
 
 ### `liteyuki_remake` — 人生重开
 

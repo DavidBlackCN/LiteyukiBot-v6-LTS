@@ -40,6 +40,29 @@ def test_routing_capability_matrix(monkeypatch) -> None:
     }
 
 
+def test_registry_contains_only_supported_providers() -> None:
+    _init()
+    from src.nonebot_plugins.liteyuki_setu.config import SetuConfig
+    from src.nonebot_plugins.liteyuki_setu.providers.registry import provider_names
+
+    expected = {
+        "lolicon", "random_mage", "duckmo", "mirlkoi", "liemoe", "waifuim",
+    }
+    config = SetuConfig()
+    assert provider_names() == expected
+    assert set(config.setu_provider_order) == expected
+    assert set(config.setu_provider_weights) == expected
+
+
+def test_removed_source_is_rejected() -> None:
+    _init()
+    from src.nonebot_plugins.liteyuki_setu.parser import parse_query
+
+    removed_source = "duckmo" + "_x"
+    with pytest.raises(Exception, match="不支持"):
+        parse_query(f"--source {removed_source}")
+
+
 def test_disabled_and_unhealthy_providers_are_not_selected(monkeypatch) -> None:
     _init()
     from src.nonebot_plugins.liteyuki_setu import service

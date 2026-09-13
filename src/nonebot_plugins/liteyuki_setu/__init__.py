@@ -10,7 +10,7 @@ __plugin_meta__ = PluginMetadata(
     description="多来源二次元图片获取；群聊仅全年龄，私聊 R18 需显式授权。",
     usage=("/色图 [数量] [关键词]（数量可写 3 或 3张）\n/色图 -t 标签 [-t 标签] [数量]\n"
            "/色图 --uid UID | --pid PID | --author 作者\n"
-           "/色图 --source auto|lolicon|random_mage|duckmo|duckmo_x|mirlkoi|liemoe|waifuim\n"
+           "/色图 --source auto|lolicon|random_mage|duckmo|mirlkoi|liemoe|waifuim\n"
            "/色图 --size regular|original\n/色图 --no-ai\n"
            "/色图 --r18（仅已授权私聊，数量由全局上限控制）\n"
            "/色图管理 状态（当前群 Bot ADMIN；私聊 R18 仅 SUPERUSER）"),

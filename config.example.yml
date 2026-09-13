@@ -286,7 +286,6 @@ setu_provider_order:
   - lolicon
   - random_mage
   - duckmo
-  - duckmo_x
   - mirlkoi
   - liemoe
   - waifuim
@@ -294,7 +293,6 @@ setu_provider_weights:
   lolicon: 2
   random_mage: 2
   duckmo: 2
-  duckmo_x: 1
   mirlkoi: 2
   liemoe: 3
   waifuim: 1
@@ -335,13 +333,9 @@ setu_mirlkoi_r18_sort: "CDNsetu"
 setu_mirlkoi_random_sort: "CDNiw233"
 setu_mirlkoi_portrait_sort: "CDNmp"
 setu_mirlkoi_landscape_sort: "CDNpc"
-# DuckMo Pixiv 与 X；X 无内容分级，默认不进入 auto 随机池。
+# DuckMo Pixiv。
 setu_duckmo_enabled: true
 setu_duckmo_base_url: "https://api.mossia.top/duckMo"
-setu_duckmo_x_enabled: true
-setu_duckmo_x_url: "https://api.mossia.top/duckMo/x"
-setu_duckmo_x_render_url: "https://rand-x.mossia.top/"  # X 图片直链失败时的随机图备用地址
-setu_duckmo_x_random_pool_enabled: false
 # Random Mage；API Key 留空时使用公开访问。
 setu_random_mage_enabled: true
 setu_random_mage_base_url: "https://i.mukyu.ru"

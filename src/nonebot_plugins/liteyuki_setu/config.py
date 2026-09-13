@@ -36,12 +36,11 @@ class SetuConfig(BaseModel):
     setu_group_mode: Literal["whitelist", "blacklist"] = "whitelist"
     setu_enabled_groups: list[int] = Field(default_factory=list)
     setu_provider_order: list[str] = Field(default_factory=lambda: [
-        "lolicon", "random_mage", "duckmo", "duckmo_x", "mirlkoi", "liemoe",
-        "waifuim",
+        "lolicon", "random_mage", "duckmo", "mirlkoi", "liemoe", "waifuim",
     ])
     setu_provider_weights: dict[str, int] = Field(default_factory=lambda: {
         "lolicon": 2, "random_mage": 2, "duckmo": 2, "mirlkoi": 2, "liemoe": 3,
-        "duckmo_x": 1, "waifuim": 1,
+        "waifuim": 1,
     })
     setu_default_provider: str = "auto"
     setu_pixiv_proxy: str = "i.pximg.net"
@@ -71,10 +70,6 @@ class SetuConfig(BaseModel):
     setu_mirlkoi_landscape_sort: str = "CDNpc"
     setu_duckmo_enabled: bool = True
     setu_duckmo_base_url: str = "https://api.mossia.top/duckMo"
-    setu_duckmo_x_enabled: bool = True
-    setu_duckmo_x_url: str = "https://api.mossia.top/duckMo/x"
-    setu_duckmo_x_render_url: str = "https://rand-x.mossia.top/"
-    setu_duckmo_x_random_pool_enabled: bool = False
     setu_random_mage_enabled: bool = True
     setu_random_mage_base_url: str = "https://i.mukyu.ru"
     setu_random_mage_api_key: str = ""
@@ -86,8 +81,7 @@ class SetuConfig(BaseModel):
 
     @field_validator(
         "setu_lolicon_api_url", "setu_mirlkoi_base_url", "setu_duckmo_base_url",
-        "setu_duckmo_x_url", "setu_duckmo_x_render_url", "setu_random_mage_base_url",
-        "setu_liemoe_base_url",
+        "setu_random_mage_base_url", "setu_liemoe_base_url",
         "setu_waifuim_base_url",
     )
     @classmethod

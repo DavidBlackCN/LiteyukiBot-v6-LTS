@@ -97,11 +97,10 @@ def test_http_client_default_proxy_and_request_override() -> None:
     assert session.request_calls[1][1]["proxy"] == "http://special.example:7890"
 
 
-def test_general_api_proxy_reaches_random_mage_and_duckmo_x_and_lolicon_overrides() -> None:
+def test_general_api_proxy_reaches_random_mage_and_lolicon_overrides() -> None:
     _init()
     from src.nonebot_plugins.liteyuki_setu.models import ImageQuery
     from src.nonebot_plugins.liteyuki_setu.network import HttpClient
-    from src.nonebot_plugins.liteyuki_setu.providers.duckmo_x import DuckMoXProvider
     from src.nonebot_plugins.liteyuki_setu.providers.lolicon import LoliconProvider
     from src.nonebot_plugins.liteyuki_setu.providers.random_mage import RandomMageProvider
 
@@ -110,7 +109,6 @@ def test_general_api_proxy_reaches_random_mage_and_duckmo_x_and_lolicon_override
             "image": {"illust_id": 1, "user": {}},
             "urls": {"proxy": "https://image.example/a.jpg"},
         }]}},
-        {"success": True, "data": [{"pictureUrl": "https://pbs.twimg.com/a.jpg"}]},
         {"data": [{
             "pid": 2, "r18": False,
             "urls": {"regular": "https://i.pximg.net/a.jpg"},
@@ -122,9 +120,6 @@ def test_general_api_proxy_reaches_random_mage_and_duckmo_x_and_lolicon_override
 
     async def fetch_all():
         await RandomMageProvider(client, "https://i.mukyu.ru").fetch(ImageQuery(count=1))
-        await DuckMoXProvider(client, "https://api.mossia.top/duckMo/x").fetch(
-            ImageQuery(count=1, provider="duckmo_x"),
-        )
         await LoliconProvider(
             client, "https://api.lolicon.app/setu/v2", "i.pximg.net",
             "http://lolicon.example:7890",
@@ -132,7 +127,6 @@ def test_general_api_proxy_reaches_random_mage_and_duckmo_x_and_lolicon_override
 
     asyncio.run(fetch_all())
     assert [call[1]["proxy"] for call in session.request_calls] == [
-        "http://general.example:7890",
         "http://general.example:7890",
         "http://lolicon.example:7890",
     ]
@@ -333,24 +327,24 @@ def test_random_mage_download_falls_back_and_pximg_gets_referer() -> None:
                for _url, options in client.calls)
 
 
-def test_all_image_candidates_failed_and_duckmo_x_render_fallback() -> None:
+def test_all_random_mage_image_candidates_failed() -> None:
     _init()
     from src.nonebot_plugins.liteyuki_setu.config import SetuConfig
     from src.nonebot_plugins.liteyuki_setu.models import ImageResult
     from src.nonebot_plugins.liteyuki_setu.service import download_results
 
-    primary = "https://pbs.twimg.com/a.jpg"
-    render = "https://rand-x.mossia.top/"
+    primary = "https://proxy.example/a.jpg"
+    fallback = "https://origin.example/a.jpg"
     image = ImageResult(
-        provider="duckmo_x", image_url=primary,
-        fallback_image_urls=[render], is_adult=None,
+        provider="random_mage", image_url=primary,
+        fallback_image_urls=[fallback], is_adult=False,
     )
     fallback_client = _CandidateDownloadClient({primary})
     assert asyncio.run(download_results(
         [image], SetuConfig(), client=fallback_client,
     )) == [(image, b"image")]
 
-    failed_client = _CandidateDownloadClient({primary, render})
+    failed_client = _CandidateDownloadClient({primary, fallback})
     failed = asyncio.run(download_results([image], SetuConfig(), client=failed_client))
     assert failed == []
-    assert failed.failed_network_hosts == ["pbs.twimg.com"]
+    assert failed.failed_network_hosts == ["proxy.example"]

@@ -6,7 +6,6 @@ from typing import Any, Callable, Literal
 from ..models import ProviderCapabilities
 from .base import ImageProvider
 from .duckmo import DuckMoProvider
-from .duckmo_x import DuckMoXProvider
 from .liemoe import LieMoeProvider
 from .lolicon import LoliconProvider
 from .mirlkoi import MirlKoiProvider
@@ -56,15 +55,6 @@ PROVIDER_REGISTRY: dict[str, ProviderSpec] = {
         factory=lambda client, config: DuckMoProvider(client, config.setu_duckmo_base_url),
         rating_mode="filterable",
         capabilities=DuckMoProvider.capabilities,
-    ),
-    "duckmo_x": ProviderSpec(
-        name="duckmo_x",
-        display_name="DuckMo X",
-        factory=lambda client, config: DuckMoXProvider(
-            client, config.setu_duckmo_x_url, config.setu_duckmo_x_render_url,
-        ),
-        rating_mode="unclassified",
-        capabilities=DuckMoXProvider.capabilities,
     ),
     "random_mage": ProviderSpec(
         name="random_mage",

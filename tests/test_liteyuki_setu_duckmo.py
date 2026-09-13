@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 
 import nonebot
-import pytest
 
 
 def _init() -> None:
@@ -86,69 +85,3 @@ def test_duckmo_omits_ai_type_when_filter_is_disabled() -> None:
         ImageQuery(count=1, exclude_ai=False),
     ))
     assert "aiType" not in unrestricted.calls[0][2]["json"]
-
-
-def test_duckmo_x_loops_single_result_endpoint() -> None:
-    _init()
-    from src.nonebot_plugins.liteyuki_setu.models import ImageQuery
-    from src.nonebot_plugins.liteyuki_setu.providers.duckmo_x import DuckMoXProvider
-
-    client = _Client([
-        {"success": True, "data": [{"url": "https://x.com/a/status/1", "pictureUrl": "https://pbs/1.jpg"}]},
-        {"success": True, "data": [{"url": "https://x.com/b/status/2", "pictureUrl": "https://pbs/2.jpg"}]},
-    ])
-    result = asyncio.run(DuckMoXProvider(client, "https://api.example/duckMo/x").fetch(
-        ImageQuery(count=2, provider="duckmo_x")))
-    assert len(client.calls) == 2
-    assert [item.source_url for item in result] == ["https://x.com/a/status/1", "https://x.com/b/status/2"]
-    assert result[0].fallback_image_urls == ["https://rand-x.mossia.top/"]
-
-
-def test_duckmo_x_is_explicit_only_by_default() -> None:
-    _init()
-    from src.nonebot_plugins.liteyuki_setu.config import SetuConfig
-    from src.nonebot_plugins.liteyuki_setu.models import ImageQuery, UnsupportedQueryError
-    from src.nonebot_plugins.liteyuki_setu.providers.duckmo_x import DuckMoXProvider
-    from src.nonebot_plugins.liteyuki_setu.service import choose_providers
-
-    provider = DuckMoXProvider(_Client([]), "https://api.example/duckMo/x")
-    config = SetuConfig(
-        setu_provider_order=["duckmo_x"], setu_provider_weights={"duckmo_x": 1},
-    )
-    with pytest.raises(UnsupportedQueryError):
-        choose_providers(ImageQuery(), config, {"duckmo_x": provider})
-    assert choose_providers(
-        ImageQuery(provider="duckmo_x"), config, {"duckmo_x": provider},
-    ) == [provider]
-
-    enabled = config.model_copy(update={"setu_duckmo_x_random_pool_enabled": True})
-    assert choose_providers(ImageQuery(), enabled, {"duckmo_x": provider}) == [provider]
-
-
-def test_duckmo_x_network_error_falls_back_to_render_url() -> None:
-    _init()
-    from src.nonebot_plugins.liteyuki_setu.models import ImageQuery, NetworkError
-    from src.nonebot_plugins.liteyuki_setu.providers.duckmo_x import DuckMoXProvider
-
-    class Client:
-        async def request_json(self, *_args, **_kwargs):
-            raise NetworkError("图片源请求失败: ClientConnectorDNSError")
-
-    result = asyncio.run(DuckMoXProvider(
-        Client(), "https://api.example/duckMo/x", "https://render.example/",
-    ).fetch(ImageQuery(count=1, provider="duckmo_x")))
-    assert result[0].image_url == "https://render.example/"
-    assert result[0].fallback_image_urls == []
-    assert result[0].source_url is None
-
-
-def test_duckmo_x_business_error_does_not_fall_back() -> None:
-    _init()
-    from src.nonebot_plugins.liteyuki_setu.models import ImageQuery, ProviderError
-    from src.nonebot_plugins.liteyuki_setu.providers.duckmo_x import DuckMoXProvider
-
-    client = _Client([{"success": False, "message": "quota exceeded"}])
-    with pytest.raises(ProviderError, match="quota exceeded"):
-        asyncio.run(DuckMoXProvider(
-            client, "https://api.example/duckMo/x", "https://render.example/",
-        ).fetch(ImageQuery(count=1, provider="duckmo_x")))
