@@ -218,10 +218,13 @@ def test_same_user_request_reservation_blocks_concurrent_quota_bypass() -> None:
     from src.nonebot_plugins.liteyuki_setu.service import Cooldown
 
     gate = Cooldown()
-    assert gate.reserve("u:g", 0)
-    assert not gate.reserve("u:g", 0)
+    assert gate.reserve("u:g", 0) == "ok"
+    assert gate.reserve("u:g", 0) == "pending"
     gate.finish("u:g", False)
-    assert gate.reserve("u:g", 0)
+    assert gate.reserve("u:g", 0) == "ok"
+    gate.finish("u:g", True)
+    assert gate.reserve("u:g", 30) == "cooldown"
+    assert gate.reserve("other:g", 0) == "ok"
 
 def test_r18_parser_is_private_opt_in_and_forces_one_image() -> None:
     _init()

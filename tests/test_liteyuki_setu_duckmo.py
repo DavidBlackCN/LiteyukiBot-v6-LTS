@@ -67,6 +67,27 @@ def test_duckmo_falls_back_to_available_size() -> None:
     assert result[0].image_url.endswith("original.jpg")
 
 
+def test_duckmo_omits_ai_type_when_filter_is_disabled() -> None:
+    _init()
+    from src.nonebot_plugins.liteyuki_setu.models import ImageQuery
+    from src.nonebot_plugins.liteyuki_setu.providers.duckmo import DuckMoProvider
+
+    response = {"success": True, "data": [{
+        "pid": 1, "urlsList": [{"urlSize": "regular", "url": "https://image/a.jpg"}],
+    }]}
+    filtered = _Client([response])
+    asyncio.run(DuckMoProvider(filtered, "https://api.example/duckMo").fetch(
+        ImageQuery(count=1, exclude_ai=True),
+    ))
+    assert filtered.calls[0][2]["json"]["aiType"] == 1
+
+    unrestricted = _Client([response])
+    asyncio.run(DuckMoProvider(unrestricted, "https://api.example/duckMo").fetch(
+        ImageQuery(count=1, exclude_ai=False),
+    ))
+    assert "aiType" not in unrestricted.calls[0][2]["json"]
+
+
 def test_duckmo_x_loops_single_result_endpoint() -> None:
     _init()
     from src.nonebot_plugins.liteyuki_setu.models import ImageQuery
@@ -80,6 +101,7 @@ def test_duckmo_x_loops_single_result_endpoint() -> None:
         ImageQuery(count=2, provider="duckmo_x")))
     assert len(client.calls) == 2
     assert [item.source_url for item in result] == ["https://x.com/a/status/1", "https://x.com/b/status/2"]
+    assert result[0].fallback_image_urls == ["https://rand-x.mossia.top/"]
 
 
 def test_duckmo_x_is_explicit_only_by_default() -> None:

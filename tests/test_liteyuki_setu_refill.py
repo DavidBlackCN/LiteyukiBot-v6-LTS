@@ -26,6 +26,7 @@ class _HttpClient:
 
 
 def _image(name: str, pid: int | None = None):
+    _init()
     from src.nonebot_plugins.liteyuki_setu.models import ImageResult
 
     return ImageResult(provider="lolicon", image_url=f"https://image.example/{name}.jpg", pid=pid,
@@ -120,6 +121,37 @@ def test_two_refills_stop_and_return_partial_result(monkeypatch) -> None:
     )
     assert len(result) == 2
     assert requests == [3, 1, 1]
+
+
+def test_same_failed_image_host_stops_after_two_results() -> None:
+    _init()
+    from src.nonebot_plugins.liteyuki_setu import service
+    from src.nonebot_plugins.liteyuki_setu.config import SetuConfig
+    from src.nonebot_plugins.liteyuki_setu.models import ImageQuery, ImageResult, ProviderError
+
+    calls = []
+
+    class Provider:
+        name = "lolicon"
+
+        async def fetch(self, query):
+            calls.append(query.count)
+            return [ImageResult(
+                provider=self.name, image_url=f"https://broken.example/{len(calls)}.jpg",
+                is_adult=False,
+            )]
+
+    class Client:
+        async def download_image(self, _url, **_kwargs):
+            raise ProviderError("图片下载失败: ClientConnectionError: reset")
+
+    with pytest.raises(ProviderError, match="broken.example"):
+        asyncio.run(service._fetch_with_refills(
+            Provider(), ImageQuery(count=1),
+            SetuConfig(setu_recent_dedup_enabled=False, setu_recent_dedup_refill_attempts=5),
+            Client(),
+        ))
+    assert calls == [1, 1]
 
 
 class _Message:
@@ -322,6 +354,59 @@ def test_auto_provider_timeout_falls_back_and_records_failure(monkeypatch) -> No
     assert calls == ["lolicon", "mirlkoi"]
     assert result[0][0].image_url.endswith("fallback.jpg")
     assert test_health._items["lolicon"].failures == 1
+
+
+@pytest.mark.parametrize("provider_name,expected_calls", [
+    ("auto", ["lolicon", "lolicon", "mirlkoi"]),
+    ("lolicon", ["lolicon", "lolicon"]),
+])
+def test_repeated_download_host_failure_only_auto_falls_back(
+    monkeypatch, provider_name, expected_calls,
+) -> None:
+    _init()
+    from src.nonebot_plugins.liteyuki_setu import service
+    from src.nonebot_plugins.liteyuki_setu.config import SetuConfig
+    from src.nonebot_plugins.liteyuki_setu.models import ImageQuery, ProviderUnavailableError
+
+    calls = []
+
+    class Provider:
+        safe_available = True
+
+        def __init__(self, name):
+            self.name = name
+
+        def supports(self, _query):
+            return True
+
+        async def fetch(self, _query):
+            calls.append(self.name)
+            return [_image(f"{self.name}-{len(calls)}")]
+
+    async def download_results(results, _config, *, client):
+        if calls[-1] == "lolicon":
+            return service.DownloadedResults([], ["broken.example"])
+        return service.DownloadedResults([(results[0], b"image")], [])
+
+    monkeypatch.setattr(service, "HttpClient", _HttpClient)
+    monkeypatch.setattr(service, "build_providers", lambda *_args: {
+        "lolicon": Provider("lolicon"), "mirlkoi": Provider("mirlkoi"),
+    })
+    monkeypatch.setattr(service, "download_results", download_results)
+    monkeypatch.setattr(service.random, "choices", lambda population, **_kwargs: [population[0]])
+    monkeypatch.setattr(service, "health", service.ProviderHealth())
+    config = SetuConfig(
+        setu_provider_order=["lolicon", "mirlkoi"], setu_recent_dedup_enabled=False,
+        setu_recent_dedup_refill_attempts=5,
+    )
+    query = ImageQuery(count=1, provider=provider_name)
+    if provider_name == "auto":
+        result = asyncio.run(service.fetch_and_download(query, config))
+        assert result[0][0].image_url.endswith("mirlkoi-3.jpg")
+    else:
+        with pytest.raises(ProviderUnavailableError):
+            asyncio.run(service.fetch_and_download(query, config))
+    assert calls == expected_calls
 
 
 def test_send_counts_only_confirmed_receipts_and_recalls_them(monkeypatch) -> None:

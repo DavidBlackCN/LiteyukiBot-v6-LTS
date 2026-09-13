@@ -334,6 +334,7 @@ setu_duckmo_enabled: true
 setu_duckmo_base_url: "https://api.mossia.top/duckMo"
 setu_duckmo_x_enabled: true
 setu_duckmo_x_url: "https://api.mossia.top/duckMo/x"
+setu_duckmo_x_render_url: "https://rand-x.mossia.top/"  # X 图片直链失败时的随机图备用地址
 setu_duckmo_x_random_pool_enabled: false
 # Random Mage；API Key 留空时使用公开访问。
 setu_random_mage_enabled: true

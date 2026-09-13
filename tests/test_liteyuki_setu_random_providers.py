@@ -55,6 +55,8 @@ def test_random_mage_uses_feed_filters_and_converts_metadata() -> None:
     assert result[0].pid == "123" and result[0].uid == "456"
     assert result[0].author == "artist" and result[0].tags == ["原神", "甘雨"]
     assert result[0].is_adult is False
+    assert result[0].image_url == "https://proxy.example/image.jpg"
+    assert result[0].fallback_image_urls == ["https://i.mukyu.ru/i/10.jpg"]
 
 
 def test_random_mage_does_not_claim_free_keyword_or_multiple_ids() -> None:

@@ -4,6 +4,7 @@ import asyncio
 from io import BytesIO
 
 import nonebot
+import pytest
 
 
 def _init() -> None:
@@ -138,3 +139,40 @@ def test_recent_duplicate_triggers_refill(monkeypatch) -> None:
     assert requests == [1, 1]
     assert result[0][0].pid == 456
     service.release_results(result)
+
+
+def test_explicit_pid_bypasses_recent_dedup_but_random_does_not(monkeypatch) -> None:
+    _init()
+    from src.nonebot_plugins.liteyuki_setu import service
+    from src.nonebot_plugins.liteyuki_setu.config import SetuConfig
+    from src.nonebot_plugins.liteyuki_setu.models import ImageQuery, NoResultError
+    from src.nonebot_plugins.liteyuki_setu.recent import RecentDeduplicator
+
+    image = _image("duckmo", "same", pid=132660681)
+    dedup = RecentDeduplicator()
+    lease = dedup.reserve(image, ttl_seconds=3600, max_entries=10)
+    assert lease is not None
+    dedup.commit(lease, ttl_seconds=3600, max_entries=10)
+    monkeypatch.setattr(service, "recent_dedup", dedup)
+    monkeypatch.setattr(service, "_dedup_leases", {})
+
+    class Provider:
+        name = "duckmo"
+
+        async def fetch(self, _query):
+            return [image]
+
+    async def download(results, _config, *, client):
+        return [(item, _png()) for item in results]
+
+    monkeypatch.setattr(service, "download_results", download)
+    config = SetuConfig(setu_recent_dedup_refill_attempts=0)
+    with pytest.raises(NoResultError, match="近期未发送"):
+        asyncio.run(service._fetch_with_refills(
+            Provider(), ImageQuery(count=1), config, object(),
+        ))
+
+    result = asyncio.run(service._fetch_with_refills(
+        Provider(), ImageQuery(count=1, pid=[132660681]), config, object(),
+    ))
+    assert result[0][0].pid == 132660681

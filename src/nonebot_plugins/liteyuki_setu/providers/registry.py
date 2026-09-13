@@ -60,7 +60,9 @@ PROVIDER_REGISTRY: dict[str, ProviderSpec] = {
     "duckmo_x": ProviderSpec(
         name="duckmo_x",
         display_name="DuckMo X",
-        factory=lambda client, config: DuckMoXProvider(client, config.setu_duckmo_x_url),
+        factory=lambda client, config: DuckMoXProvider(
+            client, config.setu_duckmo_x_url, config.setu_duckmo_x_render_url,
+        ),
         rating_mode="unclassified",
         capabilities=DuckMoXProvider.capabilities,
     ),

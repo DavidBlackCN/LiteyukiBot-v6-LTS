@@ -188,3 +188,61 @@ def test_lolicon_image_proxy_failure_logs_provider_host_and_reason() -> None:
     assert "Lolicon 图片下载失败" in message
     assert "host=i.pximg.net" in message
     assert "proxy connection refused" in message
+
+
+class _CandidateDownloadClient:
+    def __init__(self, failures):
+        self.failures = set(failures)
+        self.calls = []
+
+    async def download_image(self, url, **kwargs):
+        self.calls.append((url, kwargs))
+        if url in self.failures:
+            from src.nonebot_plugins.liteyuki_setu.models import ProviderError
+            raise ProviderError("图片下载失败: ClientConnectionError: reset")
+        return b"image"
+
+
+def test_random_mage_download_falls_back_and_pximg_gets_referer() -> None:
+    _init()
+    from src.nonebot_plugins.liteyuki_setu.config import SetuConfig
+    from src.nonebot_plugins.liteyuki_setu.models import ImageResult
+    from src.nonebot_plugins.liteyuki_setu.service import download_results
+
+    proxy = "https://proxy.example/a.jpg"
+    local = "https://local.example/a.jpg"
+    origin = "https://i.pximg.net/a.jpg"
+    client = _CandidateDownloadClient({proxy, local})
+    image = ImageResult(
+        provider="random_mage", image_url=proxy,
+        fallback_image_urls=[local, origin], is_adult=False,
+    )
+    result = asyncio.run(download_results([image], SetuConfig(), client=client))
+    assert result == [(image, b"image")]
+    assert [url for url, _options in client.calls] == [proxy, local, origin]
+    assert client.calls[-1][1]["headers"] == {
+        "Referer": "https://www.pixiv.net/", "User-Agent": "Mozilla/5.0",
+    }
+
+
+def test_all_image_candidates_failed_and_duckmo_x_render_fallback() -> None:
+    _init()
+    from src.nonebot_plugins.liteyuki_setu.config import SetuConfig
+    from src.nonebot_plugins.liteyuki_setu.models import ImageResult
+    from src.nonebot_plugins.liteyuki_setu.service import download_results
+
+    primary = "https://pbs.twimg.com/a.jpg"
+    render = "https://rand-x.mossia.top/"
+    image = ImageResult(
+        provider="duckmo_x", image_url=primary,
+        fallback_image_urls=[render], is_adult=None,
+    )
+    fallback_client = _CandidateDownloadClient({primary})
+    assert asyncio.run(download_results(
+        [image], SetuConfig(), client=fallback_client,
+    )) == [(image, b"image")]
+
+    failed_client = _CandidateDownloadClient({primary, render})
+    failed = asyncio.run(download_results([image], SetuConfig(), client=failed_client))
+    assert failed == []
+    assert failed.failed_network_hosts == ["pbs.twimg.com"]

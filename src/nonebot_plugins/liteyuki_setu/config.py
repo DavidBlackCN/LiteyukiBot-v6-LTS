@@ -69,6 +69,7 @@ class SetuConfig(BaseModel):
     setu_duckmo_base_url: str = "https://api.mossia.top/duckMo"
     setu_duckmo_x_enabled: bool = True
     setu_duckmo_x_url: str = "https://api.mossia.top/duckMo/x"
+    setu_duckmo_x_render_url: str = "https://rand-x.mossia.top/"
     setu_duckmo_x_random_pool_enabled: bool = False
     setu_random_mage_enabled: bool = True
     setu_random_mage_base_url: str = "https://i.mukyu.ru"
@@ -81,7 +82,8 @@ class SetuConfig(BaseModel):
 
     @field_validator(
         "setu_lolicon_api_url", "setu_mirlkoi_base_url", "setu_duckmo_base_url",
-        "setu_duckmo_x_url", "setu_random_mage_base_url", "setu_liemoe_base_url",
+        "setu_duckmo_x_url", "setu_duckmo_x_render_url", "setu_random_mage_base_url",
+        "setu_liemoe_base_url",
         "setu_waifuim_base_url",
     )
     @classmethod

@@ -12,9 +12,11 @@ class DuckMoXProvider(ImageProvider):
     rating_mode = "unclassified"
     capabilities = ProviderCapabilities(random=True, count=True, metadata=True)
 
-    def __init__(self, client: Any, url: str):
+    def __init__(self, client: Any, url: str,
+                 render_url: str = "https://rand-x.mossia.top/"):
         self.client = client
         self.url = url.rstrip("/")
+        self.render_url = render_url
         self._semaphore = asyncio.Semaphore(2)
 
     async def fetch(self, query: ImageQuery) -> list[ImageResult]:
@@ -34,6 +36,7 @@ class DuckMoXProvider(ImageProvider):
                 return None
             return ImageResult(
                 provider=self.name, image_url=image_url,
+                fallback_image_urls=[self.render_url],
                 source_url=item.get("url") if isinstance(item.get("url"), str) else None,
             )
 

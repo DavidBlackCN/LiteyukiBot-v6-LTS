@@ -60,15 +60,19 @@ class RandomMageProvider(ImageProvider):
         urls = item.get("urls")
         if not isinstance(image, dict) or not isinstance(urls, dict):
             return None
-        raw_url = urls.get("proxy") or urls.get("local") or urls.get("origin")
-        if not isinstance(raw_url, str) or not raw_url:
+        image_urls = list(dict.fromkeys(
+            urljoin(self.base_url, value)
+            for key in ("proxy", "local", "origin")
+            if isinstance((value := urls.get(key)), str) and value
+        ))
+        if not image_urls:
             return None
-        image_url = urljoin(self.base_url, raw_url)
         user = image.get("user") if isinstance(image.get("user"), dict) else {}
         pid = image.get("illust_id")
         tags = item.get("tags")
         return ImageResult(
-            provider=self.name, image_url=image_url, pid=pid, uid=user.get("id"),
+            provider=self.name, image_url=image_urls[0],
+            fallback_image_urls=image_urls[1:], pid=pid, uid=user.get("id"),
             title=image.get("title"), author=user.get("name"),
             tags=[str(tag) for tag in tags or [] if str(tag)],
             width=_int(image.get("width")), height=_int(image.get("height")),

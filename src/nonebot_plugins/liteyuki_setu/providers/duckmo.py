@@ -22,10 +22,11 @@ class DuckMoProvider(ImageProvider):
     async def fetch(self, query: ImageQuery) -> list[ImageResult]:
         payload: dict[str, Any] = {
             "num": query.count,
-            "aiType": 1 if query.exclude_ai else 0,
             "r18Type": 1 if query.r18 else 0,
             "sizeList": [query.size],
         }
+        if query.exclude_ai:
+            payload["aiType"] = 1
         if query.pid:
             payload["pid"] = query.pid
         if query.uid:

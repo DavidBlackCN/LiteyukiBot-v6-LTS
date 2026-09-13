@@ -109,7 +109,11 @@ async def handle_setu(
         return
     key = f"{user_id}:{group_key or 'private'}"
     bypass = is_superuser and config.setu_superuser_bypass_cooldown
-    if not cooldown.reserve(key, settings.cooldown_seconds, bypass):
+    reserve_status = cooldown.reserve(key, settings.cooldown_seconds, bypass)
+    if reserve_status == "pending":
+        await matcher.finish("上一条图片请求还在处理中喵，请稍等一下~")
+        return
+    if reserve_status == "cooldown":
         await matcher.finish("你冲的太快了喵，请稍后再试喵！")
         return
     sent = False

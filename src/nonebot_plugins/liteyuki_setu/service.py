@@ -4,7 +4,7 @@ import asyncio
 import random
 import time
 from dataclasses import dataclass, replace
-from typing import Any
+from typing import Any, Literal
 from urllib.parse import urlparse
 
 from nonebot import logger
@@ -49,14 +49,16 @@ class Cooldown:
         self._success: dict[str, float] = {}
         self._pending: set[str] = set()
 
-    def reserve(self, key: str, seconds: int, bypass: bool = False) -> bool:
+    def reserve(
+        self, key: str, seconds: int, bypass: bool = False,
+    ) -> Literal["ok", "pending", "cooldown"]:
         now = time.monotonic()
         if key in self._pending:
-            return False
+            return "pending"
         if not bypass and now - self._success.get(key, float("-inf")) < seconds:
-            return False
+            return "cooldown"
         self._pending.add(key)
-        return True
+        return "ok"
 
     def finish(self, key: str, sent: bool) -> None:
         self._pending.discard(key)
@@ -84,12 +86,13 @@ def _provider_name(provider: Any) -> str:
     return spec.display_name if spec else str(name)
 
 
-def _image_options(result: ImageResult, config: SetuConfig) -> tuple[dict[str, str] | None, str | None]:
-    if result.provider != "lolicon":
-        return None, None
-    host = urlparse(result.image_url).hostname
+def _image_options(result: ImageResult, url: str,
+                   config: SetuConfig) -> tuple[dict[str, str] | None, str | None]:
+    host = urlparse(url).hostname
     headers = _PIXIV_HEADERS if host == "i.pximg.net" else None
-    return headers, config.setu_lolicon_image_http_proxy or None
+    proxy = ((config.setu_lolicon_image_http_proxy or None)
+             if result.provider == "lolicon" else None)
+    return headers, proxy
 
 
 def build_providers(config: SetuConfig, client: HttpClient) -> dict[str, Any]:
@@ -185,25 +188,53 @@ async def fetch_images(query: ImageQuery, config: SetuConfig, *, client: HttpCli
     raise UnsupportedQueryError("没有可用图片源支持当前筛选条件。")
 
 
+class DownloadedResults(list[tuple[ImageResult, bytes]]):
+    def __init__(self, values: list[tuple[ImageResult, bytes]], failed_network_hosts: list[str]):
+        super().__init__(values)
+        self.failed_network_hosts = failed_network_hosts
+
+
+def _is_network_failure(error: ProviderError) -> bool:
+    detail = str(error).lower()
+    return any(token in detail for token in (
+        "timeout", "dns", "connection", "connector", "reset", "refused", "network",
+        "retryableerror",
+    ))
+
+
 async def download_results(results: list[ImageResult], config: SetuConfig, *, client: HttpClient | None = None) -> list[tuple[ImageResult, bytes]]:
     if client is None:
         async with HttpClient(_image_timeout(config), config.setu_request_retries) as owned:
             return await download_results(results, config, client=owned)
     semaphore = asyncio.Semaphore(config.setu_download_concurrency)
 
-    async def download(result: ImageResult) -> tuple[ImageResult, bytes] | None:
-        headers, proxy = _image_options(result, config)
-        try:
-            async with semaphore:
-                return result, await client.download_image(result.image_url, max_bytes=config.setu_image_max_bytes,
-                                                           headers=headers, proxy=proxy)
-        except ProviderError as exc:
-            host = urlparse(result.image_url).hostname or ""
-            logger.warning(f"{_provider_name(result)} 图片下载失败: host={host}, reason={exc}")
-            return None
+    async def download(result: ImageResult) -> tuple[tuple[ImageResult, bytes] | None, str | None]:
+        candidates = list(dict.fromkeys([result.image_url, *result.fallback_image_urls]))
+        primary_error: ProviderError | None = None
+        for position, url in enumerate(candidates):
+            headers, proxy = _image_options(result, url, config)
+            try:
+                async with semaphore:
+                    raw = await client.download_image(
+                        url, max_bytes=config.setu_image_max_bytes, headers=headers, proxy=proxy,
+                    )
+                if position:
+                    logger.info(f"{_provider_name(result)} 图片备用地址下载成功: host={urlparse(url).hostname or ''}")
+                return (result, raw), None
+            except ProviderError as exc:
+                if position == 0:
+                    primary_error = exc
+                host = urlparse(url).hostname or ""
+                logger.warning(f"{_provider_name(result)} 图片下载失败: host={host}, reason={exc}")
+        failed_host = urlparse(result.image_url).hostname or ""
+        if primary_error is None or not _is_network_failure(primary_error):
+            failed_host = ""
+        return None, failed_host or None
 
     downloaded = await asyncio.gather(*(download(result) for result in results))
-    return [item for item in downloaded if item is not None]
+    values = [item for item, _host in downloaded if item is not None]
+    failed_hosts = [host for _item, host in downloaded if host is not None]
+    return DownloadedResults(values, failed_hosts)
 
 
 def _result_key(result: ImageResult) -> tuple[str, str]:
@@ -243,6 +274,8 @@ async def _fetch_with_refills(provider: Any, query: ImageQuery, config: SetuConf
     seen: set[tuple[str, str]] = set()
     saw_recent_duplicate = False
     saw_download_failure = False
+    last_failed_host = ""
+    failed_host_streak = 0
     max_attempts = 1 + config.setu_recent_dedup_refill_attempts
     for attempt in range(max_attempts):
         missing = query.count - len(successful)
@@ -273,7 +306,7 @@ async def _fetch_with_refills(provider: Any, query: ImageQuery, config: SetuConf
             if not is_result_allowed(result, r18=query.r18) or result_key in seen:
                 continue
             seen.add(result_key)
-            if config.setu_recent_dedup_enabled:
+            if config.setu_recent_dedup_enabled and not query.pid:
                 lease = recent_dedup.reserve(
                     result, ttl_seconds=_dedup_ttl(config),
                     max_entries=config.setu_recent_dedup_max_entries,
@@ -312,6 +345,21 @@ async def _fetch_with_refills(provider: Any, query: ImageQuery, config: SetuConf
             f"{_provider_name(provider)} 图片下载: success={len(usable)} "
             f"failed={len(accepted) - len(downloaded)} duplicate={len(downloaded) - len(usable)}"
         )
+        failed_host = ""
+        for host in getattr(downloaded, "failed_network_hosts", []):
+            if host == last_failed_host:
+                failed_host_streak += 1
+            else:
+                last_failed_host = host
+                failed_host_streak = 1
+            if failed_host_streak >= 2:
+                failed_host = host
+                break
+        if failed_host:
+            logger.warning(f"{_provider_name(provider)} 同一图片主机连续失败，停止补图: host={failed_host}")
+            if not successful:
+                raise ProviderError(f"图片主机连续不可用: {failed_host}")
+            break
     logger.info(f"{_provider_name(provider)} 图片获取完成: requested={query.count} downloaded={len(successful)}")
     if not successful and saw_recent_duplicate and not saw_download_failure:
         raise NoResultError("没有找到近期未发送过的图片。")

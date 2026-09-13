@@ -59,6 +59,7 @@ class ImageResult:
     ai_type: int | None = None
     is_adult: bool | None = None
     source_url: str | None = None
+    fallback_image_urls: list[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
