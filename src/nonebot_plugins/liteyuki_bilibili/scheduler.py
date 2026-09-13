@@ -94,11 +94,21 @@ class SubscriptionPoller:
             for subscription in subscriptions
         )
         if live_transition:
+            if live_status.room_id:
+                try:
+                    detailed_status = await self.client.get_live_room_status(live_status.room_id)
+                    live_status = _merge_live_status(live_status, detailed_status)
+                except Exception as exc:
+                    logger.warning(
+                        f"Bilibili 直播间详情获取失败，使用基础信息: uid={uid} "
+                        f"error={type(exc).__name__}"
+                    )
             try:
                 live_user = await self.client.get_user_info(uid)
             except Exception as exc:
                 logger.warning(
-                    f"Bilibili 直播 UP 信息获取失败，使用 UID 回退: uid={uid} error={exc!r}"
+                    f"Bilibili 直播 UP 信息获取失败，使用 UID 回退: uid={uid} "
+                    f"error={type(exc).__name__}"
                 )
 
         for subscription in subscriptions:
@@ -259,6 +269,22 @@ def _live_state(status: BilibiliLiveStatus | None) -> str:
     if status is None:
         return "unknown"
     return "live" if status.live else "offline"
+
+
+def _merge_live_status(
+    basic: BilibiliLiveStatus, detailed: BilibiliLiveStatus
+) -> BilibiliLiveStatus:
+    """Prefer Room/get_info display data while preserving the observed transition."""
+    room_id = detailed.room_id or basic.room_id
+    return BilibiliLiveStatus(
+        uid=detailed.uid or basic.uid,
+        room_id=room_id,
+        live=basic.live,
+        title=detailed.title or basic.title,
+        area_name=detailed.area_name or basic.area_name,
+        cover_url=detailed.cover_url or basic.cover_url,
+        url=detailed.url or basic.url or (f"https://live.bilibili.com/{room_id}" if room_id else ""),
+    )
 
 
 def _live_event(

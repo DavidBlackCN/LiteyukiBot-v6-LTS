@@ -11,6 +11,7 @@ from typing import Any
 from urllib.parse import urlencode, urljoin, urlsplit
 
 import httpx
+from nonebot import logger
 
 from .config import BilibiliConfig
 from .credential import CredentialManager, parse_cookie, serialize_cookie
@@ -245,10 +246,12 @@ class BilibiliClient:
             url = parsed._replace(scheme="https").geturl()
             parsed = urlsplit(url)
         if parsed.scheme != "https" or host not in _IMAGE_HOSTS:
+            logger.debug(f"Bilibili 图片下载跳过: host={host or '<empty>'} stage=host_validation")
             raise BilibiliAPIError("Bilibili image host was not allowed")
         if self._client is None:
             raise RuntimeError("BilibiliClient must be started before use")
         try:
+            stage = "request"
             async with self._client.stream(
                 "GET",
                 url,
@@ -258,21 +261,32 @@ class BilibiliClient:
                 },
             ) as response:
                 if response.is_error:
+                    stage = "http_status"
                     raise BilibiliNetworkError(f"Bilibili image returned HTTP {response.status_code}")
+                stage = "content_type"
                 content_type = response.headers.get("content-type", "").split(";", 1)[0].lower()
                 if content_type not in _IMAGE_CONTENT_TYPES:
                     raise BilibiliAPIError("Bilibili image returned an unsupported content type")
+                stage = "content_length"
                 declared_size = response.headers.get("content-length")
                 if declared_size and int(declared_size) > max_bytes:
                     raise BilibiliAPIError("Bilibili image exceeded size limit")
+                stage = "read"
                 chunks = bytearray()
                 async for chunk in response.aiter_bytes():
                     chunks.extend(chunk)
                     if len(chunks) > max_bytes:
                         raise BilibiliAPIError("Bilibili image exceeded size limit")
+        except (BilibiliAPIError, BilibiliNetworkError) as exc:
+            logger.debug(
+                f"Bilibili 图片下载失败: host={host} stage={stage} error={type(exc).__name__}"
+            )
+            raise
         except ValueError as exc:
+            logger.debug(f"Bilibili 图片下载失败: host={host} stage=content_length error=ValueError")
             raise BilibiliAPIError("Bilibili image returned an invalid content length") from exc
         except httpx.HTTPError as exc:
+            logger.debug(f"Bilibili 图片下载失败: host={host} stage={stage} error={type(exc).__name__}")
             raise BilibiliNetworkError("Bilibili image request failed") from exc
         return DownloadedImage(bytes(chunks), content_type)
 
@@ -413,6 +427,7 @@ class BilibiliClient:
         major = dynamic.get("major") if isinstance(dynamic.get("major"), dict) else {}
         archive = major.get("archive") if isinstance(major.get("archive"), dict) else {}
         draw = major.get("draw") if isinstance(major.get("draw"), dict) else {}
+        opus = major.get("opus") if isinstance(major.get("opus"), dict) else {}
         additional = dynamic.get("additional") if isinstance(dynamic.get("additional"), dict) else {}
         ugc = additional.get("ugc") if isinstance(additional.get("ugc"), dict) else {}
         original = data.get("orig") if isinstance(data.get("orig"), dict) else {}
@@ -432,6 +447,16 @@ class BilibiliClient:
             if isinstance(original_major.get("archive"), dict)
             else {}
         )
+        original_draw = (
+            original_major.get("draw")
+            if isinstance(original_major.get("draw"), dict)
+            else {}
+        )
+        original_opus = (
+            original_major.get("opus")
+            if isinstance(original_major.get("opus"), dict)
+            else {}
+        )
         original_additional = (
             original_dynamic.get("additional")
             if isinstance(original_dynamic.get("additional"), dict)
@@ -442,18 +467,19 @@ class BilibiliClient:
             if isinstance(original_additional.get("ugc"), dict)
             else {}
         )
-        draw_items = draw.get("items") if isinstance(draw.get("items"), list) else []
-        draw_covers = [
-            str(item.get("src"))
-            for item in draw_items
-            if isinstance(item, dict) and item.get("src")
-        ]
+        image_covers: list[str] = []
+        for media, field in ((draw, "items"), (opus, "pics"), (original_draw, "items"), (original_opus, "pics")):
+            items = media.get(field) if isinstance(media.get(field), list) else []
+            for item in items:
+                source = item.get("src") or item.get("url") if isinstance(item, dict) else ""
+                if source and str(source) not in image_covers:
+                    image_covers.append(str(source))
         covers: list[str] = []
         for video in (archive, ugc, original_archive, original_ugc):
             cover = video.get("cover")
-            if cover and str(cover) not in covers and str(cover) not in draw_covers:
+            if cover and str(cover) not in covers and str(cover) not in image_covers:
                 covers.append(str(cover))
-        covers.extend(draw_covers)
+        covers.extend(image_covers)
         event_id = str(data.get("id_str") or data.get("id") or "")
         if not event_id:
             raise BilibiliAPIError("Bilibili dynamic item did not contain an id")

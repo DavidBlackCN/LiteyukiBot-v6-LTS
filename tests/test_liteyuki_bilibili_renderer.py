@@ -121,6 +121,41 @@ def test_live_events_use_the_live_card_template_and_view_data() -> None:
     assert view["title"] == "直播标题" and view["metrics"] == [{"label": "分区", "value": "游戏"}]
 
 
+def test_live_renderer_embeds_cover_as_primary_card_image(monkeypatch) -> None:
+    _init()
+    from src.nonebot_plugins.liteyuki_bilibili.client import DownloadedImage
+    from src.nonebot_plugins.liteyuki_bilibili import renderer
+
+    class Client:
+        async def download_image(self, _url: str):
+            return DownloadedImage(b"live-cover", "image/jpeg")
+
+    captured = {}
+
+    async def fake_render(template, variables, selector, **_kwargs):
+        captured.update(template=template, data=variables["data"], selector=selector)
+        return b"png"
+
+    monkeypatch.setattr(renderer, "get_path", lambda path, **_kwargs: path)
+    monkeypatch.setattr(renderer, "template2image_element", fake_render)
+    event = BilibiliEvent(
+        kind="live_start", uid="42", event_id="100:live_start", cover_urls=["//i0.hdslb.com/live.jpg"]
+    )
+    assert asyncio.run(renderer.render_event_card(event, Client())) == b"png"
+    assert captured["template"] == "templates/bilibili_live.html"
+    assert captured["data"]["covers"] == ["data:image/jpeg;base64,bGl2ZS1jb3Zlcg=="]
+    assert captured["selector"] == "body"
+
+
+def test_live_template_uses_a_single_16_by_9_cover_and_hides_empty_section() -> None:
+    template = Path("src/resources/liteyuki_bilibili/templates/bilibili_live.html").read_text(encoding="utf-8")
+    stylesheet = Path("src/resources/liteyuki_bilibili/templates/css/bilibili_card.css").read_text(encoding="utf-8")
+    assert "bili-live-card" in template
+    assert ".bili-live-card .covers { display: block; }" in stylesheet
+    assert "aspect-ratio: 16 / 9" in stylesheet
+    assert ".covers:empty { display: none; }" in stylesheet
+
+
 def test_delivery_falls_back_to_text_when_card_rendering_fails(monkeypatch) -> None:
     _init()
     from src.nonebot_plugins.liteyuki_bilibili import delivery, renderer

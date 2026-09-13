@@ -118,6 +118,62 @@ def test_video_info_maps_bilibili_pic_to_cover_url() -> None:
     run(scenario())
 
 
+def test_live_status_keeps_room_id_when_old_endpoint_has_no_cover() -> None:
+    async def scenario() -> None:
+        def handler(request: httpx.Request) -> httpx.Response:
+            assert request.url.path == "/room/v1/Room/getRoomInfoOld"
+            return httpx.Response(
+                200,
+                json={"code": 0, "data": {"room_id": 100, "live_status": 1, "title": "基础直播"}},
+            )
+
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http_client:
+            client = BilibiliClient(BilibiliConfig(), CredentialManager(store=MemoryStore()), http_client)
+            status = await client.get_live_status("42")
+        assert status.room_id == "100" and status.live and status.cover_url == ""
+
+    run(scenario())
+
+
+@pytest.mark.parametrize(
+    ("detail", "expected_cover"),
+    [
+        ({"user_cover": "//i0.hdslb.com/live-cover.jpg", "keyframe": "//i0.hdslb.com/keyframe.jpg"}, "//i0.hdslb.com/live-cover.jpg"),
+        ({"user_cover": "", "keyframe": "//i0.hdslb.com/keyframe.jpg"}, "//i0.hdslb.com/keyframe.jpg"),
+    ],
+)
+def test_live_room_status_prefers_user_cover_then_keyframe(detail, expected_cover: str) -> None:
+    async def scenario() -> None:
+        def handler(request: httpx.Request) -> httpx.Response:
+            assert request.url.path == "/room/v1/Room/get_info"
+            assert request.url.params["room_id"] == "100"
+            return httpx.Response(
+                200,
+                json={"code": 0, "data": {"uid": 42, "room_id": 100, "live_status": 1, **detail}},
+            )
+
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http_client:
+            client = BilibiliClient(BilibiliConfig(), CredentialManager(store=MemoryStore()), http_client)
+            status = await client.get_live_room_status("100")
+        assert status.cover_url == expected_cover
+        assert status.url == "https://live.bilibili.com/100"
+
+    run(scenario())
+
+
+def test_dynamic_normalizes_opus_pictures() -> None:
+    event = BilibiliClient._dynamic_from_api(
+        {
+            "id_str": "1",
+            "modules": {
+                "module_author": {"mid": 7},
+                "module_dynamic": {"major": {"opus": {"pics": [{"url": "opus-image"}]}}},
+            },
+        }
+    )
+    assert event.cover_urls == ["opus-image"]
+
+
 def test_latest_videos_uses_wbi_signature_and_refreshes_after_403(monkeypatch) -> None:
     async def scenario() -> None:
         calls = {"nav": 0, "videos": 0}

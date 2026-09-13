@@ -17,12 +17,15 @@ class FakeClient:
         self.dynamic_calls = 0
         self.video_calls = 0
         self.live_calls = 0
+        self.live_room_calls = 0
         self.user_calls = 0
         self.dynamics = [BilibiliEvent(kind="dynamic", uid="42", event_id="100")]
         self.videos = [BilibiliVideo(bvid="BV-old", author_uid="42")]
         self.live = BilibiliLiveStatus(uid="42", room_id="100", live=False)
         self.user = BilibiliUser(uid="42", name="UP", avatar_url="https://i0.hdslb.com/up.jpg")
         self.user_error: Exception | None = None
+        self.live_room = BilibiliLiveStatus(uid="42", room_id="100", live=False)
+        self.live_room_error: Exception | None = None
 
     async def get_latest_dynamics(self, uid: str):
         self.dynamic_calls += 1
@@ -35,6 +38,12 @@ class FakeClient:
     async def get_live_status(self, uid: str):
         self.live_calls += 1
         return self.live
+
+    async def get_live_room_status(self, room_id: str):
+        self.live_room_calls += 1
+        if self.live_room_error:
+            raise self.live_room_error
+        return self.live_room
 
     async def get_user_info(self, uid: str):
         self.user_calls += 1
@@ -214,6 +223,66 @@ def test_live_push_falls_back_to_uid_when_up_lookup_fails(tmp_path) -> None:
         await poller.poll()
         assert sent[0].kind == "live_start"
         assert sent[0].author_name == "UP 42" and sent[0].avatar_url == ""
+
+    asyncio.run(scenario())
+
+
+def test_live_transition_uses_detailed_room_cover_without_relying_on_dynamic(tmp_path) -> None:
+    async def scenario() -> None:
+        store = SubscriptionStore(str(tmp_path / "bilibili.ldb"))
+        store.add(target_type="group", target_id="one", uid="42")
+        client = FakeClient()
+        sent: list[BilibiliEvent] = []
+
+        async def send(_subscription, event) -> bool:
+            sent.append(event)
+            return True
+
+        poller = SubscriptionPoller(client, store, send)
+        await poller.poll()
+        client.live = BilibiliLiveStatus(uid="42", room_id="100", live=True)
+        client.live_room = BilibiliLiveStatus(
+            uid="42",
+            room_id="100",
+            live=True,
+            title="详细直播标题",
+            area_name="游戏",
+            cover_url="//i0.hdslb.com/live-cover.jpg",
+            url="https://live.bilibili.com/100",
+        )
+        await poller.poll()
+        assert [event.kind for event in sent] == ["live_start"]
+        event = sent[0]
+        assert event.cover_urls == ["//i0.hdslb.com/live-cover.jpg"]
+        assert event.author_name == "UP" and event.avatar_url == "https://i0.hdslb.com/up.jpg"
+        assert event.title == "详细直播标题" and event.metrics == {"area": "游戏"}
+        assert event.url == "https://live.bilibili.com/100"
+        assert client.live_room_calls == 1
+
+    asyncio.run(scenario())
+
+
+def test_live_transition_falls_back_to_old_status_when_room_detail_fails(tmp_path) -> None:
+    async def scenario() -> None:
+        store = SubscriptionStore(str(tmp_path / "bilibili.ldb"))
+        store.add(target_type="group", target_id="one", uid="42", dynamic_enabled=False, video_enabled=False)
+        client = FakeClient()
+        sent: list[BilibiliEvent] = []
+
+        async def send(_subscription, event) -> bool:
+            sent.append(event)
+            return True
+
+        poller = SubscriptionPoller(client, store, send)
+        await poller.poll()
+        client.live = BilibiliLiveStatus(
+            uid="42", room_id="100", live=True, title="基础直播", cover_url="//i0.hdslb.com/basic.jpg"
+        )
+        client.live_room_error = RuntimeError("detail unavailable")
+        await poller.poll()
+        assert sent[0].kind == "live_start"
+        assert sent[0].title == "基础直播"
+        assert sent[0].cover_urls == ["//i0.hdslb.com/basic.jpg"]
 
     asyncio.run(scenario())
 

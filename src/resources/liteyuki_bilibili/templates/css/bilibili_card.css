@@ -10,6 +10,8 @@ body { min-height: 0; }
 .covers { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin-top: 24px; }
 .covers:empty { display: none; }
 .cover { width: 100%; max-height: 460px; border: 1px solid var(--card-border); border-radius: 18px; object-fit: cover; background: var(--color-primary-soft); }
+.bili-live-card .covers { display: block; }
+.bili-live-card .cover { display: block; aspect-ratio: 16 / 9; max-height: none; }
 .metrics { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 24px; }
 .metric { padding: 10px 14px; color: var(--sub-text-color); font-size: 19px; background: var(--color-primary-soft); border-radius: 14px; }
 .metric strong { margin-left: 6px; color: var(--main-text-color); }
