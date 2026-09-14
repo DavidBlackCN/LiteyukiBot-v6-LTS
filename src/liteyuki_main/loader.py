@@ -24,8 +24,11 @@ DEFAULT_THIRD_PARTY_PLUGINS = (
     "nonebot_plugin_memes",
     "nonebot_plugin_group_historian",
     "nonebot_plugin_cnrail",
-    "nonebot_plugin_komari_status",
 )
+
+# The bundled liteyuki_komari_status plugin replaces this package so Komari
+# shares htmlrender's browser instead of starting an independent Playwright.
+LTS_REPLACED_THIRD_PARTY_PLUGINS = {"nonebot_plugin_komari_status"}
 
 
 @driver.on_startup
@@ -41,6 +44,11 @@ async def load_plugins():
             (*DEFAULT_THIRD_PARTY_PLUGINS, *(item.module_name for item in installed_plugins))
         )
         for module_name in plugin_modules:
+            if module_name in LTS_REPLACED_THIRD_PARTY_PLUGINS:
+                nonebot.logger.info(
+                    "第三方 Komari 插件已由内置 LTS 兼容实现替代，跳过加载。"
+                )
+                continue
             if not check_for_package(module_name):
                 nonebot.logger.error(
                     f"加载列表中的 {module_name} 插件无法安装，可能是未找到对应依赖。"

@@ -13,7 +13,7 @@
 
 `config.yml` 仅保存 Liteyuki 核心和本仓库维护的本地插件配置；`third_party.yml` 保存经由 `requirements.txt` 安装的第三方 NoneBot 插件配置。首次启动会分别从 `config.example.yml` 与 `third_party.example.yml` 创建缺失文件，随后合并为同一份 NoneBot 配置。若键名重复，启动会记录警告，且 `config.yml` 的值优先。
 
-以下插件已是 LTS 默认依赖并会在非安全模式下自动加载，无需再执行 `npm install`：`nonebot-plugin-rollpig-plus`、`nonebot-plugin-manosaba-memes`、`nonebot-plugin-wordcloud`、`nonebot-plugin-memes`、`nonebot-plugin-group-historian`、`nonebot-plugin-cnrail`、`nonebot-plugin-komari-status`。`nonebot-plugin-remind` 也继续作为默认第三方依赖加载。Bilibili 的订阅与链接解析由本仓库内置的 `liteyuki_bilibili` 提供，不再依赖第三方 Bilibili 或多平台 parser 插件。
+以下插件已是 LTS 默认依赖并会在非安全模式下自动加载，无需再执行 `npm install`：`nonebot-plugin-rollpig-plus`、`nonebot-plugin-manosaba-memes`、`nonebot-plugin-wordcloud`、`nonebot-plugin-memes`、`nonebot-plugin-group-historian`、`nonebot-plugin-cnrail`。`nonebot-plugin-remind` 也继续作为默认第三方依赖加载。Komari 状态截图由本仓库内置的 `liteyuki_komari_status` 提供，复用 htmlrender 的 Playwright；Bilibili 的订阅与链接解析由本仓库内置的 `liteyuki_bilibili` 提供，不再依赖第三方 Bilibili 或多平台 parser 插件。
 
 `npm install` 仍用于安装额外的 NoneBot 商店插件；它会遵守 `constraints-lts.txt`，不能替换 LTS 核心栈。词云、表情包与群历史等依赖 ORM 的插件安装或升级后，按既有流程执行 `nb orm heads`、`nb orm current`、`nb orm upgrade`。Playwright/Chromium 复用项目现有环境；Bilibili 插件模板默认禁止其自行下载浏览器。
 
