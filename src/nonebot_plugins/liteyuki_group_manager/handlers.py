@@ -44,6 +44,23 @@ grant_admin = on_command("设置管理员", priority=10, block=True)
 revoke_admin = on_command("取消管理员", priority=10, block=True)
 
 
+_member_nickname_cache: dict[tuple[str, int, int], str] = {}
+
+
+def _nickname_cache_key(
+    bot: Bot, group_id: int, user_id: int
+) -> tuple[str, int, int]:
+    return str(bot.self_id), group_id, user_id
+
+
+def _remember_nickname(
+    bot: Bot, group_id: int, user_id: int, nickname: str
+) -> str:
+    if nickname and nickname != str(user_id):
+        _member_nickname_cache[_nickname_cache_key(bot, group_id, user_id)] = nickname
+    return nickname
+
+
 def _is_superuser(bot: Bot, event: MessageEvent) -> bool:
     return str(event.user_id) in {str(user_id) for user_id in bot.config.superusers}
 
@@ -81,11 +98,13 @@ async def _require_operator(
 
 
 async def _member_info(bot: Bot, group_id: int, user_id: int) -> dict[str, Any]:
-    return await bot.get_group_member_info(
+    member = await bot.get_group_member_info(
         group_id=group_id,
         user_id=user_id,
         no_cache=True,
     )
+    _remember_nickname(bot, group_id, user_id, member_nickname(member))
+    return member
 
 
 async def _validate_member_action(
@@ -318,20 +337,47 @@ async def handle_revoke_admin(
 
 join_notice = on_type(GroupIncreaseNoticeEvent, priority=20, block=False)
 leave_notice = on_type(GroupDecreaseNoticeEvent, priority=20, block=False)
+member_nickname_cache = on_type(GroupMessageEvent, priority=99, block=False)
+
+
+@member_nickname_cache.handle()
+async def handle_member_nickname_cache(bot: Bot, event: GroupMessageEvent):
+    _remember_nickname(
+        bot,
+        event.group_id,
+        event.user_id,
+        str(event.sender.card or event.sender.nickname or ""),
+    )
 
 
 async def _notice_nickname(bot: Bot, group_id: int, user_id: int) -> str:
     try:
-        return member_nickname(await _member_info(bot, group_id, user_id))
+        member = await bot.get_group_member_info(
+            group_id=group_id,
+            user_id=user_id,
+            no_cache=False,
+        )
+        nickname = _remember_nickname(
+            bot, group_id, user_id, member_nickname(member)
+        )
+        if nickname and nickname != str(user_id):
+            return nickname
     except Exception as error:
-        logger.debug(f"群通知成员信息查询失败，尝试查询陌生人资料: {error!r}")
+        logger.debug(f"群通知成员信息查询失败，尝试使用昵称缓存: {error!r}")
+    cached_nickname = _member_nickname_cache.get(
+        _nickname_cache_key(bot, group_id, user_id)
+    )
+    if cached_nickname:
+        return cached_nickname
     try:
-        return member_nickname(
+        nickname = member_nickname(
             await bot.get_stranger_info(user_id=user_id, no_cache=True)
         )
+        if nickname and nickname != str(user_id):
+            return nickname
     except Exception as error:
         logger.debug(f"群通知昵称查询失败，使用 QQ 号代替: {error!r}")
-        return str(user_id)
+    return str(user_id)
 
 
 @join_notice.handle()
@@ -367,6 +413,9 @@ async def handle_leave_notice(bot: Bot, event: GroupDecreaseNoticeEvent):
         user_id=event.user_id,
         group_id=event.group_id,
         nickname=nickname,
+    )
+    _member_nickname_cache.pop(
+        _nickname_cache_key(bot, event.group_id, event.user_id), None
     )
     try:
         await bot.send_group_msg(group_id=event.group_id, message=message)
