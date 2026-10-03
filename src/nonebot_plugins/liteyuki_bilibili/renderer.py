@@ -38,7 +38,7 @@ def _body_preview(text: str, limit: int) -> str:
 
 def event_view(event: BilibiliEvent, body_limit: int = 600) -> dict[str, Any]:
     return {
-        "label": "转发动态" if event.original else "直播动态" if event.live else _LABELS[event.kind],
+        "label": "转发动态" if event.original else "直播动态" if event.live else "专栏" if event.display_type == "article" else _LABELS[event.kind],
         "state": "开播" if event.kind == "live_start" else "下播" if event.kind == "live_end" else event.live.state if event.live else "",
         "author": event.author_name or f"UP {event.uid}",
         "title": "转发动态" if event.original else event.title or "Bilibili 更新",

@@ -92,7 +92,7 @@ class BilibiliEvent(BaseModel):
     timestamp: datetime | None = None
     metrics: dict[str, int | str] = Field(default_factory=dict)
 
-    display_type: Literal["dynamic", "video", "live", "forward"] = "dynamic"
+    display_type: Literal["dynamic", "video", "live", "forward", "article"] = "dynamic"
     live: BilibiliLiveDisplay | None = None
     original: BilibiliOriginalContent | None = None
 

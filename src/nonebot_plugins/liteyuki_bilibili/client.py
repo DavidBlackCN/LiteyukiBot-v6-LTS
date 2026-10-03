@@ -432,7 +432,7 @@ class BilibiliClient:
             original = BilibiliOriginalContent(
                 **_dynamic_content(source),
                 author_name=str(_mapping(_mapping(source.get("modules")).get("module_author")).get("name") or ""),
-                url=f"https://t.bilibili.com/{source['id_str']}" if source.get("id_str") else "",
+                url=_dynamic_url(source, str(source["id_str"])) if source.get("id_str") else "",
                 unavailable=source.get("type") == "DYNAMIC_TYPE_NONE" or not source.get("modules"),
             )
         event_id = str(data.get("id_str") or data.get("id") or "")
@@ -443,15 +443,15 @@ class BilibiliClient:
             kind="dynamic",
             uid=str(author.get("mid") or fallback_uid),
             event_id=event_id,
-            title=content["title"] or (original.title if original else "") or "动态更新",
+            title=content["title"] or (original.title if original else "") or ("专栏更新" if _is_article(data) else "动态更新"),
             body=content["body"],
             cover_urls=list(dict.fromkeys([
                 *content["cover_urls"], *(original.cover_urls if original else [])
             ])),
             live=content["live"],
-            display_type="forward" if original else "live" if content["live"] else "dynamic",
+            display_type="forward" if original else "live" if content["live"] else "article" if _is_article(data) else "dynamic",
             original=original,
-            url=f"https://t.bilibili.com/{event_id}",
+            url=_dynamic_url(data, event_id),
             author_name=str(author.get("name") or ""),
             avatar_url=str(author.get("face") or ""),
             timestamp=_timestamp(author.get("pub_ts")),
@@ -460,6 +460,15 @@ class BilibiliClient:
 
 def _mapping(value: object) -> dict:
     return value if isinstance(value, dict) else {}
+
+
+def _is_article(data: Mapping[str, Any]) -> bool:
+    major = _mapping(_mapping(_mapping(data.get("modules")).get("module_dynamic")).get("major"))
+    return data.get("type") == "DYNAMIC_TYPE_ARTICLE" or major.get("type") == "MAJOR_TYPE_ARTICLE" or bool(_mapping(major.get("article")))
+
+
+def _dynamic_url(data: Mapping[str, Any], event_id: str) -> str:
+    return f"https://www.bilibili.com/opus/{event_id}" if _is_article(data) else f"https://t.bilibili.com/{event_id}"
 
 
 def _plain_text(value: object) -> str:
@@ -478,6 +487,7 @@ def _dynamic_content(data: Mapping[str, Any]) -> dict[str, Any]:
     dynamic = _mapping(_mapping(data.get("modules")).get("module_dynamic"))
     major = _mapping(dynamic.get("major"))
     opus = _mapping(major.get("opus"))
+    article = _mapping(major.get("article"))
     archive = _mapping(major.get("archive"))
     ugc = _mapping(_mapping(dynamic.get("additional")).get("ugc"))
     live_data = _mapping(major.get("live"))
@@ -500,6 +510,10 @@ def _dynamic_content(data: Mapping[str, Any]) -> dict[str, Any]:
             state="已下播" if str(live_data.get("live_status")) == "0" else "正在直播" if str(live_data.get("live_status")) == "1" else "直播分享",
         )
     covers: list[str] = []
+    for item in article.get("covers", []) if isinstance(article.get("covers"), list) else []:
+        source = item if isinstance(item, str) else _mapping(item).get("url") or _mapping(item).get("src")
+        if source and str(source) not in covers:
+            covers.append(str(source))
     for media in (archive, ugc):
         if media.get("cover"):
             covers.append(str(media["cover"]))
@@ -511,8 +525,8 @@ def _dynamic_content(data: Mapping[str, Any]) -> dict[str, Any]:
     if live and live.cover_url and live.cover_url not in covers:
         covers.append(live.cover_url)
     return {
-        "title": str(opus.get("title") or archive.get("title") or ugc.get("title") or (live.title if live else "")),
-        "body": _plain_text(dynamic.get("desc")) or _plain_text(opus.get("summary")),
+        "title": str(opus.get("title") or article.get("title") or archive.get("title") or ugc.get("title") or (live.title if live else "")),
+        "body": _plain_text(dynamic.get("desc")) or _plain_text(opus.get("summary")) or _plain_text(article.get("desc")),
         "cover_urls": covers,
         "live": live,
     }

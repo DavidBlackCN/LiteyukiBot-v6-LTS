@@ -36,6 +36,17 @@ def test_event_view_handles_long_text_and_metrics() -> None:
     assert view["metrics"] == [{"label": "播放", "value": "123"}, {"label": "点赞", "value": "0"}]
 
 
+def test_article_view_uses_column_label_and_summary_limit() -> None:
+    _init()
+    from src.nonebot_plugins.liteyuki_bilibili.renderer import event_view
+    view = event_view(BilibiliEvent(kind="dynamic", uid="42", event_id="123",
+                                   display_type="article", title="专栏标题", body="文" * 1000,
+                                   url="https://www.bilibili.com/opus/123"))
+    assert view["label"] == "专栏" and view["title"] == "专栏标题"
+    assert view["display_type"] == "article" and view["body"].startswith("文" * 600 + "…")
+    assert view["url"] == "https://www.bilibili.com/opus/123"
+
+
 def test_renderer_embeds_valid_images_and_ignores_failed_ones(monkeypatch) -> None:
     _init()
     from src.nonebot_plugins.liteyuki_bilibili.client import DownloadedImage

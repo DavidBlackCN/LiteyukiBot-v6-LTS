@@ -399,6 +399,28 @@ def test_opus_title_summary_and_complete_pictures():
     assert len(event.cover_urls) == 9
 
 
+def test_article_major_preserves_title_summary_covers_and_dynamic_cursor():
+    event = BilibiliClient._dynamic_from_api(_dynamic_fixture({
+        "type": "MAJOR_TYPE_ARTICLE", "article": {
+            "id": 42, "title": "专栏标题", "desc": "第一段\n第二段",
+            "covers": ["cover-1", "cover-2"], "jump_url": "//www.bilibili.com/read/cv42/",
+        }}, type="DYNAMIC_TYPE_ARTICLE"))
+    assert event.kind == "dynamic" and event.event_id == "123"
+    assert event.display_type == "article" and event.title == "专栏标题"
+    assert event.body == "第一段\n第二段" and event.cover_urls == ["cover-1", "cover-2"]
+    assert event.url == "https://www.bilibili.com/opus/123"
+
+
+def test_article_using_opus_major_and_forwarded_article():
+    article = _dynamic_fixture({"opus": {"title": "专栏标题", "summary": {"text": "摘要"}}},
+                               type="DYNAMIC_TYPE_ARTICLE")
+    assert BilibiliClient._dynamic_from_api(article).display_type == "article"
+    event = BilibiliClient._dynamic_from_api(_dynamic_fixture(desc={"text": "转发评论"}, orig=article))
+    assert event.display_type == "forward" and event.body == "转发评论"
+    assert event.original.title == "专栏标题" and event.original.body == "摘要"
+    assert event.original.url == "https://www.bilibili.com/opus/123"
+
+
 def test_rich_text_fallback_and_desc_precedence():
     major = {"opus": {"summary": {"rich_text_nodes": [
         {"text": "正文\n"}, {"orig_text": "[表情]"}, {"text": "话题"}]}}}
