@@ -44,3 +44,32 @@ def test_hitokoto_and_luck_use_custom_variants() -> None:
     luck = card_view("luck", {"luck_desc": "大吉", "luck_rank": 95, "luck_tip": "放心前进"})
     assert luck["variant"] == "luck"
     assert luck["facts"][0]["value"] == "95"
+
+
+def test_moyu_countdown_fields_keep_numbers_and_labels_separate():
+    from src.nonebot_plugins.liteyuki_60s.cards import card_view
+    view = card_view("moyu", {"today":{"holidayName":"国庆节"},
+        "nextWeekend":{"daysUntil":0}, "countdown":{"toFriday":6},
+        "nextHoliday":{"name":"国庆节", "until":2}})
+    assert view["calendar"]["today"] == "国庆节"
+    assert [item["value"] for item in view["countdowns"]] == ["0", "6", "2"]
+    assert view["countdowns"][2]["detail"] == "国庆节"
+    empty = card_view("moyu", {})
+    assert all(item["value"] == "—" and item["unit"] == "" for item in empty["countdowns"])
+
+
+def test_moyu_render_uses_dedicated_template_without_background_request(monkeypatch):
+    import asyncio
+    from src.nonebot_plugins.liteyuki_60s import cards
+    async def unexpected_background():
+        raise AssertionError("Moyu must not fetch a background")
+    captured = {}
+    async def render(template, variables, selector, **kwargs):
+        captured.update(template=template, data=variables["data"])
+        return b"png"
+    monkeypatch.setattr(cards, "get_path", lambda path, **kwargs: path)
+    monkeypatch.setattr(cards, "get_card_background", unexpected_background)
+    monkeypatch.setattr(cards, "template2image_element", render)
+    assert asyncio.run(cards.render_card("moyu", {})) == b"png"
+    assert captured["template"] == "templates/sixty_moyu.html"
+    assert captured["data"]["background"] == {}

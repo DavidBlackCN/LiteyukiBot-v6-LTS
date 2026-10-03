@@ -59,6 +59,24 @@ class BilibiliQRLoginResult(BaseModel):
     refresh_token: str = ""
 
 
+class BilibiliLiveDisplay(BaseModel):
+    title: str = ""
+    cover_url: str = ""
+    area_name: str = ""
+    url: str = ""
+    state: str = "直播分享"
+
+
+class BilibiliOriginalContent(BaseModel):
+    author_name: str = ""
+    title: str = ""
+    body: str = ""
+    cover_urls: list[str] = Field(default_factory=list)
+    url: str = ""
+    unavailable: bool = False
+    live: BilibiliLiveDisplay | None = None
+
+
 class BilibiliEvent(BaseModel):
     """A renderable event, independent of its source endpoint."""
 
@@ -73,6 +91,10 @@ class BilibiliEvent(BaseModel):
     cover_urls: list[str] = Field(default_factory=list)
     timestamp: datetime | None = None
     metrics: dict[str, int | str] = Field(default_factory=dict)
+
+    display_type: Literal["dynamic", "video", "live", "forward"] = "dynamic"
+    live: BilibiliLiveDisplay | None = None
+    original: BilibiliOriginalContent | None = None
 
 
 class BilibiliSubscription(BaseModel):

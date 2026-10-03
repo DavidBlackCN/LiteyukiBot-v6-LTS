@@ -20,48 +20,68 @@ _TEMPLATE_BY_KIND = {
     "live_end": "templates/bilibili_live.html",
 }
 _LABELS = {
-    "video": "BILIBILI · VIDEO",
-    "dynamic": "BILIBILI · DYNAMIC",
-    "live_start": "BILIBILI · LIVE START",
-    "live_end": "BILIBILI · LIVE END",
+    "video": "视频",
+    "dynamic": "动态",
+    "live_start": "直播",
+    "live_end": "直播",
 }
 _METRIC_LABELS = {"view": "播放", "like": "点赞", "reply": "评论", "coin": "投币", "area": "分区"}
 BILIBILI_IMAGE_DOWNLOAD_CONCURRENCY = 2
 _image_download_semaphore = asyncio.Semaphore(BILIBILI_IMAGE_DOWNLOAD_CONCURRENCY)
 
 
-def event_view(event: BilibiliEvent) -> dict[str, Any]:
+def _body_preview(text: str, limit: int) -> str:
+    if len(text) <= limit:
+        return text
+    return text[:limit].rstrip() + "…\n（正文较长，完整内容请查看原链接）"
+
+
+def event_view(event: BilibiliEvent, body_limit: int = 600) -> dict[str, Any]:
     return {
-        "label": _LABELS[event.kind],
-        "state": "开播" if event.kind == "live_start" else "下播" if event.kind == "live_end" else "",
+        "label": "转发动态" if event.original else "直播动态" if event.live else _LABELS[event.kind],
+        "state": "开播" if event.kind == "live_start" else "下播" if event.kind == "live_end" else event.live.state if event.live else "",
         "author": event.author_name or f"UP {event.uid}",
-        "title": event.title or "Bilibili 更新",
-        "body": event.body[:1600],
+        "title": "转发动态" if event.original else event.title or "Bilibili 更新",
+        "body": _body_preview(event.body, body_limit),
         "url": event.url,
         "timestamp": _format_time(event.timestamp),
         "avatar": "",
         "covers": [],
+        "display_type": "forward" if event.original else "live" if event.live or event.kind.startswith("live_") else "video" if event.kind == "video" else event.display_type,
+        "live_url": event.live.url if event.live else "",
+        "original": {
+            **event.original.model_dump(exclude={"cover_urls", "live"}),
+            "body": _body_preview(event.original.body, body_limit),
+            "covers": [],
+            "live": event.original.live.model_dump() if event.original.live else None,
+        } if event.original else None,
         "metrics": [
             {"label": _METRIC_LABELS.get(key, key), "value": str(value)}
-            for key, value in event.metrics.items()
+            for key, value in {**({"area": event.live.area_name} if event.live else {}), **event.metrics}.items()
             if value not in {None, ""}
         ][:4],
     }
 
 
 async def render_event_card(event: BilibiliEvent, client, scale_factor: float = 1.5) -> bytes:
-    template = get_path(_TEMPLATE_BY_KIND[event.kind], abs_path=True)
+    template = get_path(_TEMPLATE_BY_KIND["live_start" if event.live and not event.original else event.kind], abs_path=True)
     if not template:
         raise FileNotFoundError("Bilibili 卡片资源尚未加载，请执行 rpm reload")
-    view = event_view(event)
-    urls = [event.avatar_url, *event.cover_urls[:4]]
-    images = await asyncio.gather(
-        *(_data_uri(client, url) for url in urls if url), return_exceptions=True
-    )
-    avatar_offset = 1 if event.avatar_url else 0
-    if event.avatar_url and images and isinstance(images[0], str):
-        view["avatar"] = images[0]
-    view["covers"] = [image for image in images[avatar_offset:] if isinstance(image, str)]
+    from . import config
+
+    view = event_view(event, config.bilibili_card_body_limit)
+    cover_urls = [
+        url for url in event.cover_urls
+        if not event.original or url not in event.original.cover_urls
+    ]
+    original_urls = event.original.cover_urls if event.original else []
+    urls = list(dict.fromkeys(url for url in [event.avatar_url, *cover_urls, *original_urls] if url))
+    images = await asyncio.gather(*(_data_uri(client, url) for url in urls), return_exceptions=True)
+    embedded = {url: image for url, image in zip(urls, images) if isinstance(image, str)}
+    view["avatar"] = embedded.get(event.avatar_url, "")
+    view["covers"] = [embedded[url] for url in cover_urls if url in embedded]
+    if view["original"] is not None:
+        view["original"]["covers"] = [embedded[url] for url in original_urls if url in embedded]
     return await template2image_element(
         template,
         {"data": view},

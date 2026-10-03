@@ -70,6 +70,16 @@ def _moyu_view(value: dict[str, Any]) -> dict[str, Any]:
         "headline": "今日也请适度摸鱼",
         "quote": _text(value.get("moyuQuote"), 600),
         "facts": facts,
+        "calendar": {"lunar": lunar_text, "today": today_text},
+        "countdowns": [
+            {"label": label, "value": str(days) if days is not None else "—",
+             "unit": "天" if days is not None else "", "detail": detail}
+            for label, days, detail in (
+                ("距周末", next_weekend.get("daysUntil"), "下一次周末"),
+                ("距周五", countdown.get("toFriday"), "本周的最后冲刺"),
+                ("下个假期", next_holiday.get("until"), _text(next_holiday.get("name")) or "暂无假期信息"),
+            )
+        ],
         "progress": progress,
         "items": [],
     }
@@ -117,11 +127,14 @@ def card_view(feature: str, data: Any) -> dict[str, Any]:
 
 
 async def render_card(feature: str, data: Any) -> bytes:
-    template = get_path("templates/sixty_card.html", abs_path=True)
+    template = get_path(
+        "templates/sixty_moyu.html" if feature == "moyu" else "templates/sixty_card.html",
+        abs_path=True,
+    )
     if not template:
         raise SixtyApiError("60s 卡片资源尚未加载，请执行 rpm reload")
     view = card_view(feature, data)
-    view["background"] = await get_card_background()
+    view["background"] = {} if feature == "moyu" else await get_card_background()
     try:
         return await template2image_element(
             template,

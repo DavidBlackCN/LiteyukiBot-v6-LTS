@@ -1,1 +1,40 @@
-<!doctype html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Bilibili 直播</title><link rel="stylesheet" href="./css/card.css"><link rel="stylesheet" href="./css/fonts.css"><link rel="stylesheet" href="./css/bilibili_card.css"></head><body><div class="data-storage" id="data">{{ data | tojson }}</div><main class="info-box bili-card bili-live-card"><div class="eyebrow"><span id="label"></span><span class="state" id="state"></span></div><header class="header"><img class="avatar" id="avatar" alt=""><div><div class="author" id="author"></div><div class="timestamp" id="timestamp"></div></div></header><h1 class="title" id="title"></h1><div class="body" id="body"></div><section class="covers" id="covers"></section><section class="metrics" id="metrics"></section><div class="url" id="url"></div><footer class="footer">Data from Bilibili</footer></main><template id="cover-template"><img class="cover" alt=""></template><template id="metric-template"><div class="metric"><span></span><strong></strong></div></template><script src="./js/card.js"></script><script src="./js/bilibili_card.js"></script></body></html>
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bilibili 卡片</title>
+  <link rel="stylesheet" href="./css/card.css">
+  <link rel="stylesheet" href="./css/fonts.css">
+  <link rel="stylesheet" href="./css/bilibili_card.css">
+</head>
+<body class="bilibili-page">
+  <div class="data-storage" id="data">{{ data | tojson }}</div>
+  <main class="info-box bili-card bili-live-card">
+    <header class="brand-bar">
+      <div class="brand"><svg viewBox="0 0 64 52" aria-hidden="true"><path d="M19 3l8 10M45 3l-8 10M10 15h44a6 6 0 0 1 6 6v23a6 6 0 0 1-6 6H10a6 6 0 0 1-6-6V21a6 6 0 0 1 6-6Z"/><path d="M19 28v7M45 28v7M27 39l5 3 5-3"/></svg><div><strong>bilibili</strong><span>哔哩哔哩</span></div></div>
+      <div class="badges"><span class="type-label" id="label"></span><span class="state" id="state"></span></div>
+    </header>
+    <header class="header"><img class="avatar" id="avatar" alt=""><div class="author-info"><div class="author" id="author"></div><div class="timestamp" id="timestamp"></div></div></header>
+    <h1 class="title" id="title"></h1>
+    <div class="body" id="body"></div>
+    <section class="covers" id="covers" aria-label="内容图片"></section>
+    <article class="original" id="original" hidden>
+      <div class="original-label">转发的原内容</div>
+      <div class="original-author" id="original-author"></div>
+      <h2 class="original-title" id="original-title"></h2>
+      <div class="body" id="original-body"></div>
+      <section class="covers" id="original-covers" aria-label="原内容图片"></section>
+      <div class="url" id="original-live-url"></div>
+      <div class="url" id="original-url"></div>
+    </article>
+    <section class="metrics" id="metrics"></section>
+    <div class="url" id="live-url"></div>
+    <footer class="footer"><div class="url" id="url"></div><span>Data from Bilibili · Liteyuki</span></footer>
+  </main>
+  <template id="cover-template"><img class="cover" alt="内容图片"></template>
+  <template id="metric-template"><div class="metric"><span></span><strong></strong></div></template>
+  <script src="./js/card.js"></script>
+  <script src="./js/bilibili_card.js"></script>
+</body>
+</html>

@@ -32,6 +32,17 @@ def event_text(event: BilibiliEvent) -> str:
         lines.append(event.title)
     if event.body:
         lines.append(event.body[:500])
+    if event.original:
+        if event.original.unavailable:
+            lines.append("原动态已失效或不可见")
+        else:
+            lines.append(f"转发的原内容｜{event.original.author_name or '原作者'}")
+            if event.original.title:
+                lines.append(event.original.title)
+            if event.original.body:
+                lines.append(event.original.body[:500])
+    if event.live and event.live.url:
+        lines.append(event.live.url)
     if event.url:
         lines.append(event.url)
     return "\n".join(lines)

@@ -354,3 +354,27 @@ def test_poll_result_logging_avoids_info_for_empty_polls(monkeypatch) -> None:
     runtime._log_poll_result(PollResult(uid_count=1, failed_deliveries=1))
     assert messages[1] == ("info", "Bilibili 推送完成: delivered=1")
     assert messages[2] == ("warning", "Bilibili 轮询完成: uid=1 delivered=0 failed=1")
+
+
+def test_live_share_dynamic_advances_only_dynamic_cursor(tmp_path):
+    from src.nonebot_plugins.liteyuki_bilibili.models import BilibiliLiveDisplay
+    async def scenario():
+        store = SubscriptionStore(str(tmp_path / "share.ldb"))
+        store.add(target_type="group", target_id="one", uid="42")
+        client = FakeClient()
+        sent = []
+        async def send(subscription, event):
+            sent.append(event)
+            return True
+        poller = SubscriptionPoller(client, store, send)
+        await poller.poll()
+        client.dynamics.insert(0, BilibiliEvent(kind="dynamic", uid="42", event_id="101",
+            display_type="live", live=BilibiliLiveDisplay(title="直播分享")))
+        await poller.poll()
+        current = store.get("group", "one", "42")
+        assert current.last_dynamic_id == "101"
+        assert current.last_live_state == "offline"
+        assert current.last_video_id == "BV-old"
+        assert len(sent) == 1 and sent[0].kind == "dynamic"
+        assert (await poller.poll()).delivered_count == 0
+    asyncio.run(scenario())

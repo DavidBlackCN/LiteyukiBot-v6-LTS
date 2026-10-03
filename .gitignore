@@ -15,6 +15,7 @@ __pycache__/
 *.pyd
 *.pyw
 /plugins/
+.temp/
 
 #config
 /config/

@@ -163,6 +163,8 @@ bilibili_push_video: true
 bilibili_push_live: true
 # Bilibili 图片卡片渲染比例。
 bilibili_render_scale: 1.5
+# 卡片正文最多展示的字数，超出后提示查看原链接（100～5000）。
+bilibili_card_body_limit: 600
 
 # -------------------- 60S API 资讯与娱乐 --------------------
 

@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from hashlib import md5
 import time
+import json
 from typing import Any
 from urllib.parse import urlencode, urljoin, urlsplit
 
@@ -24,6 +25,8 @@ from .errors import (
 from .models import (
     BilibiliEvent,
     BilibiliLiveStatus,
+    BilibiliLiveDisplay,
+    BilibiliOriginalContent,
     BilibiliNav,
     BilibiliQRCode,
     BilibiliQRLoginResult,
@@ -420,88 +423,99 @@ class BilibiliClient:
     def _dynamic_from_api(
         data: Mapping[str, Any], fallback_uid: str = ""
     ) -> BilibiliEvent:
-        modules = data.get("modules") if isinstance(data.get("modules"), dict) else {}
-        author = modules.get("module_author") if isinstance(modules.get("module_author"), dict) else {}
-        dynamic = modules.get("module_dynamic") if isinstance(modules.get("module_dynamic"), dict) else {}
-        desc = dynamic.get("desc") if isinstance(dynamic.get("desc"), dict) else {}
-        major = dynamic.get("major") if isinstance(dynamic.get("major"), dict) else {}
-        archive = major.get("archive") if isinstance(major.get("archive"), dict) else {}
-        draw = major.get("draw") if isinstance(major.get("draw"), dict) else {}
-        opus = major.get("opus") if isinstance(major.get("opus"), dict) else {}
-        additional = dynamic.get("additional") if isinstance(dynamic.get("additional"), dict) else {}
-        ugc = additional.get("ugc") if isinstance(additional.get("ugc"), dict) else {}
-        original = data.get("orig") if isinstance(data.get("orig"), dict) else {}
-        original_modules = original.get("modules") if isinstance(original.get("modules"), dict) else {}
-        original_dynamic = (
-            original_modules.get("module_dynamic")
-            if isinstance(original_modules.get("module_dynamic"), dict)
-            else {}
-        )
-        original_major = (
-            original_dynamic.get("major")
-            if isinstance(original_dynamic.get("major"), dict)
-            else {}
-        )
-        original_archive = (
-            original_major.get("archive")
-            if isinstance(original_major.get("archive"), dict)
-            else {}
-        )
-        original_draw = (
-            original_major.get("draw")
-            if isinstance(original_major.get("draw"), dict)
-            else {}
-        )
-        original_opus = (
-            original_major.get("opus")
-            if isinstance(original_major.get("opus"), dict)
-            else {}
-        )
-        original_additional = (
-            original_dynamic.get("additional")
-            if isinstance(original_dynamic.get("additional"), dict)
-            else {}
-        )
-        original_ugc = (
-            original_additional.get("ugc")
-            if isinstance(original_additional.get("ugc"), dict)
-            else {}
-        )
-        image_covers: list[str] = []
-        for media, field in ((draw, "items"), (opus, "pics"), (original_draw, "items"), (original_opus, "pics")):
-            items = media.get(field) if isinstance(media.get(field), list) else []
-            for item in items:
-                source = item.get("src") or item.get("url") if isinstance(item, dict) else ""
-                if source and str(source) not in image_covers:
-                    image_covers.append(str(source))
-        covers: list[str] = []
-        for video in (archive, ugc, original_archive, original_ugc):
-            cover = video.get("cover")
-            if cover and str(cover) not in covers and str(cover) not in image_covers:
-                covers.append(str(cover))
-        covers.extend(image_covers)
+        modules = _mapping(data.get("modules"))
+        author = _mapping(modules.get("module_author"))
+        content = _dynamic_content(data)
+        original = None
+        if isinstance(data.get("orig"), dict):
+            source = data["orig"]
+            original = BilibiliOriginalContent(
+                **_dynamic_content(source),
+                author_name=str(_mapping(_mapping(source.get("modules")).get("module_author")).get("name") or ""),
+                url=f"https://t.bilibili.com/{source['id_str']}" if source.get("id_str") else "",
+                unavailable=source.get("type") == "DYNAMIC_TYPE_NONE" or not source.get("modules"),
+            )
         event_id = str(data.get("id_str") or data.get("id") or "")
         if not event_id:
             raise BilibiliAPIError("Bilibili dynamic item did not contain an id")
-        uid = str(author.get("mid") or fallback_uid)
+        # Keep source kind dynamic: the subscription cursor depends on it.
         return BilibiliEvent(
             kind="dynamic",
-            uid=uid,
+            uid=str(author.get("mid") or fallback_uid),
             event_id=event_id,
-            title=str(
-                archive.get("title")
-                or ugc.get("title")
-                or original_archive.get("title")
-                or original_ugc.get("title")
-                or "动态更新"
-            ),
-            body=str(desc.get("text") or ""),
+            title=content["title"] or (original.title if original else "") or "动态更新",
+            body=content["body"],
+            cover_urls=list(dict.fromkeys([
+                *content["cover_urls"], *(original.cover_urls if original else [])
+            ])),
+            live=content["live"],
+            display_type="forward" if original else "live" if content["live"] else "dynamic",
+            original=original,
             url=f"https://t.bilibili.com/{event_id}",
             author_name=str(author.get("name") or ""),
             avatar_url=str(author.get("face") or ""),
-            cover_urls=covers,
             timestamp=_timestamp(author.get("pub_ts")),
         )
+
+
+def _mapping(value: object) -> dict:
+    return value if isinstance(value, dict) else {}
+
+
+def _plain_text(value: object) -> str:
+    if isinstance(value, str):
+        return value
+    content = _mapping(value)
+    if isinstance(content.get("text"), str) and content["text"]:
+        return content["text"]
+    nodes = content.get("rich_text_nodes")
+    if not isinstance(nodes, list):
+        return ""
+    return "".join(str(node.get("text") or node.get("orig_text") or "") for node in nodes if isinstance(node, dict))
+
+
+def _dynamic_content(data: Mapping[str, Any]) -> dict[str, Any]:
+    dynamic = _mapping(_mapping(data.get("modules")).get("module_dynamic"))
+    major = _mapping(dynamic.get("major"))
+    opus = _mapping(major.get("opus"))
+    archive = _mapping(major.get("archive"))
+    ugc = _mapping(_mapping(dynamic.get("additional")).get("ugc"))
+    live_data = _mapping(major.get("live"))
+    recommendation = _mapping(major.get("live_rcmd")).get("content")
+    if isinstance(recommendation, str):
+        try:
+            recommendation = json.loads(recommendation)
+        except (ValueError, TypeError):
+            recommendation = {}
+    recommendation = _mapping(recommendation)
+    live_data = _mapping(recommendation.get("live_play_info")) or live_data
+    live = None
+    if live_data:
+        room_id = str(live_data.get("room_id") or live_data.get("id") or "")
+        live = BilibiliLiveDisplay(
+            title=str(live_data.get("title") or "直播分享"),
+            cover_url=str(live_data.get("cover") or live_data.get("user_cover") or ""),
+            area_name=str(live_data.get("area_name") or live_data.get("area") or ""),
+            url=f"https://live.bilibili.com/{room_id}" if room_id.isdecimal() else "",
+            state="已下播" if str(live_data.get("live_status")) == "0" else "正在直播" if str(live_data.get("live_status")) == "1" else "直播分享",
+        )
+    covers: list[str] = []
+    for media in (archive, ugc):
+        if media.get("cover"):
+            covers.append(str(media["cover"]))
+    for media, field in ((_mapping(major.get("draw")), "items"), (opus, "pics")):
+        for item in media.get(field, []) if isinstance(media.get(field), list) else []:
+            source = _mapping(item).get("src") or _mapping(item).get("url")
+            if source and str(source) not in covers:
+                covers.append(str(source))
+    if live and live.cover_url and live.cover_url not in covers:
+        covers.append(live.cover_url)
+    return {
+        "title": str(opus.get("title") or archive.get("title") or ugc.get("title") or (live.title if live else "")),
+        "body": _plain_text(dynamic.get("desc")) or _plain_text(opus.get("summary")),
+        "cover_urls": covers,
+        "live": live,
+    }
 
 
 def _integer(value: object) -> int:

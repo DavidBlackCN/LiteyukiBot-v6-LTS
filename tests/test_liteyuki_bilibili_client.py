@@ -382,3 +382,73 @@ class MemoryStore:
 
     def clear(self) -> None:
         pass
+
+
+def _dynamic_fixture(major=None, desc=None, **extra):
+    return {"id_str": "123", "modules": {
+        "module_author": {"mid": 7, "name": "作者"},
+        "module_dynamic": {"major": major or {}, "desc": desc}}, **extra}
+
+
+def test_opus_title_summary_and_complete_pictures():
+    event = BilibiliClient._dynamic_from_api(_dynamic_fixture({"opus": {
+        "title": "图文标题", "summary": {"text": "第一行\n第二行"},
+        "pics": [{"url": f"image-{i}"} for i in range(9)]}}))
+    assert event.title == "图文标题"
+    assert event.body == "第一行\n第二行"
+    assert len(event.cover_urls) == 9
+
+
+def test_rich_text_fallback_and_desc_precedence():
+    major = {"opus": {"summary": {"rich_text_nodes": [
+        {"text": "正文\n"}, {"orig_text": "[表情]"}, {"text": "话题"}]}}}
+    event = BilibiliClient._dynamic_from_api(_dynamic_fixture(major))
+    assert event.body == "正文\n[表情]话题"
+    event = BilibiliClient._dynamic_from_api(_dynamic_fixture(major, {"text": "优先正文"}))
+    assert event.body == "优先正文"
+
+
+def test_forward_keeps_comment_and_original_text_separate():
+    original = _dynamic_fixture({"opus": {"title": "原标题", "summary": {"text": "原正文"},
+                                                "pics": [{"url": "原图"}]}})
+    event = BilibiliClient._dynamic_from_api(_dynamic_fixture(desc={"text": "转发评论"}, orig=original))
+    assert event.kind == "dynamic" and event.display_type == "forward"
+    assert event.body == "转发评论"
+    assert event.original.author_name == "作者"
+    assert event.original.body == "原正文" and event.original.title == "原标题"
+    assert event.original.cover_urls == ["原图"]
+
+
+def test_unavailable_original_has_explicit_state():
+    event = BilibiliClient._dynamic_from_api(_dynamic_fixture(orig={"type": "DYNAMIC_TYPE_NONE"}))
+    assert event.original.unavailable
+
+
+@pytest.mark.parametrize("as_json", [True, False])
+def test_live_recommendation_preserves_dynamic_kind(as_json):
+    import json
+    content = {"live_play_info": {"room_id": 42, "title": "直播标题", "cover": "直播封面",
+                                  "area_name": "游戏", "live_status": 1}}
+    event = BilibiliClient._dynamic_from_api(_dynamic_fixture({"live_rcmd": {
+        "content": json.dumps(content) if as_json else content}}))
+    assert event.kind == "dynamic" and event.display_type == "live"
+    assert event.title == "直播标题" and event.cover_urls == ["直播封面"]
+    assert event.live.url == "https://live.bilibili.com/42"
+    assert event.live.area_name == "游戏" and event.live.state == "正在直播"
+
+
+def test_live_major_and_malformed_recommendation_are_isolated():
+    event = BilibiliClient._dynamic_from_api(_dynamic_fixture({
+        "live": {"id": 42, "title": "直播", "cover": "封面"},
+        "live_rcmd": {"content": "invalid-json"}}, desc={"text": "正文"}))
+    assert event.live.url == "https://live.bilibili.com/42" and event.body == "正文"
+    event = BilibiliClient._dynamic_from_api(_dynamic_fixture({"live_rcmd": {"content": "[]"}}))
+    assert event.live is None and event.kind == "dynamic"
+
+
+def test_forward_retains_legacy_cover_list_without_losing_own_media():
+    original = _dynamic_fixture({"draw": {"items": [{"src": "original-image"}]}})
+    event = BilibiliClient._dynamic_from_api(_dynamic_fixture(
+        {"draw": {"items": [{"src": "own-image"}]}}, orig=original))
+    assert event.cover_urls == ["own-image", "original-image"]
+    assert event.original.cover_urls == ["original-image"]

@@ -31,7 +31,8 @@ def test_event_view_handles_long_text_and_metrics() -> None:
     from src.nonebot_plugins.liteyuki_bilibili.renderer import event_view
 
     view = event_view(BilibiliEvent(kind="video", uid="42", event_id="BV1", body="测" * 2000, metrics={"view": 123, "like": 0}))
-    assert len(view["body"]) == 1600
+    assert view["body"].startswith("测" * 600 + "…")
+    assert "完整内容请查看原链接" in view["body"]
     assert view["metrics"] == [{"label": "播放", "value": "123"}, {"label": "点赞", "value": "0"}]
 
 
@@ -147,12 +148,12 @@ def test_live_renderer_embeds_cover_as_primary_card_image(monkeypatch) -> None:
     assert captured["selector"] == "body"
 
 
-def test_live_template_uses_a_single_16_by_9_cover_and_hides_empty_section() -> None:
+def test_live_template_preserves_cover_aspect_and_hides_empty_section() -> None:
     template = Path("src/resources/liteyuki_bilibili/templates/bilibili_live.html").read_text(encoding="utf-8")
     stylesheet = Path("src/resources/liteyuki_bilibili/templates/css/bilibili_card.css").read_text(encoding="utf-8")
     assert "bili-live-card" in template
     assert ".bili-live-card .covers { display: block; }" in stylesheet
-    assert "aspect-ratio: 16 / 9" in stylesheet
+    assert "object-fit: contain" in stylesheet
     assert ".covers:empty { display: none; }" in stylesheet
 
 
@@ -181,3 +182,66 @@ def test_delivery_falls_back_to_text_when_card_rendering_fails(monkeypatch) -> N
     event = BilibiliEvent(kind="video", uid="42", event_id="BV1", title="测试视频")
     assert asyncio.run(delivery.deliver_event(subscription, event, object()))
     assert "测试视频" in sent[0]
+
+
+def test_renderer_keeps_all_images_and_original_content(monkeypatch) -> None:
+    _init()
+    from src.nonebot_plugins.liteyuki_bilibili import renderer
+    from src.nonebot_plugins.liteyuki_bilibili.client import DownloadedImage
+    from src.nonebot_plugins.liteyuki_bilibili.models import BilibiliOriginalContent
+
+    class Client:
+        async def download_image(self, url):
+            return DownloadedImage(url.encode(), "image/png")
+
+    captured = {}
+    async def fake_render(template, variables, selector, **kwargs):
+        captured.update(variables["data"])
+        return b"png"
+    monkeypatch.setattr(renderer, "get_path", lambda *a, **k: "template.html")
+    monkeypatch.setattr(renderer, "template2image_element", fake_render)
+    event = BilibiliEvent(kind="dynamic", uid="7", event_id="10", body="字" * 2001,
+                          cover_urls=[f"image-{i}" for i in range(9)])
+    asyncio.run(renderer.render_event_card(event, Client()))
+    assert len(captured["covers"]) == 9
+    assert captured["body"].startswith("字" * 600 + "…")
+    assert len(event.body) == 2001
+    event.original = BilibiliOriginalContent(author_name="原作者", body="原文", cover_urls=event.cover_urls)
+    asyncio.run(renderer.render_event_card(event, Client()))
+    assert captured["covers"] == []
+    assert len(captured["original"]["covers"]) == 9
+    assert captured["original"]["body"] == "原文"
+
+
+def test_live_dynamic_selects_live_layout_without_changing_event_kind(monkeypatch) -> None:
+    _init()
+    from src.nonebot_plugins.liteyuki_bilibili import renderer
+    from src.nonebot_plugins.liteyuki_bilibili.models import BilibiliLiveDisplay
+    event = BilibiliEvent(kind="dynamic", uid="7", event_id="100",
+                          live=BilibiliLiveDisplay(title="直播", url="https://live.bilibili.com/42"))
+    captured = {}
+    async def fake_render(template, variables, selector, **kwargs):
+        captured.update(template=template, data=variables["data"])
+        return b"png"
+    monkeypatch.setattr(renderer, "get_path", lambda path, **k: path)
+    monkeypatch.setattr(renderer, "template2image_element", fake_render)
+    asyncio.run(renderer.render_event_card(event, object()))
+    assert captured["template"].endswith("bilibili_live.html")
+    assert captured["data"]["live_url"] == event.live.url
+    assert event.kind == "dynamic"
+
+
+def test_body_preview_limits_main_and_forwarded_text_without_changing_event():
+    _init()
+    from src.nonebot_plugins.liteyuki_bilibili.renderer import event_view
+    from src.nonebot_plugins.liteyuki_bilibili.models import BilibiliOriginalContent
+    event = BilibiliEvent(kind="dynamic", uid="7", event_id="1", body="正文" * 500,
+                         original=BilibiliOriginalContent(body="原文" * 500))
+    view = event_view(event, body_limit=100)
+    assert view["body"].startswith(event.body[:100] + "…")
+    assert view["original"]["body"].startswith(event.original.body[:100] + "…")
+    assert len(event.body) == len(event.original.body) == 1000
+    event.body = "字" * 100
+    assert event_view(event, body_limit=100)["body"] == event.body
+    event.body = ""
+    assert event_view(event)["body"] == ""

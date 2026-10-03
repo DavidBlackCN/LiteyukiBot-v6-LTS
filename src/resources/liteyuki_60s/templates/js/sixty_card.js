@@ -1,19 +1,25 @@
 window.sixtyCardReady = false;
-const data = JSON.parse(document.getElementById("data").innerText);
+const data = JSON.parse(document.getElementById("data").textContent);
 document.body.classList.add(`sixty-variant-${data.variant || "news"}`);
 const setText = (id, value) => { const node = document.getElementById(id); if (node) node.textContent = value || ""; };
 setText("title", data.title);
 setText("date", data.date);
 setText("headline", data.headline);
 setText("quote", data.quote);
+setText("calendar-lunar", data.calendar && data.calendar.lunar);
+setText("calendar-today", data.calendar && data.calendar.today);
 const quoteBox = document.getElementById("quote-box");
 quoteBox.hidden = !data.quote;
 const facts = document.getElementById("facts");
 const factTemplate = document.getElementById("fact-template").content;
-(data.facts || []).filter(item => item.value).forEach(item => {
+(data.variant === "moyu" ? data.countdowns || [] : data.facts || []).filter(item => item.value).forEach(item => {
     const node = document.importNode(factTemplate, true);
     node.querySelector(".fact-label").textContent = item.label || "";
     node.querySelector(".fact-value").textContent = item.value || "";
+    const unit = node.querySelector(".fact-unit");
+    const detail = node.querySelector(".fact-detail");
+    if (unit) unit.textContent = item.unit || "";
+    if (detail) detail.textContent = item.detail || "";
     facts.appendChild(node);
 });
 facts.hidden = !facts.children.length;
@@ -41,7 +47,7 @@ const itemTemplate = document.getElementById("item-template").content;
 items.hidden = !items.children.length;
 (async () => {
     try {
-        await Promise.all([document.fonts.ready, window.applyCardBackground(data.background || {})]);
+        await Promise.all([document.fonts.ready, data.variant === "moyu" ? Promise.resolve() : window.applyCardBackground(data.background || {})]);
         await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
     } finally { window.sixtyCardReady = true; }
 })();

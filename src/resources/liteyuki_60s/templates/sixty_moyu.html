@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>摸鱼日报</title>
+    <link rel="stylesheet" href="./css/card.css">
+    <link rel="stylesheet" href="./css/fonts.css">
+    <link rel="stylesheet" href="./css/sixty_card.css">
+</head>
+<body class="sixty-variant-moyu">
+    <div class="data-storage" id="data">{{ data | tojson }}</div>
+    <main class="card-content">
+        <header class="info-box card-header moyu-header">
+            <div class="moyu-heading"><div><p class="moyu-eyebrow">LITEYUKI · DAILY</p><h1 id="title"></h1><p id="headline" class="headline"></p></div>
+                <svg class="moyu-fish" viewBox="0 0 160 120" aria-hidden="true"><path d="M28 60C48 25 97 25 122 60C97 95 48 95 28 60ZM28 60L8 40V80L28 60Z"/><circle cx="101" cy="55" r="4"/><path d="M68 36Q49 60 68 84M83 32L76 18L104 34M116 20L123 13M134 38L144 36"/></svg>
+            </div>
+            <div class="moyu-calendar"><div><p id="date" class="card-date"></p><p class="moyu-lunar" id="calendar-lunar"></p></div><span id="calendar-today" class="moyu-status"></span></div>
+        </header>
+        <section id="facts" class="facts-grid" aria-label="休息日倒计时" hidden></section>
+        <section id="quote-box" class="info-box quote-box" hidden><span class="moyu-section-label">今日摸鱼语录</span><p id="quote"></p></section>
+        <section id="progress-box" class="info-box progress-box" hidden></section>
+        <section id="items" class="info-box item-list" hidden></section>
+        <footer class="card-footer">数据由 60s API 提供 · Liteyuki</footer>
+    </main>
+    <template id="fact-template"><article class="fact"><span class="fact-label"></span><div class="moyu-count"><strong class="fact-value"></strong><span class="fact-unit"></span></div><p class="fact-detail"></p></article></template>
+    <template id="progress-template"><article class="progress-item"><div><span class="progress-label"></span><strong class="progress-value"></strong></div><p class="progress-detail"></p><div class="progress-track"><i></i></div></article></template>
+    <template id="item-template"><article class="news-item"><span class="item-index"></span><div><h2></h2><p class="item-detail"></p><p class="item-meta"></p></div></article></template>
+    <script src="./js/card.js"></script>
+    <script src="./js/sixty_card.js"></script>
+</body>
+</html>

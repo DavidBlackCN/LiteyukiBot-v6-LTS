@@ -17,3 +17,4 @@ class BilibiliConfig(BaseModel):
     bilibili_push_video: bool = True
     bilibili_push_live: bool = True
     bilibili_render_scale: float = Field(default=1.5, ge=1.0, le=3.0)
+    bilibili_card_body_limit: int = Field(default=600, ge=100, le=5000)
