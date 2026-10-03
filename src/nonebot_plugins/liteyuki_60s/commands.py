@@ -13,7 +13,7 @@ from src.nonebot_plugins.liteyuki_group_manager.permission import ADMIN
 from .client import SixtyApiError
 from .config import SixtyApiConfig
 from .group_settings import (FEATURE_ALIASES, PUSH_FEATURES, RANDOM_FEATURES,
-                             feature_allowed, get_group_settings,
+                             command_allowed, get_group_settings,
                              reset_group_settings, update_group_settings)
 from .service import fetch_content, group_allowed
 from .state import begin_luck_request, record_luck_result
@@ -27,8 +27,8 @@ async def _send_feature(
     name: str | None = None,
     user_id: str | None = None,
 ):
-    if not feature_allowed(config, getattr(matcher, "_liteyuki_group_id", None), feature):
-        await matcher.finish("此功能已关闭。")
+    if not command_allowed(config, getattr(matcher, "_liteyuki_group_id", None), feature):
+        await matcher.finish("本群此功能的手动命令已关闭。" if getattr(matcher, "_liteyuki_group_id", None) is not None else "此功能已关闭。")
 
     date = datetime.now(
         ZoneInfo(config.sixty_api_timezone)
@@ -249,6 +249,8 @@ def _tokens(result: Arparma) -> list[str]:
 
 
 def _feature(value: str) -> str | None:
+    if value in {"发病语录", "发病语录播报"}:
+        return "fabing"
     return FEATURE_ALIASES.get(value) or (value if value in FEATURE_ALIASES.values() else None)
 
 
@@ -264,8 +266,12 @@ def _status(group_id: str, config: SixtyApiConfig) -> str:
     lines = [
         f"实例允许范围：{'是' if settings['allowed'] else '否'}",
         f"总开关：{'开' if settings['enabled'] else '关'}（{source('enabled')}）",
-        "功能：" + "、".join(
+        "功能总开关（命令与播报）：" + "、".join(
             f"{name}{'开' if settings['features'][key] else '关'}（{source('features', key)}）"
+            for name, key in FEATURE_ALIASES.items()
+        ),
+        "手动命令：" + "、".join(
+            f"{name}{'开' if settings['commands'][key] else '关'}（{source('commands', key)}）"
             for name, key in FEATURE_ALIASES.items()
         ),
         "固定推送：",
@@ -301,13 +307,23 @@ async def handle_sixty_admin(result: Arparma, event: Event, bot: Bot, matcher: M
         await matcher.finish("当前群不在实例允许范围内，请联系 SUPERUSER。")
     args = _tokens(result)
     if not args:
-        await matcher.finish("用法：60s管理 状态|开启|关闭|重置；功能/推送/随机 <项目> …")
+        await matcher.finish("用法：60s管理 状态|开启|关闭|重置；功能/命令/播报 <项目> 开|关；推送/随机 <项目> …\n功能同时控制命令与播报；命令和播报可分别开关。")
     if args[0] == "状态":
         await matcher.finish(_status(group_id, config))
     if args[0] in {"开启", "关闭"}:
         update_group_settings(group_id, config, enabled=args[0] == "开启")
     elif args[0] == "重置":
         reset_group_settings(group_id, config)
+    elif len(args) == 3 and args[0] in {"命令", "播报"} and args[2] in {"开", "关"}:
+        feature = _feature(args[1])
+        if feature is None:
+            await matcher.finish("未知功能。")
+        section = "commands"
+        if args[0] == "播报":
+            if feature not in PUSH_FEATURES + RANDOM_FEATURES:
+                await matcher.finish("该内容不支持定时播报。")
+            section = "push" if feature in PUSH_FEATURES else "random_push"
+        update_group_settings(group_id, config, **{section: {feature: {"enabled": args[2] == "开"}}})
     elif len(args) >= 3 and args[0] == "功能" and args[2] in {"开", "关"}:
         feature = _feature(args[1])
         if feature is None:
@@ -348,6 +364,6 @@ async def handle_sixty_admin(result: Arparma, event: Event, bot: Bot, matcher: M
             await matcher.finish("用法：60s管理 随机 <发病文学|冷笑话> 开|关|次数 <最小> <最大>|时段 <开始> <结束>")
         update_group_settings(group_id, config, random_push={feature: values})
     else:
-        await matcher.finish("参数不正确，请使用：状态、开启、关闭、重置、功能、推送或随机。")
+        await matcher.finish("参数不正确，请使用：状态、开启、关闭、重置、功能、命令、播报、推送或随机。")
     reschedule_group(config, int(group_id))
     await matcher.finish("本群 60s 设置已更新并重新调度。")

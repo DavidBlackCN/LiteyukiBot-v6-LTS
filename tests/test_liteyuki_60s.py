@@ -124,11 +124,11 @@ def test_group_mode_scopes_commands_and_pushes(monkeypatch) -> None:
     from src.nonebot_plugins.liteyuki_60s.scheduler import push_content
     from src.nonebot_plugins.liteyuki_60s.service import Content, group_allowed
 
-    whitelist = SixtyApiConfig(sixty_api_group_ids=[10001])
+    whitelist = SixtyApiConfig(sixty_api_group_ids=[10001], sixty_api_world_push_enabled=True)
     assert group_allowed(whitelist, 10001)
     assert not group_allowed(whitelist, 10002)
     assert group_allowed(whitelist, None)
-    blacklist = SixtyApiConfig(sixty_api_group_mode="blacklist", sixty_api_group_ids=[10001])
+    blacklist = SixtyApiConfig(sixty_api_group_mode="blacklist", sixty_api_group_ids=[10001], sixty_api_world_push_enabled=True)
     assert not group_allowed(blacklist, 10001)
     assert group_allowed(blacklist, 10002)
 
@@ -164,7 +164,8 @@ def test_group_mode_scopes_commands_and_pushes(monkeypatch) -> None:
         return Content("text", f"{feature}-{len(calls)}")
 
     monkeypatch.setattr("src.nonebot_plugins.liteyuki_60s.scheduler.fetch_content", random_content)
-    random_groups = SixtyApiConfig(sixty_api_group_ids=[10001, 10002], sixty_api_fabing_default_name="小明")
+    random_groups = SixtyApiConfig(sixty_api_group_ids=[10001, 10002], sixty_api_fabing_default_name="小明",
+                                 sixty_api_fabing_random_push_enabled=True, sixty_api_dad_joke_random_push_enabled=True)
     bot.sent.clear()
     bot.messages.clear()
     assert asyncio.run(push_content(random_groups, "fabing", per_group_random=True))
@@ -228,7 +229,7 @@ def test_blacklist_image_push_exports_message_for_bot(monkeypatch) -> None:
     monkeypatch.setattr("src.nonebot_plugins.liteyuki_60s.scheduler.fetch_content", content)
     monkeypatch.setattr("src.nonebot_plugins.liteyuki_60s.scheduler.UniMessage", FakeUniMessage)
 
-    config = SixtyApiConfig(sixty_api_group_mode="blacklist", sixty_api_group_ids=[10001])
+    config = SixtyApiConfig(sixty_api_group_mode="blacklist", sixty_api_group_ids=[10001], sixty_api_world_push_enabled=True)
     assert asyncio.run(push_content(config, "world"))
     assert exported_image.export_bots == [bot]
     assert bot.sent == [(10002, exported_image.native_message)]
@@ -290,6 +291,7 @@ def test_image_pushes_all_groups_with_throttling_and_independent_exports(monkeyp
 
     config = SixtyApiConfig(
         sixty_api_group_ids=target_groups,
+        sixty_api_world_push_enabled=True,
         sixty_api_push_interval_seconds=0.25,
     )
     assert asyncio.run(scheduler_module.push_content(config, "world"))

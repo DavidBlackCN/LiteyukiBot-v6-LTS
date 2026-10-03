@@ -43,6 +43,10 @@ def get_group_settings(group_id: str | int, config: SixtyApiConfig) -> dict[str,
             feature: feature_allowed(config, group_id, feature)
             for feature in FEATURES
         },
+        "commands": {
+            feature: command_allowed(config, group_id, feature)
+            for feature in FEATURES
+        },
         "push": {
             feature: resolve_push_settings(config, group_id, feature)
             for feature in PUSH_FEATURES
@@ -81,6 +85,28 @@ def feature_allowed(config: SixtyApiConfig, group_id: str | int | None, feature:
     return value is not False
 
 
+def command_allowed(config: SixtyApiConfig, group_id: str | int | None, feature: str) -> bool:
+    """Manual commands have a separate switch under the legacy master switch."""
+    if not feature_allowed(config, group_id, feature):
+        return False
+    if group_id is None:
+        return True
+    values = get_group_overrides(group_id).get("commands", {})
+    value = values.get(feature, True) if isinstance(values, dict) else True
+    if isinstance(value, dict):
+        value = value.get("enabled", True)
+    return value is not False
+
+
+def broadcast_allowed(config: SixtyApiConfig, group_id: str | int, feature: str) -> bool:
+    """Recheck effective push settings when a scheduled task executes."""
+    if feature in PUSH_FEATURES:
+        return resolve_push_settings(config, group_id, feature)["enabled"]
+    if feature in RANDOM_FEATURES:
+        return resolve_random_push_settings(config, group_id, feature)["enabled"]
+    return False
+
+
 def resolve_push_settings(config: SixtyApiConfig, group_id: str | int, feature: str) -> dict[str, Any]:
     if feature not in PUSH_FEATURES:
         raise KeyError(feature)
@@ -114,7 +140,7 @@ def update_group_settings(group_id: str | int, config: SixtyApiConfig, **changes
     values = get_group_overrides(group_id)
     if "enabled" in changes:
         values["enabled"] = bool(changes["enabled"])
-    for section, allowed in (("features", FEATURES), ("push", PUSH_FEATURES), ("random_push", RANDOM_FEATURES)):
+    for section, allowed in (("features", FEATURES), ("commands", FEATURES), ("push", PUSH_FEATURES), ("random_push", RANDOM_FEATURES)):
         incoming = changes.get(section)
         if not isinstance(incoming, dict):
             continue
@@ -124,7 +150,7 @@ def update_group_settings(group_id: str | int, config: SixtyApiConfig, **changes
         for feature, update in incoming.items():
             if feature not in allowed or not isinstance(update, dict):
                 continue
-            if section == "features":
+            if section in {"features", "commands"}:
                 if "enabled" in update:
                     target[feature] = bool(update["enabled"])
                 continue

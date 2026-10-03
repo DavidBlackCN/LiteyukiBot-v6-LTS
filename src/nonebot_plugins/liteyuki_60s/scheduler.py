@@ -15,7 +15,7 @@ from nonebot_plugin_apscheduler import scheduler
 
 from .client import SixtyApiError
 from .config import SixtyApiConfig
-from .group_settings import (PUSH_FEATURES, RANDOM_FEATURES, feature_allowed,
+from .group_settings import (PUSH_FEATURES, RANDOM_FEATURES, broadcast_allowed,
                              resolve_push_settings, resolve_random_push_settings)
 from .service import enabled, fetch_content, group_allowed
 from .state import random_push_plan_store
@@ -99,7 +99,7 @@ async def push_content(config: SixtyApiConfig, feature: str, *, per_group_random
     bot = choose_push_bot(config)
     if bot is None:
         return False
-    target_groups = [group_id for group_id in await push_target_groups(config, bot) if feature_allowed(config, group_id, feature)]
+    target_groups = [group_id for group_id in await push_target_groups(config, bot) if broadcast_allowed(config, group_id, feature)]
     if target_group_id is not None:
         target_group_id = int(target_group_id)
         if target_group_id not in target_groups:
@@ -119,7 +119,8 @@ async def push_content(config: SixtyApiConfig, feature: str, *, per_group_random
             except SixtyApiError as exc:
                 nonebot.logger.warning("60s {} 随机推送获取失败（群 {}）：{}", feature, group_id, repr(exc))
             else:
-                sent = await _send_content_to_group(bot, group_id, content) or sent
+                if broadcast_allowed(config, group_id, feature):
+                    sent = await _send_content_to_group(bot, group_id, content) or sent
             await _wait_for_next_group(config, index, target_groups)
         return sent
     try:
@@ -132,7 +133,8 @@ async def push_content(config: SixtyApiConfig, feature: str, *, per_group_random
         return False
     sent = False
     for index, group_id in enumerate(target_groups):
-        sent = await _send_content_to_group(bot, group_id, content) or sent
+        if broadcast_allowed(config, group_id, feature):
+            sent = await _send_content_to_group(bot, group_id, content) or sent
         await _wait_for_next_group(config, index, target_groups)
     return sent
 
