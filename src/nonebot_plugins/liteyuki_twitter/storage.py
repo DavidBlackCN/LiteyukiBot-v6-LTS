@@ -88,6 +88,10 @@ class TwitterStore:
                     db.execute(f"DELETE FROM {table} WHERE group_id=?", (str(group_id),))
             db.execute("INSERT OR REPLACE INTO activity VALUES(?,?)", (str(group_id), int(active)))
 
+    def active_groups(self) -> list[str]:
+        with self.connect() as db:
+            return [row[0] for row in db.execute("SELECT group_id FROM activity WHERE active=1")]
+
     @staticmethod
     def key(post: Post) -> str:
         return f"{'repost' if post.repost else 'post'}:{post.post_id}"

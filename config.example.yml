@@ -178,7 +178,10 @@ twitter_timeout: 15
 # 轮询间隔（秒）、账号抓取并发。
 twitter_poll_interval: 600
 twitter_concurrency: 2
-# 允许群名单；以字符串填写。SUPERUSER 也不能越过此边界。
+# 群聊名单模式：whitelist 仅名单内群可用；blacklist 忽略名单内群。
+twitter_group_mode: "whitelist"
+# 白名单为空时不响应群消息；黑名单为空时允许所有群，播报目标为所选 Bot 的实际群。
+# 群号以字符串填写；SUPERUSER 也不能越过配置的群范围。
 twitter_group_ids: []
 # 多 Bot 时指定主动发送的 Bot ID；留空时要求仅一个 Bot 在线。
 twitter_push_bot_id: ""

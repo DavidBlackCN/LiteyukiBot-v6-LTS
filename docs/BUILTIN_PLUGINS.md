@@ -170,6 +170,8 @@
 
 ### `liteyuki_twitter` — X 订阅与转发
 
+群范围使用 `twitter_group_mode: whitelist|blacklist` 和 `twitter_group_ids`：默认白名单，仅列入的群可用；黑名单则排除列入的群。白名单为空不响应群消息，黑名单为空允许所有群。黑名单播报仅向所选 Bot 的实际群发送，群列表获取失败时跳过。范围约束命令、管理、自动链接解析和播报，私聊手动查询仍可用。
+
 通过配置的 Nitter 实例获取 X / Twitter 内容，默认关闭。启用前需设置 `twitter_enabled`、`twitter_nitter_instances` 和 `twitter_group_ids`；不内置公共实例。Nitter 上游已归档，实际实例是否可用需要自行验证。插件不保存 X 登录凭据、不部署 Nitter，也不保证有限时间线窗口能补齐所有历史。
 
 - `推特关注 <账号> [--仅媒体] [--回复] [--转推]`、`推特取关 <账号>`、`推特订阅列表`：当前群 ADMIN / SUPERUSER 管理本群。账号可带 `@`，每群命令最多关注 50 个。默认推送原创和引用，回复与转推默认关闭；再次关注会更新过滤选项。

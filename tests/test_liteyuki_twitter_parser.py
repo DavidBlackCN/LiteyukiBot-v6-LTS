@@ -36,11 +36,13 @@ def test_config_safe_defaults_and_normalization():
     _, Config, _, _ = modules()
     config = Config(twitter_group_ids=[101, "101"], twitter_follows=["@Example"], twitter_group_follows={202: ["Other"]})
     assert not config.twitter_enabled and config.twitter_nitter_instances == []
+    assert config.twitter_group_mode == "whitelist"
     assert config.twitter_group_ids == ["101"]
     assert config.twitter_follows[0].account == "example"
     assert config.twitter_group_follows["202"][0].account == "other"
     for values in ({"twitter_model_base_url": "https://secret:password@example.org"},
-                   {"twitter_follows": ["bad-account"]}, {"twitter_poll_interval": 1}):
+                   {"twitter_follows": ["bad-account"]}, {"twitter_poll_interval": 1},
+                   {"twitter_group_mode": "invalid"}):
         with pytest.raises(ValueError):
             Config(**values)
 

@@ -121,6 +121,56 @@ def test_sending_rechecks_disabled_group(tmp_path, monkeypatch):
     assert matcher.sent == []
 
 
+def test_blacklist_controls_commands_management_and_automatic_x_link(tmp_path, monkeypatch):
+    commands, groups, _, service, Post, event = setup_service(tmp_path, monkeypatch)
+    service.config.twitter_group_mode = "blacklist"
+    service.config.twitter_group_ids = ["202"]
+    for channel in ("commands", "push", "links"):
+        assert groups.locally_allowed(service.config, "101", channel)
+        assert not groups.locally_allowed(service.config, "202", channel)
+    link = "https://x.com/thsottiaux/status/2106239435461579088"
+    event.get_plaintext = lambda: link
+    calls, card = [], object()
+    async def status(account, post_id):
+        calls.append((account, post_id))
+        return Post(post_id, account, text="original")
+    async def message(bot, post): return card
+    monkeypatch.setattr(service, "status_post", status)
+    monkeypatch.setattr(service, "message", message)
+    matcher = Matcher()
+    asyncio.run(commands.handle_link(event, None, matcher))
+    assert matcher.sent == [card]
+    assert calls == [("thsottiaux", "2106239435461579088")]
+    event.group_id = 202
+    asyncio.run(commands.handle_link(event, None, matcher))
+    assert len(calls) == 1
+    with pytest.raises(Finished, match="未启用"):
+        invoke(commands.handle_parse, [link], event)
+    with pytest.raises(Finished, match="黑名单"):
+        invoke(commands.handle_follow, ["other"], event)
+    service.config.twitter_group_ids = []
+    assert groups.locally_allowed(service.config, "202", "links")
+    service.config.twitter_group_mode = "whitelist"
+    assert not groups.locally_allowed(service.config, "202", "links")
+    assert groups.locally_allowed(service.config, None, "commands")
+
+
+@pytest.mark.parametrize("v11", [True, False])
+def test_blacklist_discovers_bot_groups_and_skips_group_list_failure(tmp_path, monkeypatch, v11):
+    _, _, runtime, service, _, _ = setup_service(tmp_path, monkeypatch)
+    service.config.twitter_group_mode = "blacklist"
+    service.config.twitter_group_ids = ["202"]
+    class Bot:
+        async def get_group_list(self):
+            return [{"group_id": 101 if v11 else "101"}, {"group_id": "202"}, {"group_id": "101"}, {}]
+    bot = Bot()
+    monkeypatch.setattr(runtime.nonebot, "get_bots", lambda: {"1": bot})
+    assert asyncio.run(service.target_groups()) == ["101"]
+    async def failed(): raise RuntimeError("offline")
+    monkeypatch.setattr(bot, "get_group_list", failed)
+    assert asyncio.run(service.target_groups()) is None
+
+
 @pytest.mark.parametrize("v11", [True, False])
 def test_delivery_adapters_and_multi_bot_selection(tmp_path, monkeypatch, v11):
     _, _, runtime, service, Post, _ = setup_service(tmp_path, monkeypatch)

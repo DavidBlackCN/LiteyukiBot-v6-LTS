@@ -55,8 +55,8 @@ async def target_group(config, args, event, bot, matcher):
         del args[index:index + 2]
     if group is None:
         await matcher.finish("请在群内管理订阅，或由 SUPERUSER 使用 --群 指定群。")
-    if group not in config.twitter_group_ids:
-        await matcher.finish("目标群不在允许名单中，请联系 SUPERUSER 修改配置。")
+    if not group_settings.group_allowed(config, group):
+        await matcher.finish("目标群不在允许名单范围内（白名单未列入或被黑名单排除），请联系 SUPERUSER 修改配置。")
     return group, args
 
 
@@ -133,7 +133,7 @@ async def handle_manage(result: Arparma, event: Event, bot: Bot, matcher: Matche
     labels = {"enabled": "总开关", "commands": "手动命令", "push": "自动播报", "links": "自动链接识别",
               "translate_push": "播报翻译", "translate_links": "链接翻译"}
     if args == ["状态"]:
-        lines = [f"X 全局：{'开' if config.twitter_enabled else '关'}", f"Nitter 实例：{len(config.twitter_nitter_instances)} 个",
+        lines = [f"X 全局：{'开' if config.twitter_enabled else '关'}", f"群范围：{'白名单' if config.twitter_group_mode == 'whitelist' else '黑名单'}", f"Nitter 实例：{len(config.twitter_nitter_instances)} 个",
                  f"轮询间隔：{config.twitter_poll_interval} 秒", f"关注：{len(service.store.follows(config, group))} 个",
                  f"待发送：{service.store.pending_count(group)} 条"]
         lines += [f"{label}：{'开' if values[key] else '关'}" for key, label in labels.items()]

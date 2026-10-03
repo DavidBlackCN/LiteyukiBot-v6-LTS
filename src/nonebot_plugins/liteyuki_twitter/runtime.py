@@ -38,7 +38,24 @@ class TwitterService:
         self.translator = Translator(config, self.store)
         self.link_times = {}
         self.translation_times = {}
-        self.poller = TwitterPoller(config, self.client, self.store, self.deliver)
+        self.poller = TwitterPoller(config, self.client, self.store, self.deliver, target_groups=self.target_groups)
+
+    async def target_groups(self):
+        if self.config.twitter_group_mode == "whitelist":
+            return self.config.twitter_group_ids
+        bot = choose_bot(self.config)
+        if bot is None:
+            return None
+        try:
+            groups = await bot.get_group_list()
+            return list(dict.fromkeys(
+                str(group_id) for item in groups
+                if (group_id := item.get("group_id") if isinstance(item, dict) else getattr(item, "group_id", None)) is not None
+                and group_settings.group_allowed(self.config, str(group_id))
+            ))
+        except Exception as error:
+            nonebot.logger.warning("X 黑名单模式无法获取当前群列表，跳过本次播报：{}", type(error).__name__)
+            return None
 
     async def close(self):
         await self.translator.close()

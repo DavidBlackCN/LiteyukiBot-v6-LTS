@@ -142,4 +142,35 @@ def test_failed_fetch_does_not_baseline(tmp_path):
     asyncio.run(TwitterPoller(config, Client(), store, deliver, can_push=allowed).poll())
     with store.connect() as db:
         assert db.execute("SELECT count(*) FROM baselines").fetchone()[0] == 0
+
+
+def test_blacklist_poll_targets_and_reentry_baseline(tmp_path):
+    Config, Post, store, _ = state(tmp_path)
+    from src.nonebot_plugins.liteyuki_twitter.scheduler import TwitterPoller
+    config = Config(twitter_enabled=True, twitter_group_mode="blacklist",
+                    twitter_group_ids=[202], twitter_follows=["example"])
+    current, targets, sent = [Post("100", "example")], ["101", "202"], []
+    class Client:
+        async def get_timeline(self, account): return current
+    async def allowed(group): return True
+    async def groups(): return targets
+    async def deliver(group, post, account): sent.append((group, post.post_id)); return True
+    poller = TwitterPoller(config, Client(), store, deliver, can_push=allowed, target_groups=groups)
+    asyncio.run(poller.poll())
+    assert store.active_groups() == ["101"]
+    current[:] = [Post("101", "example")]
+    asyncio.run(poller.poll())
+    assert sent == [("101", "101")]
+    # A failed group-list request must not reset discovery state.
+    targets = None
+    asyncio.run(poller.poll())
+    assert store.active_groups() == ["101"]
+    config.twitter_group_ids = ["101", "202"]
+    targets = ["101", "202"]
+    asyncio.run(poller.poll())
+    assert store.active_groups() == []
+    config.twitter_group_ids = ["202"]
+    current[:] = [Post("102", "example")]
+    asyncio.run(poller.poll())
+    assert sent == [("101", "101")]  # Reallowed groups rebaseline without history.
     assert store.ingest("101", config.twitter_follows[0], [Post("100", "example")]) == 0

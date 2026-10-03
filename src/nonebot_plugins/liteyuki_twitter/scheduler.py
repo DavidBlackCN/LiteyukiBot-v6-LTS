@@ -10,9 +10,10 @@ from .models import Post, TwitterError
 
 
 class TwitterPoller:
-    def __init__(self, config, client, store, deliver, *, can_push=None):
+    def __init__(self, config, client, store, deliver, *, can_push=None, target_groups=None):
         self.config, self.client, self.store, self.deliver = config, client, store, deliver
         self.can_push = can_push or (lambda group: group_settings.allowed(config, group, "push"))
+        self.target_groups = target_groups
         self.lock = asyncio.Lock()
 
     async def poll(self):
@@ -22,7 +23,16 @@ class TwitterPoller:
     async def _poll(self):
         grouped, active = {}, {}
         result = {"accounts": 0, "queued": 0, "sent": 0, "failed": 0}
-        for group in self.config.twitter_group_ids:
+        if self.target_groups is not None:
+            targets = await self.target_groups()
+            if targets is None:
+                return result
+        else:
+            targets = self.config.twitter_group_ids if self.config.twitter_group_mode == "whitelist" else []
+        targets = list(dict.fromkeys(str(group) for group in targets if group_settings.group_allowed(self.config, group)))
+        for group in set(self.store.active_groups()) - set(targets):
+            self.store.set_active(group, False)
+        for group in targets:
             enabled = await self.can_push(group)
             self.store.set_active(group, enabled)
             if not enabled:

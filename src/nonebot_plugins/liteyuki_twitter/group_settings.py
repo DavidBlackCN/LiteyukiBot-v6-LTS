@@ -38,10 +38,15 @@ def update(config: TwitterConfig, group_id: str, **changes):
     return settings(config, str(group_id))
 
 
+def group_allowed(config: TwitterConfig, group_id: str) -> bool:
+    listed = str(group_id) in config.twitter_group_ids
+    return listed if config.twitter_group_mode == "whitelist" else not listed
+
+
 def locally_allowed(config: TwitterConfig, group_id: str | None, channel: str) -> bool:
     if not config.twitter_enabled:
         return False
-    if group_id is not None and str(group_id) not in config.twitter_group_ids:
+    if group_id is not None and not group_allowed(config, group_id):
         return False
     values = settings(config, group_id)
     return bool(values["enabled"] and values[channel])

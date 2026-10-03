@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import re
+from typing import Literal
 from urllib.parse import urlsplit
 
 from pydantic import BaseModel, Field, field_validator
@@ -43,6 +44,7 @@ class TwitterConfig(BaseModel):
     twitter_timeout: float = Field(default=15, ge=1, le=60)
     twitter_poll_interval: int = Field(default=600, ge=60, le=86400)
     twitter_concurrency: int = Field(default=2, ge=1, le=8)
+    twitter_group_mode: Literal["whitelist", "blacklist"] = "whitelist"
     twitter_group_ids: list[str] = Field(default_factory=list)
     twitter_push_bot_id: str = ""
     twitter_follows: list[FollowOptions] = Field(default_factory=list)
