@@ -166,6 +166,51 @@ bilibili_render_scale: 1.5
 # 卡片正文最多展示的字数，超出后提示查看原链接（100～5000）。
 bilibili_card_body_limit: 600
 
+# -------------------- X (Twitter) 订阅与翻译 --------------------
+
+# 默认关闭；需配置可用 Nitter 实例和允许群后开启。
+twitter_enabled: false
+# 自建或指定实例，可配置多个；不提供未经验证的公共实例默认值。
+twitter_nitter_instances: []
+# 可选 HTTP 代理，同时用于内容获取和翻译服务。
+twitter_proxy: ""
+twitter_timeout: 15
+# 轮询间隔（秒）、账号抓取并发。
+twitter_poll_interval: 600
+twitter_concurrency: 2
+# 允许群名单；以字符串填写。SUPERUSER 也不能越过此边界。
+twitter_group_ids: []
+# 多 Bot 时指定主动发送的 Bot ID；留空时要求仅一个 Bot 在线。
+twitter_push_bot_id: ""
+# 默认关注列表，可写账号字符串或带过滤选项的对象。
+# twitter_follows:
+#   - example_account
+#   - account: another_account
+#     media_only: true
+#     replies: false
+#     reposts: false
+twitter_follows: []
+# 某群显式列表替代默认列表；群内增删会持久覆盖，订阅重置可恢复继承。
+# twitter_group_follows:
+#   "<群号>":
+#     - example_account
+twitter_group_follows: {}
+# 自动翻译默认按群关闭；默认服务为 model，可改为 libretranslate。
+twitter_translation_provider: model
+# 兼容 Chat Completions 的基础地址（例如 https://model.example/v1）。
+twitter_model_base_url: ""
+twitter_model_name: ""
+twitter_model_api_key: ""
+# LibreTranslate 基础地址，不含 /translate；公开模板禁止填写真实密钥。
+twitter_libretranslate_url: ""
+twitter_libretranslate_api_key: ""
+twitter_translation_timeout: 30
+# 正文与引用合计翻译字符上限；普通用户每会话手动翻译冷却（秒）。
+twitter_translation_limit: 4000
+twitter_translation_cooldown: 30
+# 卡片正文展示字数上限，完整抓取内容仍供翻译使用。
+twitter_card_body_limit: 600
+
 # -------------------- 60S API 资讯与娱乐 --------------------
 
 # 60s API 实例地址；可替换为自建或公共实例。

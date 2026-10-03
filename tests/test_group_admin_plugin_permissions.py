@@ -56,6 +56,7 @@ def test_current_group_admin_matchers_and_superuser_boundaries(tmp_path: Path) -
             "src.nonebot_plugins.liteyuki_pacman",
             "src.nonebot_plugins.liteyuki_eventpush",
             "src.nonebot_plugins.liteyuki_60s",
+            "src.nonebot_plugins.liteyuki_twitter",
         ):
             assert nonebot.load_plugin(module) is not None
 
@@ -67,6 +68,7 @@ def test_current_group_admin_matchers_and_superuser_boundaries(tmp_path: Path) -
         from src.nonebot_plugins.liteyuki_eventpush import add_push
         from src.nonebot_plugins.liteyuki_pacman import npm
         from src.nonebot_plugins.liteyuki_60s.commands import sixty_admin
+        from src.nonebot_plugins.liteyuki_twitter.commands import follow, unfollow, subscription_list as twitter_list, manage
 
         bot = Bot(driver._adapters[Adapter.get_name()], "1")
 
@@ -95,6 +97,7 @@ def test_current_group_admin_matchers_and_superuser_boundaries(tmp_path: Path) -
 
             current_group_matchers = (
                 setu_admin, subscribe, unsubscribe, subscription_list, sixty_admin,
+                follow, unfollow, twitter_list, manage,
                 matcher_for("set-reply-probability"),
             )
             for matcher in current_group_matchers:
