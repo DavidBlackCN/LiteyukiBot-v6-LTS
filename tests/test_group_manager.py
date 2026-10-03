@@ -19,6 +19,7 @@ def _run_python(source: str, **extra_env: str) -> None:
         env=env,
         capture_output=True,
         text=True,
+        encoding="utf-8",
         timeout=30,
     )
     assert result.returncode == 0, result.stdout + result.stderr
@@ -182,5 +183,85 @@ def test_group_manager_disabled_registers_no_matchers() -> None:
         )
         assert plugin is not None
         assert not plugin.matcher
+        """
+    )
+
+
+def test_leave_nickname_cache_survives_blocking_matchers_and_silent_members():
+    _run_python(
+        """
+        import asyncio
+        from types import SimpleNamespace
+        from unittest.mock import AsyncMock
+        import nonebot
+        from nonebot.adapters.onebot.v11 import Adapter, Bot, GroupMessageEvent, Message, GroupDecreaseNoticeEvent, GroupIncreaseNoticeEvent
+        from nonebot.message import handle_event
+
+        nonebot.init()
+        nonebot.get_driver().register_adapter(Adapter)
+        assert nonebot.load_plugin("src.nonebot_plugins.liteyuki_group_manager")
+        from src.nonebot_plugins.liteyuki_group_manager import handlers as h
+        bot = Bot(Adapter(nonebot.get_driver()), "1")
+        blocker = nonebot.on_type(GroupMessageEvent, priority=1, block=True)
+        handled = []
+        @blocker.handle()
+        async def block_message():
+            handled.append(True)
+
+        async def scenario():
+            h._member_nickname_cache.clear()
+            async def connect_api(api, **params):
+                if api == "get_group_list":
+                    return [{"group_id":10001}]
+                if api == "get_group_member_list":
+                    return [{"user_id":8,"nickname":"连接时获取的昵称"}]
+                raise AssertionError(api)
+            bot.call_api = AsyncMock(side_effect=connect_api)
+            await h.prime_member_nicknames_on_connect(bot)
+            assert h._member_nickname_cache[("1",10001,8)] == "连接时获取的昵称"
+            event = GroupMessageEvent(time=0, self_id=1, post_type="message", sub_type="normal",
+                user_id=2, message_type="group", message_id=3, message=Message("命令"),
+                original_message=Message("命令"), raw_message="命令", font=0,
+                sender={"user_id":2,"card":"2","nickname":"真实昵称","role":"member"},
+                to_me=False, group_id=10001)
+            await handle_event(bot, event)
+            assert handled == [True]
+            assert h._member_nickname_cache[("1",10001,2)] == "真实昵称"
+
+            silent_bot = SimpleNamespace(self_id="1", get_group_list=AsyncMock(return_value=[{"group_id":10001},{"group_id":10002}]),
+                get_group_member_info=AsyncMock(side_effect=RuntimeError("member already left")),
+                get_stranger_info=AsyncMock(return_value={"nickname":""}), send_group_msg=AsyncMock())
+            async def members(group_id):
+                if group_id == 10002:
+                    raise RuntimeError("one group unavailable")
+                # A stale roster must not overwrite the just-received message.
+                return [{"user_id":2,"nickname":"旧昵称"},{"user_id":3,"card":"群名片","nickname":"未发言成员"}]
+            silent_bot.get_group_member_list = AsyncMock(side_effect=members)
+            await h._prime_member_nicknames(silent_bot)
+            assert h._member_nickname_cache[("1",10001,2)] == "真实昵称"
+            leave = GroupDecreaseNoticeEvent(time=0,self_id=1,post_type="notice",notice_type="group_decrease",
+                sub_type="leave",user_id=3,group_id=10001,operator_id=3)
+            await h.handle_leave_notice(silent_bot, leave)
+            assert silent_bot.send_group_msg.await_args.kwargs["message"] == "群名片（3）离开了本群"
+            assert ("1",10001,3) not in h._member_nickname_cache
+            silent_bot.get_stranger_info.assert_not_awaited()
+            assert await h._notice_nickname(silent_bot,10002,3) == "3"
+            other_bot = SimpleNamespace(self_id="9",get_group_member_info=silent_bot.get_group_member_info,
+                                        get_stranger_info=silent_bot.get_stranger_info)
+            assert await h._notice_nickname(other_bot,10001,2) == "2"
+
+            valid_bot = SimpleNamespace(self_id="1",get_group_member_info=AsyncMock(return_value={"card":"4","nickname":"资料昵称"}),
+                                        get_stranger_info=AsyncMock())
+            assert await h._notice_nickname(valid_bot,10001,4) == "资料昵称"
+            valid_bot.get_stranger_info.assert_not_awaited()
+            h.config.group_manager_join_notice_enabled = False
+            join = GroupIncreaseNoticeEvent(time=0,self_id=1,post_type="notice",notice_type="group_increase",
+                sub_type="approve",user_id=4,group_id=10001,operator_id=4)
+            await h.handle_join_notice(valid_bot,join)
+            assert h._member_nickname_cache[("1",10001,4)] == "资料昵称"
+
+            failed_bot = SimpleNamespace(self_id="1",get_group_list=AsyncMock(side_effect=RuntimeError("offline")))
+            await h._prime_member_nicknames(failed_bot)
+        asyncio.run(scenario())
         """
     )

@@ -1,8 +1,11 @@
+import asyncio
+from collections.abc import Mapping
 from typing import Any
 
-from nonebot import logger, on_command, on_type
+from nonebot import get_driver, logger, on_command, on_type
 from nonebot.adapters.onebot.v11 import (
     Bot,
+    Event,
     GroupDecreaseNoticeEvent,
     GroupIncreaseNoticeEvent,
     GroupMessageEvent,
@@ -10,6 +13,7 @@ from nonebot.adapters.onebot.v11 import (
     MessageEvent,
 )
 from nonebot.params import CommandArg
+from nonebot.message import event_preprocessor
 from nonebot.permission import SUPERUSER
 
 from .config import group_manager_config as config
@@ -61,6 +65,47 @@ def _remember_nickname(
     return nickname
 
 
+def _usable_nickname(member: Mapping[str, Any], user_id: int) -> str:
+    for field in ("card", "nickname"):
+        value = member.get(field)
+        if isinstance(value, str) and value.strip() and value.strip() != str(user_id):
+            return value.strip()
+    return ""
+
+
+async def _prime_member_nicknames(bot: Bot, group_id: int | None = None) -> None:
+    try:
+        groups = [{"group_id": group_id}] if group_id is not None else await bot.get_group_list()
+    except Exception as error:
+        logger.debug(f"群通知昵称缓存初始化失败，无法获取群列表: {error!r}")
+        return
+    semaphore = asyncio.Semaphore(2)
+
+    async def prime_group(group: Mapping[str, Any]) -> None:
+        try:
+            group_id = int(group["group_id"])
+            async with semaphore:
+                members = await bot.get_group_member_list(group_id=group_id)
+            for member in members:
+                user_id = int(member["user_id"])
+                nickname = _usable_nickname(member, user_id)
+                if nickname:
+                    # A message received during this request has fresher data.
+                    _member_nickname_cache.setdefault(
+                        _nickname_cache_key(bot, group_id, user_id), nickname
+                    )
+        except Exception as error:
+            logger.debug(f"群通知昵称缓存初始化失败，已跳过该群: {error!r}")
+
+    await asyncio.gather(*(prime_group(group) for group in groups))
+
+
+@get_driver().on_bot_connect
+async def prime_member_nicknames_on_connect(bot: Bot) -> None:
+    if isinstance(bot, Bot) and config.group_manager_leave_notice_enabled:
+        await _prime_member_nicknames(bot)
+
+
 def _is_superuser(bot: Bot, event: MessageEvent) -> bool:
     return str(event.user_id) in {str(user_id) for user_id in bot.config.superusers}
 
@@ -103,7 +148,7 @@ async def _member_info(bot: Bot, group_id: int, user_id: int) -> dict[str, Any]:
         user_id=user_id,
         no_cache=True,
     )
-    _remember_nickname(bot, group_id, user_id, member_nickname(member))
+    _remember_nickname(bot, group_id, user_id, _usable_nickname(member, user_id))
     return member
 
 
@@ -337,17 +382,15 @@ async def handle_revoke_admin(
 
 join_notice = on_type(GroupIncreaseNoticeEvent, priority=20, block=False)
 leave_notice = on_type(GroupDecreaseNoticeEvent, priority=20, block=False)
-member_nickname_cache = on_type(GroupMessageEvent, priority=99, block=False)
 
 
-@member_nickname_cache.handle()
-async def handle_member_nickname_cache(bot: Bot, event: GroupMessageEvent):
-    _remember_nickname(
-        bot,
-        event.group_id,
-        event.user_id,
-        str(event.sender.card or event.sender.nickname or ""),
-    )
+@event_preprocessor
+async def handle_member_nickname_cache(bot: Bot, event: Event):
+    if not isinstance(event, GroupMessageEvent):
+        return
+    _remember_nickname(bot, event.group_id, event.user_id, _usable_nickname(
+        {"card": event.sender.card, "nickname": event.sender.nickname}, event.user_id
+    ))
 
 
 async def _notice_nickname(bot: Bot, group_id: int, user_id: int) -> str:
@@ -358,7 +401,7 @@ async def _notice_nickname(bot: Bot, group_id: int, user_id: int) -> str:
             no_cache=False,
         )
         nickname = _remember_nickname(
-            bot, group_id, user_id, member_nickname(member)
+            bot, group_id, user_id, _usable_nickname(member, user_id)
         )
         if nickname and nickname != str(user_id):
             return nickname
@@ -370,8 +413,8 @@ async def _notice_nickname(bot: Bot, group_id: int, user_id: int) -> str:
     if cached_nickname:
         return cached_nickname
     try:
-        nickname = member_nickname(
-            await bot.get_stranger_info(user_id=user_id, no_cache=True)
+        nickname = _usable_nickname(
+            await bot.get_stranger_info(user_id=user_id, no_cache=True), user_id
         )
         if nickname and nickname != str(user_id):
             return nickname
@@ -382,12 +425,15 @@ async def _notice_nickname(bot: Bot, group_id: int, user_id: int) -> str:
 
 @join_notice.handle()
 async def handle_join_notice(bot: Bot, event: GroupIncreaseNoticeEvent):
-    if (
-        not config.group_manager_join_notice_enabled
-        or event.user_id == int(bot.self_id)
-    ):
+    if event.user_id == int(bot.self_id):
+        if config.group_manager_leave_notice_enabled:
+            await _prime_member_nicknames(bot, event.group_id)
+        return
+    if not (config.group_manager_join_notice_enabled or config.group_manager_leave_notice_enabled):
         return
     nickname = await _notice_nickname(bot, event.group_id, event.user_id)
+    if not config.group_manager_join_notice_enabled:
+        return
     message = format_notice(
         config.group_manager_join_message,
         user_id=event.user_id,
