@@ -14,6 +14,7 @@ from .renderer import render_card, text_message
 from .scheduler import TwitterPoller
 from .storage import DATABASE_PATH, TwitterStore
 from .translation import Translator
+from .models import TwitterError
 
 JOB_ID = "liteyuki_twitter.poll"
 _service = None
@@ -63,9 +64,14 @@ class TwitterService:
 
     async def status_post(self, account, post_id):
         cached = self.store.cached_post(post_id)
-        if cached:
+        if cached and cached.avatar_url:
             return cached
-        post = await self.client.get_status(account, post_id)
+        try:
+            post = await self.client.get_status(account, post_id)
+        except TwitterError:
+            if cached:
+                return cached
+            raise
         self.store.cache_post(post)
         return post
 

@@ -9,6 +9,15 @@
         set(`${prefix}translation`, part.translation); set(`${prefix}translation-note`, part.translation_note);
     }
     const loading = [];
+    function avatar(id, source) {
+        const img = document.getElementById(id);
+        if (source && source.startsWith("data:image/")) {
+            img.hidden = false;
+            img.src = source;
+            loading.push(img.decode().catch(() => { img.hidden = true; }));
+        }
+    }
+    avatar("avatar", data.avatar);
     function media(id, items) {
         const parent = document.getElementById(id);
         const columns = items.length === 1 ? 1 : items.length === 2 || items.length === 4 ? 2 : 3;
@@ -42,6 +51,7 @@
     translation("", data); media("media", data.media || []);
     if (data.quote) {
         document.getElementById("quote").hidden = false;
+        avatar("quote-avatar", data.quote.avatar);
         set("quote-author", `${data.quote.author} · ${data.quote.account}`);
         set("quote-body", data.quote.body); translation("quote-", data.quote); media("quote-media", data.quote.media || []);
     }

@@ -8,6 +8,12 @@
 .type-label { font-size: 22px; background: var(--color-primary-soft); color: var(--color-primary); padding: 10px 22px; border-radius: 30px; }
 .tweet-section { padding: 34px; margin: 0; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: var(--card-radius); box-shadow: var(--card-shadow); }
 .author { display: flex; align-items: center; justify-content: space-between; gap: 24px; border-bottom: 1px solid var(--card-border); padding-bottom: 24px; margin-bottom: 26px; }
+.author-identity { display: flex; align-items: center; gap: 20px; min-width: 0; }
+.author-identity > div { min-width: 0; }
+.author-avatar { width: 88px; height: 88px; border-radius: 50%; object-fit: cover; flex: 0 0 auto; }
+.quote-identity { display: flex; align-items: center; gap: 14px; margin: 12px 0; }
+.quote-identity .author-avatar { width: 52px; height: 52px; }
+.quote-identity h2 { margin: 0; overflow-wrap: anywhere; }
 .author h1 { font-size: 32px; line-height: 1.4; margin: 0 0 5px; overflow-wrap: anywhere; }
 .author p { margin: 0; font-size: 21px; color: var(--sub-text-color); }
 .author time { font-size: 18px; color: var(--tip-text-color); text-align: right; max-width: 290px; }

@@ -19,7 +19,7 @@ def view_model(post: Post, limit=600) -> dict:
     def section(part):
         return {"author": part.author or part.account, "account": "@" + part.account,
                 "body": clip(part.text, limit), "translation": clip(part.translation, limit),
-                "translation_note": part.translation_note, "url": part.url,
+                "translation_note": part.translation_note, "url": part.url, "avatar": "",
                 "media": [{"src": "", "kind": item.kind, "portrait": False} for item in part.media]}
     view = section(post)
     view.update(time=post.published_at.replace("T", " ").replace("+00:00", " UTC"),
@@ -34,9 +34,29 @@ async def render_card(post: Post, client, config) -> bytes:
 
     view = view_model(post, config.twitter_card_body_limit)
     remaining = 30 * 1024 * 1024
+    avatars = {}
     for part, target in ((post, view), (post.quote, view["quote"])):
         if part is None:
             continue
+        if part.avatar_url:
+            if part.avatar_url not in avatars and remaining > 0:
+                reservation = min(remaining, 1024 * 1024)
+                remaining -= reservation
+                avatars[part.avatar_url] = ""
+                try:
+                    raw, _ = await client.download_image(part.avatar_url, max_bytes=reservation)
+                    remaining += max(0, reservation - len(raw))
+                    with Image.open(BytesIO(raw)) as image:
+                        if image.width * image.height > 4_000_000:
+                            raise TwitterError("头像像素超过限制")
+                        image.seek(0)
+                        image.thumbnail((256, 256))
+                        output = BytesIO()
+                        image.convert("RGB").save(output, format="JPEG", quality=90)
+                    avatars[part.avatar_url] = "data:image/jpeg;base64," + base64.b64encode(output.getvalue()).decode()
+                except Exception as error:
+                    logger.debug("X 头像降级：{}", type(error).__name__)
+            target["avatar"] = avatars.get(part.avatar_url, "")
         for media, item in zip(part.media, target["media"]):
             if remaining <= 0:
                 break

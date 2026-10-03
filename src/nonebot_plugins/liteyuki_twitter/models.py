@@ -25,6 +25,7 @@ class Post:
     pinned: bool = False
     translation: str = ""
     translation_note: str = ""
+    avatar_url: str = ""
 
     @property
     def url(self) -> str:

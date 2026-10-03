@@ -5,6 +5,7 @@ from io import BytesIO
 from pathlib import Path
 
 from PIL import Image
+import pytest
 
 from test_liteyuki_twitter_parser import modules
 
@@ -69,3 +70,28 @@ def test_resource_pack_paths_and_safe_template():
     script = (pack / "templates/js/twitter_card.js").read_text(encoding="utf-8")
     assert "innerHTML" not in script and "textContent" in script
     assert "Promise.allSettled" in script and "twitterCardReady" in script
+
+
+@pytest.mark.parametrize("valid", [True, False])
+def test_author_avatar_download_dedup_and_failure_preserves_text(monkeypatch, valid):
+    _, Config, Post, _ = modules()
+    from src.nonebot_plugins.liteyuki_twitter import renderer
+    from src.utils.base import resource
+    from src.utils.message import html_tool
+    buffer = BytesIO()
+    Image.new("RGB", (80, 80), "blue").save(buffer, format="PNG")
+    captured, calls = {}, []
+    class Client:
+        async def download_image(self, url, *, max_bytes):
+            assert max_bytes == 1024 * 1024
+            calls.append(url)
+            return buffer.getvalue() if valid else b"broken", "image/png"
+    async def screenshot(path, variables, *args, **kwargs): captured.update(variables["data"]); return b"card"
+    monkeypatch.setattr(resource, "get_path", lambda _: "fixture.html")
+    monkeypatch.setattr(html_tool, "template2image_element", screenshot)
+    post = Post("100", "example", text="original", avatar_url="https://pbs.twimg.com/profile_images/avatar.jpg",
+                quote=Post("50", "example", text="quote", avatar_url="https://pbs.twimg.com/profile_images/avatar.jpg"))
+    assert asyncio.run(renderer.render_card(post, Client(), Config())) == b"card"
+    assert len(calls) == 1 and bool(captured["avatar"]) == valid
+    assert captured["quote"]["avatar"] == captured["avatar"]
+    assert captured["body"] == "original" and captured["quote"]["body"] == "quote"

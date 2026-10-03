@@ -113,6 +113,15 @@ def _status(value: str) -> tuple[str, str] | None:
     return (match[1] or "i", match[2]) if match else None
 
 
+def _avatar(node: Node, base: str) -> str:
+    images = node.find(lambda n: n.tag == "img" and n.has("avatar"), exclude_quote=True)
+    if not images:
+        container = _first(node, "tweet-avatar", exclude_quote=True)
+        images = container.find(lambda n: n.tag == "img") if container else []
+    source = images[0].attrs.get("src", "") if images else ""
+    return urljoin(base, source) if source else ""
+
+
 def _time(value: str) -> str:
     try:
         return parsedate_to_datetime(value).astimezone(UTC).isoformat()
@@ -161,6 +170,7 @@ def _html_post(node: Node, base: str, fallback_account: str) -> Post | None:
     value = (dates[0].attrs.get("title", "") if dates else "") or (date.attrs.get("title", "") if date else "")
     post = Post(post_id, normalize_account(account), author.text() if author else account,
                 content.text() if content else "", _time(value), _media(node, base))
+    post.avatar_url = _avatar(node, base)
     post.reply = bool(_first(node, "replying-to", exclude_quote=True))
     post.repost = bool(_first(node, "retweet-header", exclude_quote=True))
     post.pinned = bool(_first(node, "pinned", exclude_quote=True))
@@ -201,6 +211,7 @@ def parse_rss(raw: bytes, base: str, account: str) -> list[Post]:
     if root.tag != "rss" or channel is None:
         raise SourceError("Nitter 返回的内容不是 RSS")
     posts = []
+    avatar = channel.findtext("image/url", "")
     for item in channel.findall("item"):
         link = item.findtext("link", "")
         status = _status(link)
@@ -216,11 +227,12 @@ def parse_rss(raw: bytes, base: str, account: str) -> list[Post]:
         text = contents[0].text() if contents else ("\n".join(p.text() for p in paragraphs if p.text()) if paragraphs else description.text())
         media = _media(description, base)
         if not media:
-            media = [Media(urljoin(base, n.attrs["src"])) for n in description.find(lambda n: n.tag == "img" and "src" in n.attrs, exclude_quote=True) if not n.has("emoji")]
+            media = [Media(urljoin(base, n.attrs["src"])) for n in description.find(lambda n: n.tag == "img" and "src" in n.attrs, exclude_quote=True) if not n.has("emoji") and not n.has("avatar")]
         creator = next((n.text or "" for n in item if n.tag.endswith("creator")), "")
         title = item.findtext("title", "")
         post = Post(post_id, normalize_account(author_account if author_account != "i" else account), creator.lstrip("@") or author_account,
                     text, _time(item.findtext("pubDate", "")), media, quote)
+        post.avatar_url = _avatar(description, base) or (urljoin(base, avatar) if avatar and post.account == normalize_account(account) else "")
         post.repost = title.startswith(("RT by ", "RT @")) or post.account != account
         post.reply = title.startswith(("R to ", "Reply to "))
         posts.append(post)

@@ -47,6 +47,28 @@ def test_config_safe_defaults_and_normalization():
             Config(**values)
 
 
+def test_html_author_and_quote_avatars_are_separate_and_not_media():
+    parser, _, Post, _ = modules()
+    quote = html_post("50", body="引用").replace('class="timeline-item"', 'class="quote"').replace('/example/', '/other/')
+    quote = quote.replace('<div class="tweet-content">', '<img class="avatar mini" src="/pic/quote.jpg"><div class="tweet-content">')
+    html = html_post(quote=quote).replace('<div class="tweet-content">正文', '<a class="tweet-avatar"><img src="/pic/author.jpg"></a><div class="tweet-content">正文')
+    post = parser.parse_html(html, "https://nitter.example", "example")[0]
+    assert post.avatar_url == "https://nitter.example/pic/author.jpg"
+    assert post.quote.avatar_url == "https://nitter.example/pic/quote.jpg"
+    assert all("author.jpg" not in media.url for media in post.media)
+    assert Post.loads(post.dumps()).quote.avatar_url == post.quote.avatar_url
+    assert Post.loads('{"post_id":"1","account":"example"}').avatar_url == ""
+
+
+def test_rss_channel_avatar_only_applies_to_its_author():
+    parser, _, _, _ = modules()
+    raw = rss(rss_item() + rss_item("200", account="other", title="RT by @example"))
+    raw = raw.replace(b'<channel>', b'<channel><image><url>/pic/avatar.jpg</url></image>')
+    posts = parser.parse_rss(raw, "https://nitter.example", "example")
+    assert posts[0].avatar_url == "https://nitter.example/pic/avatar.jpg"
+    assert posts[1].avatar_url == ""  # A repost belongs to a different author.
+
+
 @pytest.mark.parametrize("url,expected", [
     ("https://x.com/Example/status/123?s=20", ("example", "123")),
     ("https://twitter.com/example/status/123/photo/1", ("example", "123")),

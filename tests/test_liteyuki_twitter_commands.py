@@ -17,6 +17,20 @@ class Matcher:
     async def send(self, message): self.sent.append(message)
 
 
+def test_old_cached_post_refreshes_avatar_with_failure_fallback(tmp_path, monkeypatch):
+    _, _, _, service, Post, _ = setup_service(tmp_path, monkeypatch)
+    from src.nonebot_plugins.liteyuki_twitter.models import SourceError
+    service.store.cache_post(Post("100", "example", text="cached"))
+    async def fetch(*args): return Post("100", "example", text="fresh", avatar_url="https://pbs.twimg.com/avatar.jpg")
+    monkeypatch.setattr(service.client, "get_status", fetch)
+    assert asyncio.run(service.status_post("example", "100")).avatar_url
+    async def failed(*args): raise SourceError("source unavailable")
+    monkeypatch.setattr(service.client, "get_status", failed)
+    assert asyncio.run(service.status_post("example", "100")).text == "fresh"
+    service.store.cache_post(Post("101", "example", text="cached without avatar"))
+    assert asyncio.run(service.status_post("example", "101")).text == "cached without avatar"
+
+
 def setup_service(tmp_path, monkeypatch):
     Config, Post, store, _ = state(tmp_path)
     from src.nonebot_plugins import liteyuki_twitter
