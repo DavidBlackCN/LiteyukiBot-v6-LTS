@@ -197,10 +197,10 @@
 
 ### `liteyuki_remake` — 人生重开
 
-本地人生重开模拟器，使用插件内置的天赋、事件和图片资源，不依赖数据库或外部服务。命令默认要求提及 Bot：
+本地人生重开模拟器，使用插件内置的天赋、事件和图片资源，不依赖数据库或外部服务。命令无需提及 Bot，命令前缀仍遵循实例的 `command_start` 设置：
 
-- `@Bot /remake`（别名 `liferestart`、`人生重开`、`人生重来`）：依次选择三个天赋和四项初始属性，也可以在任一步回复“随机”。
-- `@Bot /remake --random` 或 `随机人生`：随机选择天赋与初始属性后直接生成完整人生总结图片。
+- `/remake`（别名 `liferestart`、`人生重开`、`人生重来`）：依次选择三个天赋和四项初始属性，也可以在任一步回复“随机”。
+- `/remake --random` 或 `随机人生`：随机选择天赋与初始属性后直接生成完整人生总结图片。
 
 ### `liteyuki_githubcard` — GitHub 仓库卡片
 
@@ -222,7 +222,7 @@
 
 提供四字成语 Wordle 游戏，按汉字、声母、韵母和声调给出提示。
 
-- `@Bot handle [-s|--strict] [-d|--difficult]`：开始游戏；别名 `猜成语`。当前默认要求提及 Bot。
+- `handle [-s|--strict] [-d|--difficult]`：开始游戏；别名 `猜成语`。默认无需提及 Bot，命令前缀遵循实例的 `command_start` 设置。
 - 游戏中发送恰好四个汉字进行猜测。
 - `handle_hint`：获取提示；别名 `提示`、`猜成语提示`。
 - `handle_stop`：结束当前游戏；别名 `结束`、`结束游戏`、`结束猜成语`。
@@ -234,7 +234,7 @@
 - `删除成语 <成语>`
 - `成语答案 [-s|--specify <会话>] [-l|--list]`
 
-相关配置及默认值：`handle_strict_mode=false`、`handle_color_enhance=false`、`handle_superuser_get_answer=true`、`handle_require_tome=true`。
+相关配置及默认值：`handle_strict_mode=false`、`handle_color_enhance=false`、`handle_superuser_get_answer=true`、`handle_require_tome=false`。旧配置若显式设置了 `handle_require_tome: true`，请改为 `false` 以取消猜成语的提及要求。
 
 ### 成语接龙（内置兼容插件）
 

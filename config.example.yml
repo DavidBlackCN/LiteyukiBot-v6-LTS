@@ -358,8 +358,8 @@ handle_strict_mode: false
 handle_color_enhance: false
 # 允许超级用户获取答案。
 handle_superuser_get_answer: true
-# 仅响应明确面向 Bot 的消息。
-handle_require_tome: true
+# 猜成语是否要求 @Bot；默认直接响应命令。
+handle_require_tome: false
 
 # ==================== 四、旧版服务兼容配置 ====================
 

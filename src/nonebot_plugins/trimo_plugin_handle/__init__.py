@@ -5,7 +5,7 @@ from typing import Any, Dict, Annotated
 from nonebot import on_regex, require
 from nonebot.log import logger
 from nonebot.matcher import Matcher
-from nonebot.params import EventToMe, Depends, RegexDict
+from nonebot.params import Depends, RegexDict
 from nonebot.plugin import PluginMetadata, inherit_supported_adapters
 from nonebot.rule import to_me
 from nonebot.utils import run_sync
@@ -17,7 +17,6 @@ require("nonebot_plugin_alconna")
 require("nonebot_plugin_uninfo")
 
 from nonebot_plugin_alconna import (
-    AlcMatches,
     Alconna,
     At,
     Image,
@@ -47,7 +46,7 @@ __plugin_meta__ = PluginMetadata(
     name="轻雪猜成语",
     description="汉字 Wordle 猜成语",
     usage=(
-        "@我 + “猜成语”开始游戏；\n"
+        "发送“猜成语”命令开始游戏，无需 @Bot；\n"
         "你有十次的机会猜一个四字词语；\n"
         "每次猜测后，汉字与拼音的颜色将会标识其与正确答案的区别；\n"
         "青色 表示其出现在答案中且在正确的位置；\n"
@@ -149,17 +148,7 @@ async def _(
     result: Arparma,
     matcher: Matcher,
     user_id: UserId,
-    alc_matches: AlcMatches,
-    to_me: bool = EventToMe(),
 ):
-
-    header_match = str(alc_matches.header_match.result)
-    command = str(handle_alc.command)
-    if not (to_me or bool(header_match.rstrip(command))):
-        # 既不是对机器人说话，也不是以命令开头……
-        logger.debug("非 To me 命令，忽略")
-        matcher.block = False
-        await matcher.finish()
 
     # nonebot.logger.info(result.options)
     is_strict = handle_config.handle_strict_mode or result.options["strict"].value

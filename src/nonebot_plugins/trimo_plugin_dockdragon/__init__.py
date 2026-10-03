@@ -33,7 +33,6 @@ from nonebot_plugin_alconna import (
     on_alconna,
     store_true,
 )
-from nonebot.rule import to_me
 from nonebot_plugin_session import SessionId, SessionIdType
 
 from .utils import random_idiom, legal_idiom, legal_patted_idiom, get_idiom
@@ -42,7 +41,7 @@ __plugin_meta__ = PluginMetadata(
     name="轻雪接龙",
     description="汉字词语或成语接龙",
     usage=(
-        "@我 + “接龙”开始游戏；\n"
+        "发送“接龙”命令，无需 @Bot；\n"
         # "你有十次的机会猜一个四字词语；\n"
         # "每次猜测后，汉字与拼音的颜色将会标识其与正确答案的区别；\n"
         # "青色 表示其出现在答案中且在正确的位置；\n"
@@ -60,7 +59,7 @@ __plugin_meta__ = PluginMetadata(
         "nonebot_plugin_alconna", "nonebot_plugin_session"
     ),
     extra={
-        "example": "@小羿 接龙",
+        "example": "接龙",
         "help_category": "builtin",
         "liteyuki": True,
         "toggleable": True,
@@ -88,7 +87,7 @@ def game_not_running(user_id: UserId) -> bool:
 handle = on_alconna(
     Alconna("dockdragon", Option("-s|--strict", default=False, action=store_true)),
     aliases=("接龙",),
-    rule=to_me() & game_not_running,
+    rule=game_not_running,
     use_cmd_start=True,
     block=True,
     priority=13,

@@ -11,7 +11,6 @@ from nonebot.exception import AdapterException
 from nonebot.log import logger
 from nonebot.matcher import Matcher
 from nonebot.plugin import PluginMetadata, inherit_supported_adapters
-from nonebot.rule import to_me
 from nonebot.utils import run_sync
 
 require("nonebot_plugin_alconna")
@@ -36,7 +35,7 @@ from .talent import Talent
 __plugin_meta__ = PluginMetadata(
     name="人生重开",
     description="人生重开模拟器",
-    usage="@我 /remake（别名 liferestart/人生重开）[--random]；也可使用“随机人生”",
+    usage="/remake（别名 liferestart/人生重开）[--random]；也可使用“随机人生”，无需 @Bot",
     type="application",
     homepage="https://github.com/noneplugin/nonebot-plugin-remake",
     supported_adapters=inherit_supported_adapters("nonebot_plugin_alconna"),
@@ -56,7 +55,6 @@ matcher_remake = on_alconna(
     ),
     aliases={"liferestart", "人生重开", "人生重来"},
     block=True,
-    rule=to_me(),
     use_cmd_start=True,
     priority=12,
 )

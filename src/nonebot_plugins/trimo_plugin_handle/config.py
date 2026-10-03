@@ -9,8 +9,8 @@ class Config(BaseModel):
     """生成的图片采用更鲜艳的颜色"""
     handle_superuser_get_answer: bool = True
     """超级用户可以查看当局答案"""
-    handle_require_tome: bool = True
-    """玩家必须@机器人"""
+    handle_require_tome: bool = False
+    """开启时玩家必须@机器人，默认直接响应命令"""
 
 
 handle_config = get_plugin_config(Config)
