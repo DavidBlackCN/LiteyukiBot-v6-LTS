@@ -140,6 +140,7 @@ def test_translation_failure_preserves_original(tmp_path, response):
     original = Post("100", "example", text="original")
     result = asyncio.run(translator.post(original, "model"))
     assert result.text == original.text and result.translation_note
+    assert result.translation_provider == "model"
     assert not original.translation_note
 
 
@@ -160,3 +161,30 @@ def test_translation_truncation_quote_budget_empty_and_unconfigured(tmp_path, mo
     actual = Translator(Config(), store)
     result = asyncio.run(actual.post(original, "libretranslate"))
     assert "尚未配置" in result.translation_note and result.text == original.text
+
+
+def test_translation_switch_updates_provider_and_keeps_caches_separate(tmp_path):
+    Config, Post, store, _ = state(tmp_path)
+    from src.nonebot_plugins.liteyuki_twitter.translation import Translator
+    from src.nonebot_plugins.liteyuki_twitter.renderer import view_model, text_message
+    translator = Translator(Config(twitter_model_base_url="https://model.example/v1", twitter_model_name="test-model",
+                                   twitter_libretranslate_url="https://translate.example"), store)
+    translator.session = Session([
+        Response(json.dumps({"translatedText": "机译"}).encode()),
+        Response(json.dumps({"choices": [{"message": {"content": "模型译文"}}]}).encode()),
+    ])
+    original = Post("100", "example", text="original", quote=Post("50", "other", text="original"))
+    async def run():
+        machine = await translator.post(original, "libretranslate")
+        model = await translator.post(original, "model")
+        assert machine.translation == "机译" and model.translation == "模型译文"
+        for post, label in ((machine, "LibreTranslate 翻译"), (model, "LLM 翻译")):
+            view = view_model(post)
+            assert view["translation_label"] == view["quote"]["translation_label"] == label
+            assert label in text_message(post)
+            assert Post.loads(post.dumps()).translation_provider == post.translation_provider
+        assert original.translation_provider == original.quote.translation_provider == ""
+    asyncio.run(run())
+    assert [url for url, _ in translator.session.calls] == [
+        "https://translate.example/translate", "https://model.example/v1/chat/completions",
+    ]

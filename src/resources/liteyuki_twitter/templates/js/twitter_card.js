@@ -6,6 +6,7 @@
     function translation(prefix, part) {
         const box = document.getElementById(`${prefix}translation-box`);
         box.hidden = !part.translation && !part.translation_note;
+        set(`${prefix}translation-label`, part.translation_label || "机器翻译");
         set(`${prefix}translation`, part.translation); set(`${prefix}translation-note`, part.translation_note);
     }
     const loading = [];

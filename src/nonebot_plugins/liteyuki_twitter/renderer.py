@@ -15,11 +15,16 @@ def clip(value: str, limit: int) -> str:
     return value if len(value) <= limit else value[:limit] + "…\n（完整内容请查看原链接）"
 
 
+def translation_label(post: Post) -> str:
+    return {"model": "LLM 翻译", "libretranslate": "LibreTranslate 翻译"}.get(post.translation_provider, "机器翻译")
+
+
 def view_model(post: Post, limit=600) -> dict:
     def section(part):
         return {"author": part.author or part.account, "account": "@" + part.account,
                 "body": clip(part.text, limit), "translation": clip(part.translation, limit),
-                "translation_note": part.translation_note, "url": part.url, "avatar": "",
+                "translation_note": part.translation_note, "translation_label": translation_label(part),
+                "url": part.url, "avatar": "",
                 "media": [{"src": "", "kind": item.kind, "portrait": False} for item in part.media]}
     view = section(post)
     view.update(time=post.published_at.replace("T", " ").replace("+00:00", " UTC"),
@@ -84,13 +89,13 @@ async def render_card(post: Post, client, config) -> bytes:
 def text_message(post: Post) -> str:
     lines = [f"X · {post.author or post.account} (@{post.account})", clip(post.text, 4000)]
     if post.translation:
-        lines += ["机器翻译", clip(post.translation, 4000)]
+        lines += [translation_label(post), clip(post.translation, 4000)]
     if post.translation_note:
         lines.append(post.translation_note)
     if post.quote:
         lines += [f"引用 · @{post.quote.account}", clip(post.quote.text, 2000)]
         if post.quote.translation:
-            lines += ["机器翻译", clip(post.quote.translation, 2000)]
+            lines += [translation_label(post.quote), clip(post.quote.translation, 2000)]
         if post.quote.translation_note:
             lines.append(post.quote.translation_note)
     if post.media or (post.quote and post.quote.media):

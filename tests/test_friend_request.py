@@ -188,3 +188,72 @@ def test_commands_are_superuser_only_and_refuse_group_messages():
     assert "Superuser" in repr(commands.approve_request.permission)
     assert "Superuser" in repr(commands.reject_request.permission)
     assert matcher.message == "请私聊 Bot 处理好友申请。"
+
+
+@pytest.mark.parametrize("global_prefix", [True, False])
+def test_onebot_dispatch_notifies_and_accepts_notification_commands(tmp_path, global_prefix):
+    from test_issue_90_htmlrender import _run_python
+
+    _run_python(
+        """
+        import asyncio
+        import itertools
+        import os
+        import nonebot
+        from nonebot.adapters.onebot.v11 import Adapter, Bot, FriendRequestEvent, PrivateMessageEvent
+        from nonebot.message import handle_event
+
+        nonebot.init(superusers={"99"}, command_start={"/"},
+                     alconna_use_command_start=os.environ["FRIEND_GLOBAL_PREFIX"] == "True")
+        driver = nonebot.get_driver()
+        driver.register_adapter(Adapter)
+        assert nonebot.load_plugin("src.nonebot_plugins.liteyuki_friend_request")
+        from src.nonebot_plugins.liteyuki_friend_request import commands
+        from src.nonebot_plugins.liteyuki_friend_request.service import FriendRequestService, FriendRequestStore
+
+        service = FriendRequestService(FriendRequestStore(os.environ["FRIEND_TEST_DB"]))
+        commands.default_service = service
+        bot = Bot(driver._adapters["OneBot V11"], "10000")
+        calls = []
+        async def api(name, **data):
+            calls.append((name, data))
+            return {"message_id": len(calls)}
+        bot.call_api = api
+        nonebot.get_bot = lambda bot_id: bot if bot_id == "10000" else None
+
+        message_ids = itertools.count(10)
+        def message(text, user=99):
+            return PrivateMessageEvent(time=1, self_id=10000, post_type="message", message_type="private",
+                sub_type="friend", message_id=next(message_ids), user_id=user, message=text,
+                original_message=text, raw_message=text, font=0, sender={"user_id": user})
+
+        async def run():
+            for flag in ("first", "first", "second", "third"):
+                event = FriendRequestEvent(time=1, self_id=10000, post_type="request",
+                    request_type="friend", user_id=123, comment="test", flag=flag)
+                await handle_event(bot, event)
+            notifications = [data for name, data in calls if name == "send_private_msg"]
+            assert len(notifications) == 3
+            assert all(data["user_id"] == 99 for data in notifications)
+            assert "/好友同意 1" in notifications[0]["message"]
+            await handle_event(bot, message("/好友同意 1", user=123))
+            assert service.store.get(1).status == "pending"
+            await handle_event(bot, message("/好友同意 1 测试备注"))
+            await handle_event(bot, message("/好友拒绝 2"))
+            await handle_event(bot, message("/好友申请列表"))
+            reviews = [data for name, data in calls if name == "set_friend_add_request"]
+            assert reviews == [{"flag": "first", "approve": True, "remark": "测试备注"},
+                               {"flag": "second", "approve": False}]
+            assert service.store.get(1).status == "approved"
+            assert service.store.get(2).status == "rejected"
+            assert service.store.get(3).status == "pending"
+            assert any("#3" in str(data.get("message")) and "待处理" in str(data.get("message"))
+                       for name, data in calls if name == "send_msg")
+        try:
+            asyncio.run(run())
+        finally:
+            service.store.db.conn.close()
+        """,
+        FRIEND_TEST_DB=str(tmp_path / "requests.ldb"),
+        FRIEND_GLOBAL_PREFIX=str(global_prefix),
+    )

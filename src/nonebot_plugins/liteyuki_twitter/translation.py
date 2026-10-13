@@ -98,6 +98,7 @@ class Translator:
         for part in (result, result.quote):
             if part is None or not part.text.strip():
                 continue
+            part.translation_provider = provider
             text = part.text[:remaining]
             remaining -= len(text)
             if len(text) < len(part.text):

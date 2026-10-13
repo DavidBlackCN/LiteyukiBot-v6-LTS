@@ -218,7 +218,10 @@ class _Matcher:
         self.messages.append(message)
         if isinstance(message, str):
             return _Receipt(["notice"])
-        return next(self._receipts, _Receipt([len(self.messages)]))
+        receipt = next(self._receipts, _Receipt([len(self.messages)]))
+        if isinstance(receipt, Exception):
+            raise receipt
+        return receipt
 
     async def finish(self, message):
         raise AssertionError(f"unexpected finish: {message}")
@@ -451,7 +454,11 @@ def test_repeated_download_host_failure_only_auto_falls_back(
     assert calls == expected_calls
 
 
-def test_send_counts_only_confirmed_receipts_and_recalls_them(monkeypatch) -> None:
+@pytest.mark.parametrize("invalid_ids", [[], [None], [{}], [{"message_id": None}],
+                                         [{"message_id": ""}], [{"message_id": 0}], [0], [False],
+                                         RuntimeError("send failed")])
+@pytest.mark.parametrize("confirmed", [True, False])
+def test_send_counts_only_confirmed_receipts_and_recalls_them(monkeypatch, invalid_ids, confirmed) -> None:
     _init()
     from src.nonebot_plugins.liteyuki_setu import commands
     from src.nonebot_plugins.liteyuki_setu.service import Cooldown
@@ -486,18 +493,20 @@ def test_send_counts_only_confirmed_receipts_and_recalls_them(monkeypatch) -> No
     monkeypatch.setattr(commands, "cooldown", Cooldown())
     monkeypatch.setattr(commands, "UniMessage", _Message)
     monkeypatch.setattr(commands.asyncio, "sleep", no_sleep)
-    matcher = _Matcher([_Receipt([101]), _Receipt([]), _Receipt([103])])
+    invalid = invalid_ids if isinstance(invalid_ids, Exception) else _Receipt(invalid_ids)
+    matcher = _Matcher([_Receipt([{"message_id": 101}]) if confirmed else invalid, invalid,
+                        _Receipt([{"message_id": "103"}]) if confirmed else invalid])
     event = SimpleNamespace(group_id=10001, user_id=20002)
     bot = SimpleNamespace(config=SimpleNamespace(superusers=set()))
 
     asyncio.run(commands.handle_setu(SimpleNamespace(main_args={"raw": ["3"]}), event, bot, matcher))
 
     assert len(matcher.messages) == 4  # all three images are attempted, then the partial-result notice
-    assert matcher.messages[-1] == "本次仅成功获取 2/3 张图片。"
-    assert len(usage) == 2
-    assert [receipt.msg_ids for receipt in recalls] == [[101], [103]]
-    assert committed == [1, 3]
-    assert released == [2]
+    assert matcher.messages[-1] == f"本次仅成功获取 {2 if confirmed else 0}/3 张图片。"
+    assert len(usage) == (2 if confirmed else 0)
+    assert [receipt.msg_ids for receipt in recalls] == ([[{"message_id": 101}], [{"message_id": "103"}]] if confirmed else [])
+    assert committed == ([1, 3] if confirmed else [])
+    assert released == ([2] if confirmed else [1, 2, 3])
     assert final_released == [1, 2, 3]
 
 

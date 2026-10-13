@@ -18,15 +18,16 @@ from .service import default_service
 
 friend_request_event = on_type(FriendRequestEvent, priority=20, block=False)
 request_list = on_alconna(
-    Alconna("好友申请"), aliases={"好友申请列表"}, permission=SUPERUSER, priority=20, block=True
+    Alconna("好友申请"), aliases={"好友申请列表"}, permission=SUPERUSER,
+    use_cmd_start=True, priority=20, block=True,
 )
 approve_request = on_alconna(
     Alconna("好友同意", Args["raw", MultiVar(str), []]),
-    permission=SUPERUSER, priority=20, block=True,
+    permission=SUPERUSER, use_cmd_start=True, priority=20, block=True,
 )
 reject_request = on_alconna(
     Alconna("好友拒绝", Args["request_id", int]),
-    permission=SUPERUSER, priority=20, block=True,
+    permission=SUPERUSER, use_cmd_start=True, priority=20, block=True,
 )
 
 

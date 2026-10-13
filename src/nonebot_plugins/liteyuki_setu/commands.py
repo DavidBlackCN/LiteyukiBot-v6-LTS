@@ -32,8 +32,13 @@ def _receipt_message_ids(receipt: Any) -> list[Any]:
     if isinstance(message_ids, (str, bytes)):
         message_ids = [message_ids]
     try:
-        return [message_id for message_id in message_ids
-                if message_id is not None and str(message_id).strip()]
+        confirmed = []
+        for message_id in message_ids:
+            # OneBot V11/V12 exporters retain the API response dictionary.
+            value = message_id.get("message_id") if isinstance(message_id, dict) else message_id
+            if value is not None and not isinstance(value, bool) and str(value).strip() not in {"", "0"}:
+                confirmed.append(message_id)
+        return confirmed
     except TypeError:
         return []
 

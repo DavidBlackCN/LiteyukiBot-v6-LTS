@@ -26,6 +26,7 @@ class Post:
     translation: str = ""
     translation_note: str = ""
     avatar_url: str = ""
+    translation_provider: str = ""
 
     @property
     def url(self) -> str:
